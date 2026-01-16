@@ -1,0 +1,186 @@
+Create a mobile-first web application called Family Ledger.
+
+Family Ledger is an invite-only, household-focused financial tracking app designed for families with teens and young adults. It is optimized primarily for mobile browser usage, since most expense entry and receipt scanning will happen on phones. The app must remain usable on desktop browsers as well.
+
+The app prioritizes personal autonomy, consent-based sharing, and financial awareness. It is NOT a budgeting app in this version.
+
+Core Principles (Must Follow)
+
+Parents cannot force visibility into another user’s detailed expenses.
+
+Users always control what others can see.
+
+There are no spending scores, grades, or judgments.
+
+The app focuses on tracking expenses first, planning later.
+
+User Roles
+
+Parent / Guardian
+
+Creates and manages the family group
+
+Sets recurring allowances
+
+Logs shared household expenses
+
+Logs expenses spent on behalf of children
+
+Views individual totals only, unless consented otherwise
+
+Teen / Young Adult
+
+Logs personal expenses manually
+
+Uploads receipt images using mobile camera
+
+Categorizes expenses
+
+Creates and manages personal savings goals
+
+Controls visibility of their data
+
+Mobile-First UX Requirements (Very Important)
+
+Design for small screens first
+
+Use:
+
+Large touch targets
+
+Minimal text
+
+Bottom-friendly actions (thumb-reachable)
+
+Expense entry should be possible in under 30 seconds
+
+Navigation should use:
+
+Bottom navigation bar OR
+
+Simple stacked screens
+
+Avoid dense tables or desktop-style layouts
+
+App Structure
+1. Authentication (Simple)
+
+Email + password login
+
+Invite-only family groups
+
+No public registration
+
+2. Personal Dashboard (Offline-Friendly)
+
+Total spending for selected period
+
+Simple pie chart (mobile-friendly)
+
+Recent expenses list (scrollable)
+
+Personal savings goals with progress bars
+
+This view should load quickly and work even with poor connectivity.
+
+3. Expense Entry (Mobile Optimized)
+
+Manual entry fields:
+
+Amount (numeric keypad)
+
+Category (tap selection)
+
+Optional note
+
+Receipt upload:
+
+Use phone camera or image picker
+
+Store image only (no advanced OCR)
+
+Visibility selection:
+
+Total only
+
+Category-level
+
+Full details
+
+Expense entry flow should require as few taps as possible.
+
+4. Allowances (Parent Feature)
+
+Parents set recurring allowance amounts
+
+Allowance is visible to the child
+
+Allowance usage appears in personal dashboard
+
+5. Family Dashboard (Online-Only)
+
+Total household spending
+
+Shared household expenses
+
+Family savings goals and progress
+
+Individual spending totals with clear privacy indicators
+
+If a user has not consented, detailed views must be hidden.
+
+6. Savings Goals
+
+Personal Goals
+
+Goal name
+
+Target amount
+
+Progress bar
+
+Optional sharing
+
+Family Goals
+
+Created by parent
+
+Visible to all family members
+
+Technical Requirements
+
+Use React or Next.js
+
+Use simple, readable styling
+
+Use a lightweight backend suitable for prototyping
+
+Use a mobile-friendly chart library
+
+Prioritize responsiveness and performance on phones
+
+Explicit Non-Goals (Do NOT Implement)
+
+No budgeting features
+
+No spending limits
+
+No bank integrations
+
+No financial advice
+
+No AI insights
+
+No scores, ratings, or alerts
+
+Deliverable
+
+A functional, mobile-friendly web prototype that:
+
+Supports real family usage for internal testing
+
+Makes privacy and consent clear
+
+Encourages expense awareness without judgment
+
+This prototype is for learning and iteration, not production.
