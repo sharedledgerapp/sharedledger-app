@@ -62,7 +62,7 @@ export async function registerRoutes(
         if (role !== 'parent') {
              return res.status(400).json({ message: "Only parents can create families" });
         }
-        const code = randomBytes(4).toString('hex').toUpperCase(); // Simple 8 char code
+        const code = `FAM-${Math.floor(1000 + Math.random() * 9000)}`; // Human readable code
         const family = await storage.createFamily({ name: familyName, code });
         familyId = family.id;
       } else {
@@ -261,12 +261,10 @@ export async function registerRoutes(
   });
 
   // Seed Data (if empty)
-  if (app.get("env") === "development") {
+  if (app.get("env") === "demo") {
     const existingFamilies = await db.select().from(families).limit(1);
     if (existingFamilies.length === 0) {
-      const { hashPassword } = setupAuth(app); // Re-import or use closure if possible, but hashPassword isn't exported from setupAuth return in current scope easily without calling it.
-      // Actually setupAuth returns { hashPassword }.
-      // But we are inside registerRoutes where we called setupAuth.
+      const { hashPassword } = setupAuth(app);
       
       const smithFamily = await storage.createFamily({ name: "Smith Family", code: "SMITH123" });
       const parentPass = await hashPassword("password123");
