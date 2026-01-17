@@ -314,11 +314,16 @@ function CreateExpenseDialog({
               )}
             </div>
 
-            <div className="flex items-center justify-between bg-muted/20 p-4 rounded-xl border border-border/50">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="public-mode" className="font-medium">Share with Family</Label>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between bg-muted/20 p-4 rounded-xl border border-border/50">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="public-mode" className="font-medium">Share with Family</Label>
+                </div>
+                <Switch id="public-mode" checked={isPublic || splitType !== "none"} disabled={splitType !== "none"} onCheckedChange={setIsPublic} />
               </div>
-              <Switch id="public-mode" checked={isPublic || splitType !== "none"} disabled={splitType !== "none"} onCheckedChange={setIsPublic} />
+              <p className="text-xs text-muted-foreground px-1">
+                Only expenses you choose to share with your family will appear in the family dashboard.
+              </p>
             </div>
             
             <div className="flex items-center gap-4">

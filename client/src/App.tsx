@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { Layout } from "@/components/Layout";
+import { FamilyOnboardingModal } from "@/components/FamilyOnboardingModal";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/AuthPage";
 import HomePage from "@/pages/HomePage";
@@ -35,6 +36,7 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
   return (
     <Layout>
       <Component />
+      <FamilyOnboardingModal userId={user.id} />
     </Layout>
   );
 }
