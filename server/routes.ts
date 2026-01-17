@@ -252,7 +252,11 @@ export async function registerRoutes(
 
   app.post(api.goals.create.path, requireAuth, async (req, res) => {
     const user = req.user as any;
-    const input = api.goals.create.input.parse(req.body);
+    const body = req.body;
+    if (typeof body.deadline === 'string') {
+      body.deadline = new Date(body.deadline);
+    }
+    const input = api.goals.create.input.parse(body);
     
     // Auto-link to family if missing but isFamilyGoal is true?
     // Schema expects familyId.
@@ -268,7 +272,11 @@ export async function registerRoutes(
 
   app.patch(api.goals.update.path, requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
-    const input = api.goals.update.input.parse(req.body);
+    const body = req.body;
+    if (typeof body.deadline === 'string') {
+      body.deadline = new Date(body.deadline);
+    }
+    const input = api.goals.update.input.parse(body);
     const goal = await storage.updateGoal(id, input);
     res.json(goal);
   });
