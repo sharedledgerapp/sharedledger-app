@@ -33,7 +33,11 @@ export default function GoalsPage() {
           const progress = Math.min(100, (Number(goal.currentAmount) / Number(goal.targetAmount)) * 100);
           
           return (
-            <Card key={goal.id} className="overflow-hidden border-border/50 shadow-md hover:shadow-lg transition-all">
+            <Card 
+              key={goal.id} 
+              onClick={() => setEditingGoal(goal)}
+              className="overflow-hidden border-border/50 shadow-md hover:shadow-lg transition-all cursor-pointer hover:border-primary/30"
+            >
               <CardContent className="p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center gap-3">
@@ -51,16 +55,11 @@ export default function GoalsPage() {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="h-8 w-8 text-muted-foreground hover:text-primary"
-                      onClick={() => setEditingGoal(goal)}
-                    >
-                      <Plus className="w-4 h-4 rotate-45" /> {/* Edit icon placeholder or real one */}
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
                       className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => deleteMutation.mutate(goal.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteMutation.mutate(goal.id);
+                      }}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -78,7 +77,7 @@ export default function GoalsPage() {
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="bg-muted/20 p-3">
+              <CardFooter className="bg-muted/20 p-3" onClick={(e) => e.stopPropagation()}>
                  <div className="flex gap-2 w-full">
                    <Button 
                      variant="outline" 
