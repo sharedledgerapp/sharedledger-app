@@ -109,7 +109,7 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       note,
       visibility: (isPublic ? "public" : "private") as "public" | "private",
       receiptUrl,
-      date: new Date(),
+      date: new Date() as any, // Cast to any to satisfy TS but it will be stringified during transport
     };
 
     console.log("[Expense] Attempting to save expense", {

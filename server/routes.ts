@@ -133,7 +133,14 @@ export async function registerRoutes(
   app.post(api.expenses.create.path, requireAuth, async (req, res, next) => {
     try {
         const user = req.user as any;
-        const input = api.expenses.create.input.parse(req.body);
+        const body = req.body;
+        
+        // Transform ISO string date back to Date object for Zod/Drizzle
+        if (typeof body.date === 'string') {
+          body.date = new Date(body.date);
+        }
+
+        const input = api.expenses.create.input.parse(body);
         
         // Ensure userId matches current user and familyId is set
         const expense = await storage.createExpense({
