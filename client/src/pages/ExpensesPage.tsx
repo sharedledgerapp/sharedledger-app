@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Camera, Image as ImageIcon, Loader2, Pencil } from "lucide-react";
+import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, Split } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Keypad } from "@/components/Keypad";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -48,10 +49,17 @@ export default function ExpensesPage() {
                   <p className="font-semibold text-foreground">{expense.note || expense.category}</p>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span>{format(new Date(expense.date), "MMM d, h:mm a")}</span>
-                    {(expense.visibility === "public" || (expense as any).splitType !== "none") && (
-                      <span className="bg-accent/10 text-accent px-1.5 py-0.5 rounded text-[10px] font-medium">
-                        {(expense as any).splitType !== "none" ? "Split" : "Shared"}
-                      </span>
+                    {(expense as any).splitType !== "none" && (
+                      <Badge variant="outline">
+                        <Split className="w-3 h-3" />
+                        Split
+                      </Badge>
+                    )}
+                    {expense.visibility === "public" && (expense as any).splitType === "none" && (
+                      <Badge variant="secondary">
+                        <Users className="w-3 h-3" />
+                        Shared
+                      </Badge>
                     )}
                   </div>
                 </div>

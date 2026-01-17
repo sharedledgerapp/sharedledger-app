@@ -52,6 +52,7 @@ export function useCreateExpense() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.expenses.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.family.get.path] });
       toast({ title: "Expense Added", description: "Your spending has been recorded." });
     },
   });
@@ -73,6 +74,7 @@ export function useUpdateExpense() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.expenses.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.family.get.path] });
       toast({ title: "Expense Updated", description: "Your spending has been updated." });
     },
   });
@@ -89,6 +91,7 @@ export function useDeleteExpense() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.expenses.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.family.get.path] });
       toast({ title: "Deleted", description: "Expense removed successfully." });
     },
   });
