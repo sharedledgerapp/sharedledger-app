@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
-import { useGoals, useCreateGoal, useUpdateGoal, useDeleteGoal } from "@/hooks/use-data";
+import { useGoals, useCreateGoal, useUpdateGoal, useDeleteGoal, useUpload } from "@/hooks/use-data";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Trophy, Target, Trash2, Loader2, Save } from "lucide-react";
+import { Plus, Trophy, Target, Trash2, Loader2, Save, Calendar, FileText, Camera } from "lucide-react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { InsertGoal } from "@shared/schema";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 export default function GoalsPage() {
   const { data: goals, isLoading } = useGoals();
@@ -76,6 +78,32 @@ export default function GoalsPage() {
                     <span className="text-xs font-bold text-primary">{progress.toFixed(0)}%</span>
                   </div>
                 </div>
+
+                {(goal.deadline || goal.note || goal.photoUrl) && (
+                  <div className="mt-4 pt-4 border-t border-border/50 space-y-3">
+                    {goal.deadline && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Calendar className="w-3.5 h-3.5 text-primary" />
+                        <span>Target date: {format(new Date(goal.deadline), "MMM d, yyyy")}</span>
+                      </div>
+                    )}
+                    {goal.note && (
+                      <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                        <FileText className="w-3.5 h-3.5 text-primary mt-0.5" />
+                        <p className="line-clamp-2 italic">{goal.note}</p>
+                      </div>
+                    )}
+                    {goal.photoUrl && (
+                      <div className="relative aspect-video rounded-lg overflow-hidden border border-border/50 bg-muted/30">
+                        <img 
+                          src={goal.photoUrl} 
+                          alt={goal.title} 
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
               <CardFooter className="bg-muted/20 p-3" onClick={(e) => e.stopPropagation()}>
                  <div className="flex gap-2 w-full">
@@ -131,28 +159,54 @@ function CreateGoalDialog({
 }) {
   const [title, setTitle] = useState("");
   const [target, setTarget] = useState("");
+  const [deadline, setDeadline] = useState("");
+  const [note, setNote] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const createMutation = useCreateGoal();
   const updateMutation = useUpdateGoal();
+  const uploadMutation = useUpload();
 
   useEffect(() => {
     if (editingGoal) {
       setTitle(editingGoal.title);
       setTarget(editingGoal.targetAmount.toString());
+      setDeadline(editingGoal.deadline ? format(new Date(editingGoal.deadline), "yyyy-MM-dd") : "");
+      setNote(editingGoal.note || "");
     } else {
       setTitle("");
       setTarget("");
+      setDeadline("");
+      setNote("");
     }
+    setFile(null);
   }, [editingGoal, open]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !target) return;
 
+    let photoUrl = editingGoal?.photoUrl;
+    if (file) {
+      try {
+        const uploadRes = await uploadMutation.mutateAsync(file);
+        photoUrl = uploadRes.url;
+      } catch (e) {
+        console.error("[Goal] Upload failed", e);
+      }
+    }
+
+    const goalData = {
+      title,
+      targetAmount: target,
+      deadline: deadline ? new Date(deadline).toISOString() : null,
+      note,
+      photoUrl,
+    };
+
     if (editingGoal) {
       updateMutation.mutate({
+        ...goalData,
         id: editingGoal.id,
-        title,
-        targetAmount: target,
       }, {
         onSuccess: () => {
           onOpenChange(false);
@@ -160,8 +214,7 @@ function CreateGoalDialog({
       });
     } else {
       createMutation.mutate({
-        title,
-        targetAmount: target,
+        ...goalData,
         currentAmount: "0",
         userId: 1, // Ignored by backend/schema default
         isFamilyGoal: false, // Could add checkbox
@@ -170,14 +223,19 @@ function CreateGoalDialog({
           onOpenChange(false);
           setTitle("");
           setTarget("");
+          setDeadline("");
+          setNote("");
+          setFile(null);
         }
       });
     }
   };
 
+  const isPending = createMutation.isPending || updateMutation.isPending || uploadMutation.isPending;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-2xl max-w-sm">
+      <DialogContent className="rounded-2xl max-w-sm h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editingGoal ? "Edit Goal" : "Set a New Goal"}</DialogTitle>
         </DialogHeader>
@@ -201,8 +259,46 @@ function CreateGoalDialog({
               className="rounded-xl"
             />
           </div>
-          <Button type="submit" className="w-full rounded-xl" disabled={createMutation.isPending || updateMutation.isPending}>
-            {(createMutation.isPending || updateMutation.isPending) ? <Loader2 className="animate-spin" /> : (editingGoal ? "Save Changes" : "Create Goal")}
+          <div className="space-y-2">
+            <Label>Deadline (Optional)</Label>
+            <Input 
+              type="date" 
+              value={deadline} 
+              onChange={(e) => setDeadline(e.target.value)} 
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Notes (Optional)</Label>
+            <Input 
+              placeholder="Add a note..." 
+              value={note} 
+              onChange={(e) => setNote(e.target.value)} 
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Photo (Optional)</Label>
+            <div className="flex items-center gap-4">
+              <Button 
+                type="button"
+                variant="outline" 
+                className="flex-1 rounded-xl h-12"
+                onClick={() => document.getElementById('goal-photo-upload')?.click()}
+              >
+                {file ? <span className="text-primary font-medium truncate">{file.name}</span> : <><Camera className="mr-2 h-4 w-4" /> Add Photo</>}
+              </Button>
+              <input 
+                id="goal-photo-upload" 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+              />
+            </div>
+          </div>
+          <Button type="submit" className="w-full rounded-xl h-12 text-lg font-bold" disabled={isPending}>
+            {isPending ? <Loader2 className="animate-spin" /> : (editingGoal ? "Save Changes" : "Create Goal")}
           </Button>
         </form>
       </DialogContent>

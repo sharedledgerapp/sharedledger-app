@@ -54,6 +54,9 @@ export const goals = pgTable("goals", {
   targetAmount: numeric("target_amount").notNull(),
   currentAmount: numeric("current_amount").default("0").notNull(),
   isFamilyGoal: boolean("is_family_goal").default(false).notNull(),
+  deadline: timestamp("deadline"),
+  note: text("note"),
+  photoUrl: text("photo_url"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
