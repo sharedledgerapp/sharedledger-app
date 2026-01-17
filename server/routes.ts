@@ -149,18 +149,18 @@ export async function registerRoutes(
         const user = req.user as any;
         const input = api.expenses.create.input.parse(req.body);
         
-        // Ensure userId matches current user
-        if (input.userId !== user.id) {
-            return res.status(400).json({ message: "Cannot create expense for another user" });
-        }
-
-        const expense = await storage.createExpense(input);
+        // Ensure userId matches current user and familyId is set
+        const expense = await storage.createExpense({
+          ...input,
+          userId: user.id,
+          familyId: user.familyId
+        });
         res.status(201).json(expense);
     } catch (err) {
         if (err instanceof z.ZodError) {
              return res.status(400).json({ message: err.errors[0].message });
         }
-        throw err;
+        next(err);
     }
   });
 

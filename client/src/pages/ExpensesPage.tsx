@@ -75,11 +75,13 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   const [isPublic, setIsPublic] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   
+  const { user } = useAuth();
   const createMutation = useCreateExpense();
   const uploadMutation = useUpload();
 
   const handleSubmit = async () => {
     if (amount === "0") return;
+    if (!user?.familyId) return;
 
     let receiptUrl = undefined;
     if (file) {
@@ -88,12 +90,11 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         receiptUrl = uploadRes.url;
       } catch (e) {
         console.error("Upload failed", e);
-        // Continue without receipt or show error? For now continuing.
       }
     }
 
     createMutation.mutate({
-      userId: 1, // Will be ignored/overwritten by backend from session, but schema requires it
+      userId: user.id,
       amount,
       category,
       note,
@@ -103,7 +104,6 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     }, {
       onSuccess: () => {
         onOpenChange(false);
-        // Reset state
         setAmount("0");
         setCategory(CATEGORIES[0]);
         setNote("");
@@ -113,6 +113,7 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   };
 
   const isPending = createMutation.isPending || uploadMutation.isPending;
+  const canSubmit = amount !== "0" && !!user?.familyId;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -124,6 +125,11 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         </div>
 
         <div className="p-6 space-y-6">
+          {!user?.familyId && (
+            <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-xl font-medium">
+              You must belong to a family to add expenses.
+            </div>
+          )}
           {/* Amount Display */}
           <div className="text-center py-4">
             <span className="text-4xl font-bold font-display text-primary">${amount}</span>
@@ -198,7 +204,7 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
           <Button 
             className="w-full h-14 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20" 
             onClick={handleSubmit}
-            disabled={amount === "0" || isPending}
+            disabled={!canSubmit || isPending}
           >
             {isPending ? <Loader2 className="animate-spin" /> : "Save Expense"}
           </Button>
