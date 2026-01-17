@@ -80,34 +80,55 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   const uploadMutation = useUpload();
 
   const handleSubmit = async () => {
-    if (amount === "0") return;
-    if (!user?.familyId) return;
+    console.log("[Expense] handleSubmit called");
+    if (amount === "0") {
+      console.warn("[Expense] Amount is 0, blocking submission");
+      return;
+    }
+    if (!user?.familyId) {
+      console.error("[Expense] familyId missing", { userId: user?.id });
+      return;
+    }
 
     let receiptUrl = undefined;
     if (file) {
       try {
+        console.log("[Expense] Uploading file", file.name);
         const uploadRes = await uploadMutation.mutateAsync(file);
         receiptUrl = uploadRes.url;
+        console.log("[Expense] Upload successful", { receiptUrl });
       } catch (e) {
-        console.error("Upload failed", e);
+        console.error("[Expense] Upload failed", e);
       }
     }
 
-    createMutation.mutate({
+    const expenseData = {
       userId: user.id,
       amount,
       category,
       note,
-      visibility: isPublic ? "public" : "private",
+      visibility: isPublic ? "public" : "private" as "public" | "private",
       receiptUrl,
       date: new Date(),
-    }, {
+    };
+
+    console.log("[Expense] Attempting to save expense", {
+      expenseData,
+      currentUserId: user.id,
+      currentFamilyId: user.familyId
+    });
+
+    createMutation.mutate(expenseData, {
       onSuccess: () => {
+        console.log("[Expense] Save successful");
         onOpenChange(false);
         setAmount("0");
         setCategory(CATEGORIES[0]);
         setNote("");
         setFile(null);
+      },
+      onError: (error) => {
+        console.error("[Expense] Save failed", error);
       }
     });
   };
