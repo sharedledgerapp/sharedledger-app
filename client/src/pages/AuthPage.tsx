@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -16,9 +16,13 @@ export default function AuthPage() {
   const { loginMutation, registerMutation, user } = useAuth();
   const [, setLocation] = useLocation();
 
-  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      setLocation("/");
+    }
+  }, [user, setLocation]);
+
   if (user) {
-    setLocation("/");
     return null;
   }
 
@@ -129,8 +133,6 @@ function RegisterForm() {
   });
 
   const onSubmit = (data: z.infer<typeof registerSchema>) => {
-    // Ensure role matches state (though form should handle it)
-    data.role = role;
     registerMutation.mutate(data);
   };
 
@@ -144,7 +146,11 @@ function RegisterForm() {
         <div className="flex gap-2 mb-6">
           <button
             type="button"
-            onClick={() => { setRole("parent"); form.setValue("role", "parent"); }}
+            onClick={() => { 
+              setRole("parent"); 
+              form.setValue("role", "parent");
+              form.clearErrors();
+            }}
             className={`flex-1 py-3 px-4 rounded-xl border text-sm font-medium transition-all ${
               role === "parent" 
                 ? "bg-primary text-primary-foreground border-primary shadow-md" 
@@ -155,7 +161,11 @@ function RegisterForm() {
           </button>
           <button
             type="button"
-            onClick={() => { setRole("child"); form.setValue("role", "child"); }}
+            onClick={() => { 
+              setRole("child"); 
+              form.setValue("role", "child");
+              form.clearErrors();
+            }}
             className={`flex-1 py-3 px-4 rounded-xl border text-sm font-medium transition-all ${
               role === "child" 
                 ? "bg-accent text-accent-foreground border-accent shadow-md" 
@@ -211,7 +221,7 @@ function RegisterForm() {
               )}
             />
 
-            {role === "parent" ? (
+            <div className={role === "parent" ? "block" : "hidden"}>
               <FormField
                 control={form.control}
                 name="familyName"
@@ -225,7 +235,9 @@ function RegisterForm() {
                   </FormItem>
                 )}
               />
-            ) : (
+            </div>
+
+            <div className={role === "child" ? "block" : "hidden"}>
               <FormField
                 control={form.control}
                 name="familyCode"
@@ -233,13 +245,18 @@ function RegisterForm() {
                   <FormItem>
                     <FormLabel>Family Invite Code</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter code from parent" {...field} className="h-11 rounded-xl font-mono" />
+                      <Input 
+                        placeholder="FAM-1234" 
+                        {...field} 
+                        className="h-11 rounded-xl font-mono" 
+                        autoComplete="off"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            )}
+            </div>
 
             <Button 
               type="submit" 
