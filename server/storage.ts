@@ -99,11 +99,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getExpenses(userId?: number, familyId?: number): Promise<Expense[]> {
-    // If userId provided, get user's expenses. 
-    // If familyId provided, could get all public family expenses.
-    // For now, let's just support basic filtering. 
-    // Complex permission logic ("parents see totals") will be handled in route or frontend filtering for now,
-    // but strict backend filtering is better.
+    if (userId && familyId) {
+      return db.select()
+        .from(expenses)
+        .where(and(eq(expenses.userId, userId), eq(expenses.familyId, familyId)))
+        .orderBy(desc(expenses.date));
+    }
     
     if (userId) {
         return db.select().from(expenses).where(eq(expenses.userId, userId)).orderBy(desc(expenses.date));
@@ -123,7 +124,8 @@ export class DatabaseStorage implements IStorage {
             receiptUrl: expenses.receiptUrl,
             visibility: expenses.visibility,
             date: expenses.date,
-            createdAt: expenses.createdAt
+            createdAt: expenses.createdAt,
+            familyId: expenses.familyId
         })
         .from(expenses)
         .innerJoin(users, eq(expenses.userId, users.id))

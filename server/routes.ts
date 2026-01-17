@@ -124,9 +124,8 @@ export async function registerRoutes(
     const user = req.user as any;
     
     // Strict backend filtering:
-    // Only return expenses belonging to the current user.
-    // (Family-wide/public visibility logic can be added later when needed)
-    const filtered = await storage.getExpenses(user.id);
+    // Only return expenses belonging to the current user AND their family.
+    const filtered = await storage.getExpenses(user.id, user.familyId);
 
     res.json(filtered);
   });
