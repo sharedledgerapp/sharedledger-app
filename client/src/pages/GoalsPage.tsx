@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Trophy, Target, Trash2, Loader2, Save, Calendar, FileText, Camera, Flag } from "lucide-react";
+import { Plus, Trophy, Target, Trash2, Loader2, Save, Calendar, FileText, Camera, Flag, Lock, Users, Globe } from "lucide-react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { InsertGoal } from "@shared/schema";
 import { format } from "date-fns";
@@ -57,8 +57,21 @@ export default function GoalsPage() {
                             <Flag className="w-2.5 h-2.5 mr-0.5" /> Priority
                           </Badge>
                         )}
-                        {goal.isFamilyGoal && (
-                          <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Family</span>
+                        {goal.visibility === "private" && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+                            <Lock className="w-2.5 h-2.5 mr-0.5" /> Private
+                          </Badge>
+                        )}
+                        {goal.visibility === "shared" && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                            <Globe className="w-2.5 h-2.5 mr-0.5" /> Shared
+                          </Badge>
+                        )}
+                        {goal.visibility === "family" && (
+                          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-primary/20">
+                            <Users className="w-2.5 h-2.5 mr-0.5" /> Family Goal
+                            {!goal.isApproved && <span className="ml-1 text-yellow-600">(Pending)</span>}
+                          </Badge>
                         )}
                       </div>
                     </div>
@@ -172,6 +185,7 @@ function CreateGoalDialog({
   const [deadline, setDeadline] = useState("");
   const [note, setNote] = useState("");
   const [priority, setPriority] = useState<GoalPriority>("medium");
+  const [visibility, setVisibility] = useState<"private" | "shared" | "family">("private");
   const [file, setFile] = useState<File | null>(null);
   const createMutation = useCreateGoal();
   const updateMutation = useUpdateGoal();
@@ -184,12 +198,14 @@ function CreateGoalDialog({
       setDeadline(editingGoal.deadline ? format(new Date(editingGoal.deadline), "yyyy-MM-dd") : "");
       setNote(editingGoal.note || "");
       setPriority(editingGoal.priority || "medium");
+      setVisibility(editingGoal.visibility || "private");
     } else {
       setTitle("");
       setTarget("");
       setDeadline("");
       setNote("");
       setPriority("medium");
+      setVisibility("private");
     }
     setFile(null);
   }, [editingGoal, open]);
@@ -214,6 +230,7 @@ function CreateGoalDialog({
       deadline: deadline ? new Date(deadline) : null,
       note,
       priority,
+      visibility,
       photoUrl,
     };
 
@@ -230,8 +247,7 @@ function CreateGoalDialog({
       createMutation.mutate({
         ...goalData,
         currentAmount: "0",
-        userId: 1, // Ignored by backend/schema default
-        isFamilyGoal: false, // Could add checkbox
+        userId: 1, // Ignored by backend, will be overwritten
       } as any, {
         onSuccess: () => {
           onOpenChange(false);
@@ -239,6 +255,7 @@ function CreateGoalDialog({
           setTarget("");
           setDeadline("");
           setNote("");
+          setVisibility("private");
           setFile(null);
         }
       });
@@ -285,6 +302,39 @@ function CreateGoalDialog({
                 <SelectItem value="high">High (Top Priority)</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Visibility</Label>
+            <Select value={visibility} onValueChange={(v) => setVisibility(v as "private" | "shared" | "family")}>
+              <SelectTrigger className="rounded-xl" data-testid="select-visibility">
+                <SelectValue placeholder="Select visibility" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="private">
+                  <div className="flex items-center gap-2">
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Private - Only you can see</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="shared">
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-3.5 h-3.5" />
+                    <span>Shared - Visible to family</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="family">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Family Goal - Needs approval</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {visibility === "private" && "This goal is private and only visible to you."}
+              {visibility === "shared" && "Your family can see this goal but it remains personal."}
+              {visibility === "family" && "This becomes a collaborative family goal. Requires approval from a parent."}
+            </p>
           </div>
           <div className="space-y-2">
             <Label>Deadline (Optional)</Label>

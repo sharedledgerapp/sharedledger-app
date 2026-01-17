@@ -250,6 +250,15 @@ export async function registerRoutes(
     res.json(goals);
   });
 
+  // Get shared goals for the family dashboard
+  app.get("/api/goals/shared", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    if (!user.familyId) return res.status(404).json({ message: "No family" });
+    
+    const sharedGoals = await storage.getSharedGoals(user.familyId);
+    res.json(sharedGoals);
+  });
+
   app.post(api.goals.create.path, requireAuth, async (req, res) => {
     const user = req.user as any;
     const body = req.body;
@@ -258,32 +267,107 @@ export async function registerRoutes(
     }
     const input = api.goals.create.input.parse(body);
     
-    // Auto-link to family if missing but isFamilyGoal is true?
-    // Schema expects familyId.
-    // If not provided in input, and it's a family goal, link it.
-    
-    const goal = await storage.createGoal({
+    // Create the goal
+    let goal = await storage.createGoal({
         ...input,
-        userId: user.id, // Creator
+        userId: user.id,
         familyId: user.familyId
     });
+    
+    // Auto-approve family goals when created by a parent
+    if (input.visibility === 'family' && user.role === 'parent') {
+      await storage.createGoalApproval(goal.id, user.id);
+      goal = await storage.approveGoal(goal.id);
+    }
+    
     res.status(201).json(goal);
   });
 
   app.patch(api.goals.update.path, requireAuth, async (req, res) => {
+    const user = req.user as any;
     const id = parseInt(req.params.id);
+    const goal = await storage.getGoal(id);
+    
+    if (!goal) return res.status(404).json({ message: "Goal not found" });
+    
+    // Only the owner or a parent in the same family can edit
+    const canEdit = goal.userId === user.id || 
+      (user.role === 'parent' && goal.familyId === user.familyId);
+    if (!canEdit) return res.status(403).json({ message: "Forbidden" });
+    
     const body = req.body;
     if (typeof body.deadline === 'string') {
       body.deadline = new Date(body.deadline);
     }
     const input = api.goals.update.input.parse(body);
-    const goal = await storage.updateGoal(id, input);
-    res.json(goal);
+    const updated = await storage.updateGoal(id, input);
+    res.json(updated);
   });
 
   app.delete(api.goals.delete.path, requireAuth, async (req, res) => {
-    await storage.deleteGoal(parseInt(req.params.id));
+    const user = req.user as any;
+    const id = parseInt(req.params.id);
+    const goal = await storage.getGoal(id);
+    
+    if (!goal) return res.status(404).json({ message: "Goal not found" });
+    
+    // Only the owner or a parent in the same family can delete
+    const canDelete = goal.userId === user.id || 
+      (user.role === 'parent' && goal.familyId === user.familyId);
+    if (!canDelete) return res.status(403).json({ message: "Forbidden" });
+    
+    await storage.deleteGoal(id);
     res.status(204).send();
+  });
+
+  // Goal Approvals
+  app.post("/api/goals/:id/approve", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const goalId = parseInt(req.params.id);
+    const goal = await storage.getGoal(goalId);
+    
+    if (!goal) return res.status(404).json({ message: "Goal not found" });
+    if (goal.familyId !== user.familyId) return res.status(403).json({ message: "Forbidden" });
+    if (goal.visibility !== 'family') return res.status(400).json({ message: "Only family goals require approval" });
+    
+    // Check if user already approved
+    const approvals = await storage.getGoalApprovals(goalId);
+    const alreadyApproved = approvals.some(a => a.userId === user.id);
+    
+    if (alreadyApproved) {
+      return res.status(400).json({ message: "You have already approved this goal" });
+    }
+    
+    // Create approval
+    const approval = await storage.createGoalApproval(goalId, user.id);
+    
+    // If this is a parent approving, auto-approve the goal
+    if (user.role === 'parent') {
+      const updatedGoal = await storage.approveGoal(goalId);
+      return res.json({ approval, goal: updatedGoal });
+    }
+    
+    res.json({ approval, goal });
+  });
+
+  app.delete("/api/goals/:id/approve", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const goalId = parseInt(req.params.id);
+    
+    await storage.deleteGoalApproval(goalId, user.id);
+    res.status(204).send();
+  });
+
+  app.get("/api/goals/:id/approvals", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const goalId = parseInt(req.params.id);
+    const goal = await storage.getGoal(goalId);
+    
+    if (!goal) return res.status(404).json({ message: "Goal not found" });
+    if (goal.familyId !== user.familyId) return res.status(403).json({ message: "Forbidden" });
+    
+    const approvals = await storage.getGoalApprovals(goalId);
+    res.json(approvals);
   });
 
   // === ALLOWANCES ROUTES ===

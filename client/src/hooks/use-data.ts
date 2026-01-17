@@ -166,6 +166,43 @@ export function useDeleteGoal() {
   });
 }
 
+export function useSharedGoals() {
+  return useQuery({
+    queryKey: ["/api/goals/shared"],
+    queryFn: async () => {
+      const res = await fetch("/api/goals/shared");
+      if (!res.ok) throw new Error("Failed to fetch shared goals");
+      return res.json();
+    },
+  });
+}
+
+export function useApproveGoal() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async (goalId: number) => {
+      const res = await fetch(`/api/goals/${goalId}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to approve goal");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/goals/shared"] });
+      queryClient.invalidateQueries({ queryKey: [api.goals.list.path] });
+      toast({ title: "Goal Approved", description: "The family goal has been approved." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Approval Failed", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
 // === ALLOWANCES ===
 export function useAllowances() {
   return useQuery({

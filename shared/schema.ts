@@ -48,16 +48,24 @@ export const expenseSplits = pgTable("expense_splits", {
 
 export const goals = pgTable("goals", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id), // Nullable if family goal? Spec says "Family Goals created by parent"
+  userId: integer("user_id").references(() => users.id),
   familyId: integer("family_id").references(() => families.id),
   title: text("title").notNull(),
   targetAmount: numeric("target_amount").notNull(),
   currentAmount: numeric("current_amount").default("0").notNull(),
-  isFamilyGoal: boolean("is_family_goal").default(false).notNull(),
+  visibility: text("visibility", { enum: ["private", "shared", "family"] }).default("private").notNull(),
+  isApproved: boolean("is_approved").default(false).notNull(),
   priority: text("priority", { enum: ["low", "medium", "high"] }).default("medium").notNull(),
   deadline: timestamp("deadline"),
   note: text("note"),
   photoUrl: text("photo_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const goalApprovals = pgTable("goal_approvals", {
+  id: serial("id").primaryKey(),
+  goalId: integer("goal_id").notNull().references(() => goals.id),
+  userId: integer("user_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -109,7 +117,7 @@ export const expenseSplitsRelations = relations(expenseSplits, ({ one }) => ({
   }),
 }));
 
-export const goalsRelations = relations(goals, ({ one }) => ({
+export const goalsRelations = relations(goals, ({ one, many }) => ({
   user: one(users, {
     fields: [goals.userId],
     references: [users.id],
@@ -117,6 +125,18 @@ export const goalsRelations = relations(goals, ({ one }) => ({
   family: one(families, {
     fields: [goals.familyId],
     references: [families.id],
+  }),
+  approvals: many(goalApprovals),
+}));
+
+export const goalApprovalsRelations = relations(goalApprovals, ({ one }) => ({
+  goal: one(goals, {
+    fields: [goalApprovals.goalId],
+    references: [goals.id],
+  }),
+  user: one(users, {
+    fields: [goalApprovals.userId],
+    references: [users.id],
   }),
 }));
 
@@ -126,7 +146,8 @@ export const insertFamilySchema = createInsertSchema(families).omit({ id: true, 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true, createdAt: true });
 export const insertExpenseSplitSchema = createInsertSchema(expenseSplits).omit({ id: true });
-export const insertGoalSchema = createInsertSchema(goals).omit({ id: true, createdAt: true });
+export const insertGoalSchema = createInsertSchema(goals).omit({ id: true, createdAt: true, isApproved: true });
+export const insertGoalApprovalSchema = createInsertSchema(goalApprovals).omit({ id: true, createdAt: true });
 export const insertAllowanceSchema = createInsertSchema(allowances).omit({ id: true, updatedAt: true });
 
 // === TYPES ===
@@ -136,6 +157,7 @@ export type User = typeof users.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type ExpenseSplit = typeof expenseSplits.$inferSelect;
 export type Goal = typeof goals.$inferSelect;
+export type GoalApproval = typeof goalApprovals.$inferSelect;
 export type Allowance = typeof allowances.$inferSelect;
 
 export type InsertFamily = z.infer<typeof insertFamilySchema>;
@@ -143,6 +165,7 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
 export type InsertExpenseSplit = z.infer<typeof insertExpenseSplitSchema>;
 export type InsertGoal = z.infer<typeof insertGoalSchema>;
+export type InsertGoalApproval = z.infer<typeof insertGoalApprovalSchema>;
 export type InsertAllowance = z.infer<typeof insertAllowanceSchema>;
 
 // Request types

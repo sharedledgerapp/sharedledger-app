@@ -1,13 +1,14 @@
 
 import { db } from "./db";
 import { 
-  users, families, expenses, goals, allowances, expenseSplits,
+  users, families, expenses, goals, allowances, expenseSplits, goalApprovals,
   type User, type InsertUser, type Family, type InsertFamily,
   type Expense, type InsertExpense, type Goal, type InsertGoal,
+  type GoalApproval, type InsertGoalApproval,
   type Allowance, type InsertAllowance, type ExpenseSplit, type InsertExpenseSplit,
   type UpdateGoalRequest, type UpdateAllowanceRequest
 } from "@shared/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, or, ne } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -36,9 +37,16 @@ export interface IStorage {
   // Goals
   createGoal(goal: InsertGoal): Promise<Goal>;
   getGoals(userId: number, familyId: number): Promise<Goal[]>; // Get personal and family goals
+  getSharedGoals(familyId: number): Promise<(Goal & { creatorName: string; approvalCount: number })[]>; // Get shared/family goals for dashboard
   updateGoal(id: number, updates: UpdateGoalRequest): Promise<Goal>;
   deleteGoal(id: number): Promise<void>;
   getGoal(id: number): Promise<Goal | undefined>;
+  
+  // Goal Approvals
+  createGoalApproval(goalId: number, userId: number): Promise<GoalApproval>;
+  getGoalApprovals(goalId: number): Promise<GoalApproval[]>;
+  deleteGoalApproval(goalId: number, userId: number): Promise<void>;
+  approveGoal(goalId: number): Promise<Goal>;
 
   // Allowances
   upsertAllowance(allowance: InsertAllowance): Promise<Allowance>;
@@ -186,32 +194,62 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getGoals(userId: number, familyId: number): Promise<Goal[]> {
-    // Return user's personal goals AND family goals
-    // We can fetch both conditions with OR
-    return db.select().from(goals).where(
-        // (userId == userId AND isFamilyGoal == false) OR (familyId == familyId AND isFamilyGoal == true)
-        // Actually simple logic: user goals OR family goals for this family
-        // But goals have userId (owner) and familyId (if family goal).
-        // Let's rely on familyId being set for family goals.
-        // And userId for personal goals.
-        // Wait, schema has userId nullable? No, schema says userId references users.
-        // If it's a family goal, it still has a creator (userId).
-        
-        // Let's filter: goals where userId = current user OR (familyId = current family AND isFamilyGoal = true)
-        and(
-           eq(goals.familyId, familyId), // Assuming all goals are linked to family for now for simplicity, or we filter strictly.
-           // Actually, let's just get all goals for the family members or specific logic.
-           // Let's stick to: Get all goals for this user, plus any family goals for this family.
-           undefined 
-        )
-    );
-    // Let's simplify: Get goals for the family. Filter in app or refine query.
-    // Spec: "Personal Goals" (userId), "Family Goals" (familyId).
+    // Return:
+    // 1. User's own goals (any visibility)
+    // 2. Family goals (visibility = 'family', isApproved = true) from the same family
+    // 3. Shared goals (visibility = 'shared') from other family members
+    const allGoals = await db.select().from(goals).where(eq(goals.familyId, familyId));
     
-    const allFamilyGoals = await db.select().from(goals).where(eq(goals.familyId, familyId));
-    // Filter in memory for simplicity of "Personal vs Family" if needed, 
-    // or return all and let frontend separate.
-    return allFamilyGoals;
+    return allGoals.filter(goal => {
+      // User's own goals - always visible
+      if (goal.userId === userId) return true;
+      
+      // Family goals that are approved
+      if (goal.visibility === 'family' && goal.isApproved) return true;
+      
+      // Goals shared with family by others
+      if (goal.visibility === 'shared') return true;
+      
+      return false;
+    });
+  }
+
+  async getSharedGoals(familyId: number): Promise<(Goal & { creatorName: string; approvalCount: number })[]> {
+    // Get all shared and family goals for the family dashboard
+    const sharedGoals = await db.select({
+      goal: goals,
+      creatorName: users.name,
+    })
+    .from(goals)
+    .innerJoin(users, eq(goals.userId, users.id))
+    .where(
+      and(
+        eq(goals.familyId, familyId),
+        or(
+          eq(goals.visibility, 'family'),
+          eq(goals.visibility, 'shared')
+        )
+      )
+    );
+
+    // Get approval counts for each goal
+    const goalsWithApprovals = await Promise.all(
+      sharedGoals.map(async ({ goal, creatorName }) => {
+        const approvals = await db.select().from(goalApprovals).where(eq(goalApprovals.goalId, goal.id));
+        return {
+          ...goal,
+          creatorName,
+          approvalCount: approvals.length,
+        };
+      })
+    );
+
+    // Sort: family goals first, then shared goals
+    return goalsWithApprovals.sort((a, b) => {
+      if (a.visibility === 'family' && b.visibility !== 'family') return -1;
+      if (a.visibility !== 'family' && b.visibility === 'family') return 1;
+      return 0;
+    });
   }
 
   async updateGoal(id: number, updates: UpdateGoalRequest): Promise<Goal> {
@@ -220,11 +258,37 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteGoal(id: number): Promise<void> {
+    // Delete approvals first, then the goal
+    await db.delete(goalApprovals).where(eq(goalApprovals.goalId, id));
     await db.delete(goals).where(eq(goals.id, id));
   }
 
   async getGoal(id: number): Promise<Goal | undefined> {
     const [goal] = await db.select().from(goals).where(eq(goals.id, id));
+    return goal;
+  }
+
+  // Goal Approvals
+  async createGoalApproval(goalId: number, userId: number): Promise<GoalApproval> {
+    const [approval] = await db.insert(goalApprovals).values({ goalId, userId }).returning();
+    return approval;
+  }
+
+  async getGoalApprovals(goalId: number): Promise<GoalApproval[]> {
+    return db.select().from(goalApprovals).where(eq(goalApprovals.goalId, goalId));
+  }
+
+  async deleteGoalApproval(goalId: number, userId: number): Promise<void> {
+    await db.delete(goalApprovals).where(
+      and(eq(goalApprovals.goalId, goalId), eq(goalApprovals.userId, userId))
+    );
+  }
+
+  async approveGoal(goalId: number): Promise<Goal> {
+    const [goal] = await db.update(goals)
+      .set({ isApproved: true })
+      .where(eq(goals.id, goalId))
+      .returning();
     return goal;
   }
 
