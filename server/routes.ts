@@ -122,24 +122,11 @@ export async function registerRoutes(
 
   app.get(api.expenses.list.path, requireAuth, async (req, res) => {
     const user = req.user as any;
-    const { userId } = req.query; // Filter request
-
-    // Logic:
-    // If Child: See own expenses + shared family expenses.
-    // If Parent: See own + shared family + (maybe totals of others, but not details unless shared).
-
-    // Simplified for prototype:
-    // Get all expenses for family. Filter in code.
-    const allExpenses = await storage.getExpenses(undefined, user.familyId);
     
-    const filtered = allExpenses.filter(e => {
-        // 1. My expense? Show.
-        if (e.userId === user.id) return true;
-        // 2. Shared/Public? Show.
-        if (e.visibility === 'public') return true;
-        // 3. Else (Private expense of another): Hide.
-        return false;
-    });
+    // Strict backend filtering:
+    // Only return expenses belonging to the current user.
+    // (Family-wide/public visibility logic can be added later when needed)
+    const filtered = await storage.getExpenses(user.id);
 
     res.json(filtered);
   });
