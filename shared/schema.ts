@@ -32,8 +32,17 @@ export const expenses = pgTable("expenses", {
   note: text("note"),
   receiptUrl: text("receipt_url"),
   visibility: text("visibility", { enum: ["private", "public"] }).default("private").notNull(),
+  splitType: text("split_type", { enum: ["none", "equal", "exact"] }).default("none").notNull(),
   date: timestamp("date").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const expenseSplits = pgTable("expense_splits", {
+  id: serial("id").primaryKey(),
+  expenseId: integer("expense_id").notNull().references(() => expenses.id),
+  userId: integer("user_id").notNull().references(() => users.id), // The person who owes
+  amount: numeric("amount").notNull(), // Their share
+  isPaid: boolean("is_paid").default(false).notNull(),
 });
 
 export const goals = pgTable("goals", {
@@ -72,12 +81,25 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   allowance: one(allowances, {
      fields: [users.id],
      references: [allowances.childId]
-  })
+  }),
+  splits: many(expenseSplits),
 }));
 
-export const expensesRelations = relations(expenses, ({ one }) => ({
+export const expensesRelations = relations(expenses, ({ one, many }) => ({
   user: one(users, {
     fields: [expenses.userId],
+    references: [users.id],
+  }),
+  splits: many(expenseSplits),
+}));
+
+export const expenseSplitsRelations = relations(expenseSplits, ({ one }) => ({
+  expense: one(expenses, {
+    fields: [expenseSplits.expenseId],
+    references: [expenses.id],
+  }),
+  user: one(users, {
+    fields: [expenseSplits.userId],
     references: [users.id],
   }),
 }));
@@ -98,6 +120,7 @@ export const goalsRelations = relations(goals, ({ one }) => ({
 export const insertFamilySchema = createInsertSchema(families).omit({ id: true, createdAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true, createdAt: true });
+export const insertExpenseSplitSchema = createInsertSchema(expenseSplits).omit({ id: true });
 export const insertGoalSchema = createInsertSchema(goals).omit({ id: true, createdAt: true });
 export const insertAllowanceSchema = createInsertSchema(allowances).omit({ id: true, updatedAt: true });
 
@@ -106,12 +129,14 @@ export const insertAllowanceSchema = createInsertSchema(allowances).omit({ id: t
 export type Family = typeof families.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
+export type ExpenseSplit = typeof expenseSplits.$inferSelect;
 export type Goal = typeof goals.$inferSelect;
 export type Allowance = typeof allowances.$inferSelect;
 
 export type InsertFamily = z.infer<typeof insertFamilySchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
+export type InsertExpenseSplit = z.infer<typeof insertExpenseSplitSchema>;
 export type InsertGoal = z.infer<typeof insertGoalSchema>;
 export type InsertAllowance = z.infer<typeof insertAllowanceSchema>;
 

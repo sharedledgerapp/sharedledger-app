@@ -99,9 +99,14 @@ export const api = {
     create: {
       method: 'POST' as const,
       path: '/api/expenses',
-      input: insertExpenseSchema,
+      input: insertExpenseSchema.extend({
+        splits: z.array(z.object({
+          userId: z.number(),
+          amount: z.string(),
+        })).optional(),
+      }),
       responses: {
-        201: z.custom<typeof expenses.$inferSelect>(),
+        201: z.custom<typeof expenses.$inferSelect & { splits: (typeof expenseSplits.$inferSelect)[] }>(),
         400: errorSchemas.validation,
       },
     },

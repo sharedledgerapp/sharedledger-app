@@ -140,14 +140,14 @@ export async function registerRoutes(
           body.date = new Date(body.date);
         }
 
-        const input = api.expenses.create.input.parse(body);
+        const { splits, ...expenseInput } = api.expenses.create.input.parse(body);
         
         // Ensure userId matches current user and familyId is set
         const expense = await storage.createExpense({
-          ...input,
+          ...expenseInput,
           userId: user.id,
           familyId: user.familyId
-        });
+        }, splits);
         res.status(201).json(expense);
     } catch (err) {
         if (err instanceof z.ZodError) {
@@ -167,6 +167,13 @@ export async function registerRoutes(
 
     await storage.deleteExpense(id);
     res.status(204).send();
+  });
+
+  app.patch("/api/expenses/splits/:id", requireAuth, async (req, res) => {
+    const id = parseInt(req.params.id);
+    const { isPaid } = z.object({ isPaid: z.boolean() }).parse(req.body);
+    const updated = await storage.updateSplitPayment(id, isPaid);
+    res.json(updated);
   });
 
   // === GOALS ROUTES ===

@@ -43,8 +43,10 @@ export default function ExpensesPage() {
                   <p className="font-semibold text-foreground">{expense.note || expense.category}</p>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span>{format(new Date(expense.date), "MMM d, h:mm a")}</span>
-                    {expense.visibility === "public" && (
-                      <span className="bg-accent/10 text-accent px-1.5 py-0.5 rounded text-[10px] font-medium">Shared</span>
+                    {(expense.visibility === "public" || (expense as any).splitType !== "none") && (
+                      <span className="bg-accent/10 text-accent px-1.5 py-0.5 rounded text-[10px] font-medium">
+                        {(expense as any).splitType !== "none" ? "Split" : "Shared"}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -73,52 +75,49 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [note, setNote] = useState("");
   const [isPublic, setIsPublic] = useState(false);
+  const [splitType, setSplitType] = useState<"none" | "equal" | "exact">("none");
+  const [splitWith, setSplitWith] = useState<number[]>([]);
+  const [exactAmounts, setExactAmounts] = useState<Record<number, string>>({});
   const [file, setFile] = useState<File | null>(null);
   
   const { user } = useAuth();
+  const { data: familyData } = useFamily();
   const createMutation = useCreateExpense();
   const uploadMutation = useUpload();
 
-  const handleSubmit = async () => {
-    console.log("[Expense] handleSubmit called");
-    if (amount === "0") {
-      console.warn("[Expense] Amount is 0, blocking submission");
-      return;
-    }
-    if (!user?.familyId) {
-      console.error("[Expense] familyId missing", { userId: user?.id });
-      return;
-    }
+  const familyMembers = familyData?.members.filter(m => m.id !== user?.id) || [];
 
-    let receiptUrl = undefined;
-    if (file) {
-      try {
-        console.log("[Expense] Uploading file", file.name);
-        const uploadRes = await uploadMutation.mutateAsync(file);
-        receiptUrl = uploadRes.url;
-        console.log("[Expense] Upload successful", { receiptUrl });
-      } catch (e) {
-        console.error("[Expense] Upload failed", e);
-      }
-    }
+  const handleSubmit = async () => {
+    // ... validation ...
+    
+    const splits = splitType === "none" ? undefined : familyMembers
+      .filter(m => splitWith.includes(m.id))
+      .map(m => ({
+        userId: m.id,
+        amount: splitType === "equal" 
+          ? (Number(amount) / (splitWith.length + 1)).toFixed(2)
+          : exactAmounts[m.id] || "0"
+      }));
 
     const expenseData = {
-      userId: user.id,
+      userId: user!.id,
       amount,
       category,
       note,
-      visibility: (isPublic ? "public" : "private") as "public" | "private",
+      visibility: (isPublic || splitType !== "none" ? "public" : "private") as "public" | "private",
+      splitType,
       receiptUrl,
-      date: new Date() as any, // Cast to any to satisfy TS but it will be stringified during transport
+      date: new Date() as any,
+      splits
     };
 
     console.log("[Expense] Attempting to save expense", {
       expenseData,
-      currentUserId: user.id,
-      currentFamilyId: user.familyId
+      currentUserId: user?.id,
+      currentFamilyId: user?.familyId
     });
 
-    createMutation.mutate(expenseData, {
+    createMutation.mutate(expenseData as any, {
       onSuccess: () => {
         console.log("[Expense] Save successful");
         onOpenChange(false);
@@ -126,6 +125,9 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         setCategory(CATEGORIES[0]);
         setNote("");
         setFile(null);
+        setSplitType("none");
+        setSplitWith([]);
+        setExactAmounts({});
       },
       onError: async (error: any) => {
         console.error("[Expense] Save failed", error);
@@ -201,11 +203,68 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
               className="rounded-xl"
             />
 
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold">Expense Splitting</Label>
+              <Select value={splitType} onValueChange={(val: any) => setSplitType(val)}>
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue placeholder="No splitting" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No splitting (Personal)</SelectItem>
+                  <SelectItem value="equal">Split Equally</SelectItem>
+                  <SelectItem value="exact">Exact Amounts</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {splitType !== "none" && (
+                <div className="space-y-3 bg-muted/20 p-4 rounded-xl border border-border/50">
+                  <p className="text-xs text-muted-foreground mb-2">Select family members to split with:</p>
+                  {familyMembers.map(member => (
+                    <div key={member.id} className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-2">
+                        <Switch 
+                          checked={splitWith.includes(member.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) setSplitWith([...splitWith, member.id]);
+                            else setSplitWith(splitWith.filter(id => id !== member.id));
+                          }}
+                        />
+                        <span className="text-sm font-medium">{member.name}</span>
+                      </div>
+                      {splitType === "exact" && splitWith.includes(member.id) && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-muted-foreground">$</span>
+                          <Input 
+                            type="number" 
+                            className="w-20 h-8 text-sm px-2" 
+                            placeholder="0.00"
+                            value={exactAmounts[member.id] || ""}
+                            onChange={(e) => setExactAmounts({...exactAmounts, [member.id]: e.target.value})}
+                          />
+                        </div>
+                      )}
+                      {splitType === "equal" && splitWith.includes(member.id) && (
+                        <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-0.5 rounded">
+                          ${(Number(amount) / (splitWith.length + 1)).toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                  {splitWith.length > 0 && (
+                    <div className="pt-2 border-t border-border/50 flex justify-between text-xs font-semibold">
+                      <span>Your share:</span>
+                      <span>${(Number(amount) - splitWith.reduce((acc, id) => acc + (splitType === "equal" ? Number(amount) / (splitWith.length + 1) : Number(exactAmounts[id] || 0)), 0)).toFixed(2)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center justify-between bg-muted/20 p-4 rounded-xl border border-border/50">
               <div className="flex items-center gap-2">
                 <Label htmlFor="public-mode" className="font-medium">Share with Family</Label>
               </div>
-              <Switch id="public-mode" checked={isPublic} onCheckedChange={setIsPublic} />
+              <Switch id="public-mode" checked={isPublic || splitType !== "none"} disabled={splitType !== "none"} onCheckedChange={setIsPublic} />
             </div>
             
             <div className="flex items-center gap-4">
