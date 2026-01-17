@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useExpenses, useCreateExpense, useUpload } from "@/hooks/use-data";
+import { useExpenses, useCreateExpense, useUpload, useFamily } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -107,7 +107,7 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       visibility: (isPublic || splitType !== "none" ? "public" : "private") as "public" | "private",
       splitType,
       receiptUrl,
-      date: new Date() as any,
+      date: new Date().toISOString() as any, // Use ISO string for transport
       splits
     };
 
