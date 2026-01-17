@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 import { Layout } from "@/components/Layout";
 import { FamilyOnboardingModal } from "@/components/FamilyOnboardingModal";
 import NotFound from "@/pages/not-found";
@@ -13,6 +14,8 @@ import ExpensesPage from "@/pages/ExpensesPage";
 import GoalsPage from "@/pages/GoalsPage";
 import FamilyPage from "@/pages/FamilyPage";
 import FamilyDashboard from "@/pages/FamilyDashboard";
+import SettingsPage from "@/pages/SettingsPage";
+import SpendingReflectionsPage from "@/pages/SpendingReflectionsPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
@@ -71,6 +74,12 @@ function Router() {
       <Route path="/family-dashboard">
         {() => <ProtectedRoute component={FamilyDashboard} />}
       </Route>
+      <Route path="/settings">
+        {() => <ProtectedRoute component={SettingsPage} />}
+      </Route>
+      <Route path="/spending-reflections">
+        {() => <ProtectedRoute component={SpendingReflectionsPage} />}
+      </Route>
 
       <Route component={NotFound} />
     </Switch>
@@ -81,8 +90,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Router />
-        <Toaster />
+        <LanguageProvider>
+          <Router />
+          <Toaster />
+        </LanguageProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

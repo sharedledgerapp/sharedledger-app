@@ -102,6 +102,21 @@ export async function registerRoutes(
     res.status(200).json(req.user);
   });
 
+  // === USER PROFILE ROUTES ===
+
+  app.patch("/api/user/profile", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const updateSchema = z.object({
+      name: z.string().min(1).optional(),
+      profileImageUrl: z.string().url().optional().nullable(),
+      language: z.enum(["en", "fr"]).optional(),
+    });
+    
+    const updates = updateSchema.parse(req.body);
+    const updated = await storage.updateUser(user.id, updates);
+    res.json(updated);
+  });
+
   // === FAMILY ROUTES ===
 
   app.get(api.family.get.path, requireAuth, async (req, res) => {

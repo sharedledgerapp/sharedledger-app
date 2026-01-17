@@ -1,20 +1,22 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, Wallet, Users, Trophy, LogOut, Shield } from "lucide-react";
+import { Home, Wallet, Users, Trophy, Shield, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export function BottomNav() {
   const [location] = useLocation();
   const { user } = useAuth();
+  const { t } = useLanguage();
   
-  // Base routes for everyone
   const routes = [
-    { href: "/", label: "Home", icon: Home },
-    { href: "/expenses", label: "Expenses", icon: Wallet },
-    { href: "/goals", label: "Goals", icon: Trophy },
-    { href: "/family", label: "Family", icon: Users },
-    { href: "/family-dashboard", label: "Shared", icon: Shield },
+    { href: "/", label: t("home"), icon: Home },
+    { href: "/expenses", label: t("expenses"), icon: Wallet },
+    { href: "/goals", label: t("goals"), icon: Trophy },
+    { href: "/family", label: t("family"), icon: Users },
+    { href: "/family-dashboard", label: t("shared"), icon: Shield },
   ];
 
   return (
@@ -50,7 +52,8 @@ export function BottomNav() {
 }
 
 export function Layout({ children }: { children: ReactNode }) {
-  const { user, logoutMutation } = useAuth();
+  const { user } = useAuth();
+  const { t } = useLanguage();
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
@@ -58,12 +61,14 @@ export function Layout({ children }: { children: ReactNode }) {
       <header className="fixed top-0 left-0 right-0 z-40 px-6 py-4 bg-background/80 backdrop-blur-md flex justify-between items-center border-b border-border/20 lg:hidden">
         <h1 className="font-display font-bold text-xl text-primary tracking-tight">FamilyLed</h1>
         {user && (
-          <button 
-            onClick={() => logoutMutation.mutate()}
-            className="p-2 text-muted-foreground hover:text-destructive transition-colors"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
+          <Link href="/settings">
+            <Avatar className="w-9 h-9 border-2 border-primary/20 cursor-pointer hover:border-primary/50 transition-colors" data-testid="button-profile-mobile">
+              <AvatarImage src={user.profileImageUrl || undefined} alt={user.name} />
+              <AvatarFallback className="text-sm bg-primary/10 text-primary font-bold">
+                {user.name?.[0]?.toUpperCase() || "U"}
+              </AvatarFallback>
+            </Avatar>
+          </Link>
         )}
       </header>
       {/* Desktop Sidebar (hidden on mobile) */}
@@ -71,37 +76,37 @@ export function Layout({ children }: { children: ReactNode }) {
         <h1 className="font-display font-bold text-2xl text-primary mb-10">FamilyLedger</h1>
         <nav className="space-y-2 flex-1">
           <Link href="/" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
-            <Home className="w-5 h-5" /> Home
+            <Home className="w-5 h-5" /> {t("home")}
           </Link>
           <Link href="/expenses" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
-            <Wallet className="w-5 h-5" /> Expenses
+            <Wallet className="w-5 h-5" /> {t("expenses")}
           </Link>
           <Link href="/goals" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
-            <Trophy className="w-5 h-5" /> Goals
+            <Trophy className="w-5 h-5" /> {t("goals")}
           </Link>
           <Link href="/family" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
-            <Users className="w-5 h-5" /> Family
+            <Users className="w-5 h-5" /> {t("family")}
           </Link>
           <Link href="/family-dashboard" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
-            <Shield className="w-5 h-5" /> Shared Dashboard
+            <Shield className="w-5 h-5" /> {t("shared")}
           </Link>
         </nav>
         <div className="pt-6 border-t border-border">
-          <div className="flex items-center gap-3 px-2 mb-4">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-              {user?.name?.[0] || "U"}
+          <Link href="/settings">
+            <div className="flex items-center gap-3 px-2 mb-4 cursor-pointer hover:bg-muted rounded-xl py-2 transition-colors" data-testid="button-profile-desktop">
+              <Avatar className="w-10 h-10 border-2 border-primary/20">
+                <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.name} />
+                <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                  {user?.name?.[0]?.toUpperCase() || "U"}
+                </AvatarFallback>
+              </Avatar>
+              <div className="overflow-hidden flex-1">
+                <p className="font-medium truncate">{user?.name}</p>
+                <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
+              </div>
+              <Settings className="w-4 h-4 text-muted-foreground" />
             </div>
-            <div className="overflow-hidden">
-              <p className="font-medium truncate">{user?.name}</p>
-              <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
-            </div>
-          </div>
-          <button 
-            onClick={() => logoutMutation.mutate()}
-            className="flex w-full items-center gap-3 px-4 py-2 text-sm text-muted-foreground hover:text-destructive transition-colors"
-          >
-            <LogOut className="w-4 h-4" /> Sign Out
-          </button>
+          </Link>
         </div>
       </div>
       {/* Main Content */}

@@ -21,6 +21,8 @@ export const users = pgTable("users", {
   role: text("role", { enum: ["parent", "child"] }).notNull(),
   familyId: integer("family_id").references(() => families.id),
   shareTotalsConsent: boolean("share_totals_consent").default(true).notNull(),
+  profileImageUrl: text("profile_image_url"),
+  language: text("language", { enum: ["en", "fr"] }).default("en").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

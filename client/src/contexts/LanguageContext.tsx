@@ -1,0 +1,182 @@
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+
+type Language = "en" | "fr";
+
+type TranslationKey = 
+  | "home" | "expenses" | "goals" | "family" | "shared" | "settings"
+  | "signOut" | "profile" | "language" | "english" | "french"
+  | "spendingBreakdown" | "recentActivity" | "viewAll" | "totalSpent"
+  | "thisMonth" | "thisWeek" | "topGoal" | "noGoalsYet" | "setGoal"
+  | "noTransactions" | "save" | "cancel" | "edit" | "delete"
+  | "profileName" | "profileImage" | "changeImage" | "settingsTitle"
+  | "spendingReflections" | "weeklyReflections" | "monthlyReflections"
+  | "spentThisWeek" | "spentThisMonth" | "topCategory" | "noData"
+  | "viewSpendingReflections" | "financialSnapshot" | "hi"
+  | "priority" | "daysLeft" | "dueToday" | "viewAllGoals" | "categoryDetails"
+  | "profileUpdated" | "changesSaved" | "error" | "failedToUpdate" | "yourName"
+  | "imageUrlPlaceholder";
+
+const translations: Record<Language, Record<TranslationKey, string>> = {
+  en: {
+    home: "Home",
+    expenses: "Expenses",
+    goals: "Goals",
+    family: "Family",
+    shared: "Shared",
+    settings: "Settings",
+    signOut: "Sign Out",
+    profile: "Profile",
+    language: "Language",
+    english: "English",
+    french: "French",
+    spendingBreakdown: "Spending Breakdown",
+    recentActivity: "Recent Activity",
+    viewAll: "View All",
+    totalSpent: "Total Spent",
+    thisMonth: "this month",
+    thisWeek: "this week",
+    topGoal: "Top Goal",
+    noGoalsYet: "No savings goals yet",
+    setGoal: "Set a Goal",
+    noTransactions: "No transactions found.",
+    save: "Save",
+    cancel: "Cancel",
+    edit: "Edit",
+    delete: "Delete",
+    profileName: "Display Name",
+    profileImage: "Profile Image",
+    changeImage: "Change Image",
+    settingsTitle: "Settings",
+    spendingReflections: "Spending Reflections",
+    weeklyReflections: "Weekly Summary",
+    monthlyReflections: "Monthly Summary",
+    spentThisWeek: "Spent This Week",
+    spentThisMonth: "Spent This Month",
+    topCategory: "Top Category",
+    noData: "No spending data yet.",
+    viewSpendingReflections: "View Spending Reflections",
+    financialSnapshot: "Here's your financial snapshot.",
+    hi: "Hi",
+    priority: "Priority",
+    daysLeft: "days left",
+    dueToday: "Due today!",
+    viewAllGoals: "View All Goals",
+    categoryDetails: "Category Details",
+    profileUpdated: "Profile updated",
+    changesSaved: "Your changes have been saved.",
+    error: "Error",
+    failedToUpdate: "Failed to update profile.",
+    yourName: "Your name",
+    imageUrlPlaceholder: "Image URL (optional)",
+  },
+  fr: {
+    home: "Accueil",
+    expenses: "Dépenses",
+    goals: "Objectifs",
+    family: "Famille",
+    shared: "Partagé",
+    settings: "Paramètres",
+    signOut: "Déconnexion",
+    profile: "Profil",
+    language: "Langue",
+    english: "Anglais",
+    french: "Français",
+    spendingBreakdown: "Répartition des dépenses",
+    recentActivity: "Activité récente",
+    viewAll: "Voir tout",
+    totalSpent: "Total dépensé",
+    thisMonth: "ce mois",
+    thisWeek: "cette semaine",
+    topGoal: "Objectif principal",
+    noGoalsYet: "Pas encore d'objectifs d'épargne",
+    setGoal: "Définir un objectif",
+    noTransactions: "Aucune transaction trouvée.",
+    save: "Enregistrer",
+    cancel: "Annuler",
+    edit: "Modifier",
+    delete: "Supprimer",
+    profileName: "Nom d'affichage",
+    profileImage: "Image de profil",
+    changeImage: "Changer l'image",
+    settingsTitle: "Paramètres",
+    spendingReflections: "Réflexions sur les dépenses",
+    weeklyReflections: "Résumé hebdomadaire",
+    monthlyReflections: "Résumé mensuel",
+    spentThisWeek: "Dépensé cette semaine",
+    spentThisMonth: "Dépensé ce mois",
+    topCategory: "Catégorie principale",
+    noData: "Pas encore de données de dépenses.",
+    viewSpendingReflections: "Voir les réflexions sur les dépenses",
+    financialSnapshot: "Voici votre aperçu financier.",
+    hi: "Bonjour",
+    priority: "Priorité",
+    daysLeft: "jours restants",
+    dueToday: "Échéance aujourd'hui!",
+    viewAllGoals: "Voir tous les objectifs",
+    categoryDetails: "Détails par catégorie",
+    profileUpdated: "Profil mis à jour",
+    changesSaved: "Vos modifications ont été enregistrées.",
+    error: "Erreur",
+    failedToUpdate: "Impossible de mettre à jour le profil.",
+    yourName: "Votre nom",
+    imageUrlPlaceholder: "URL de l'image (optionnel)",
+  },
+};
+
+interface LanguageContextType {
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  t: (key: TranslationKey) => string;
+  isUpdating: boolean;
+}
+
+const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+
+export function LanguageProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const [language, setLanguageState] = useState<Language>((user?.language as Language) || "en");
+
+  const updateLanguageMutation = useMutation({
+    mutationFn: async (newLang: Language) => {
+      const res = await apiRequest("PATCH", "/api/user/profile", { language: newLang });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+    },
+  });
+
+  useEffect(() => {
+    if (user?.language && user.language !== language) {
+      setLanguageState(user.language as Language);
+    }
+  }, [user?.language]);
+
+  const setLanguage = (lang: Language) => {
+    setLanguageState(lang);
+    if (user) {
+      updateLanguageMutation.mutate(lang);
+    }
+  };
+
+  const t = (key: TranslationKey): string => {
+    return translations[language][key] || key;
+  };
+
+  return (
+    <LanguageContext.Provider value={{ language, setLanguage, t, isUpdating: updateLanguageMutation.isPending }}>
+      {children}
+    </LanguageContext.Provider>
+  );
+}
+
+export function useLanguage() {
+  const context = useContext(LanguageContext);
+  if (context === undefined) {
+    throw new Error("useLanguage must be used within a LanguageProvider");
+  }
+  return context;
+}
