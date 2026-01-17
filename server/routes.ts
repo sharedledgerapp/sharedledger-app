@@ -50,13 +50,9 @@ export async function registerRoutes(
         // Joining existing family
         const family = await storage.getFamilyByCode(familyCode);
         if (!family) {
-          return res.status(400).json({ message: "Invalid family code" });
+          return res.status(400).json({ message: "Invalid family invite code. Please check with your parent." });
         }
         familyId = family.id;
-        // Role is trusted from input? Ideally invite code determines role or family admin approves.
-        // For prototype, we trust the user selection or enforce logic.
-        // Spec says: "Invite-only family groups".
-        // Let's assume if you have a code, you can join.
       } else if (familyName) {
         // Creating new family
         if (role !== 'parent') {

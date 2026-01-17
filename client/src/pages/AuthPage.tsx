@@ -119,6 +119,7 @@ function LoginForm() {
 function RegisterForm() {
   const { registerMutation } = useAuth();
   const [role, setRole] = useState<"parent" | "child">("parent");
+  const [joinStep, setJoinCodeValid] = useState(false);
   
   const form = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
@@ -133,6 +134,8 @@ function RegisterForm() {
   });
 
   const onSubmit = (data: z.infer<typeof registerSchema>) => {
+    // Explicitly set role based on state
+    data.role = role;
     registerMutation.mutate(data);
   };
 
@@ -172,7 +175,7 @@ function RegisterForm() {
                 : "bg-background border-border hover:bg-muted"
             }`}
           >
-            I'm a Child
+            I'm a Teen / Young Adult
           </button>
         </div>
 
@@ -250,6 +253,10 @@ function RegisterForm() {
                         {...field} 
                         className="h-11 rounded-xl font-mono" 
                         autoComplete="off"
+                        onChange={(e) => {
+                          field.onChange(e);
+                          form.clearErrors("familyCode");
+                        }}
                       />
                     </FormControl>
                     <FormMessage />

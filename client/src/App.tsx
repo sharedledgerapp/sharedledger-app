@@ -27,6 +27,10 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
     return <Redirect to="/auth" />;
   }
 
+  if (!user.familyId) {
+    return <Redirect to="/auth" />;
+  }
+
   return (
     <Layout>
       <Component />
