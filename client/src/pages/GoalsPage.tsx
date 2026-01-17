@@ -5,11 +5,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Trophy, Target, Trash2, Loader2, Save, Calendar, FileText, Camera } from "lucide-react";
+import { Plus, Trophy, Target, Trash2, Loader2, Save, Calendar, FileText, Camera, Flag } from "lucide-react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { InsertGoal } from "@shared/schema";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { sortGoalsByPriority, type GoalPriority } from "@/lib/goals";
 
 export default function GoalsPage() {
   const { data: goals, isLoading } = useGoals();
@@ -31,7 +34,7 @@ export default function GoalsPage() {
       <div className="grid gap-4 md:grid-cols-2">
         {isLoading ? (
           <p className="text-muted-foreground">Loading goals...</p>
-        ) : goals?.map((goal) => {
+        ) : sortGoalsByPriority(goals || []).map((goal) => {
           const progress = Math.min(100, (Number(goal.currentAmount) / Number(goal.targetAmount)) * 100);
           
           return (
@@ -43,14 +46,21 @@ export default function GoalsPage() {
               <CardContent className="p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600">
+                    <div className="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center text-yellow-600 dark:text-yellow-400">
                       <Trophy className="w-5 h-5" />
                     </div>
                     <div>
                       <h3 className="font-bold text-lg leading-tight">{goal.title}</h3>
-                      {goal.isFamilyGoal && (
-                        <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Family Goal</span>
-                      )}
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        {goal.priority === "high" && (
+                          <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
+                            <Flag className="w-2.5 h-2.5 mr-0.5" /> Priority
+                          </Badge>
+                        )}
+                        {goal.isFamilyGoal && (
+                          <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Family</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex gap-1">
@@ -161,6 +171,7 @@ function CreateGoalDialog({
   const [target, setTarget] = useState("");
   const [deadline, setDeadline] = useState("");
   const [note, setNote] = useState("");
+  const [priority, setPriority] = useState<GoalPriority>("medium");
   const [file, setFile] = useState<File | null>(null);
   const createMutation = useCreateGoal();
   const updateMutation = useUpdateGoal();
@@ -172,11 +183,13 @@ function CreateGoalDialog({
       setTarget(editingGoal.targetAmount.toString());
       setDeadline(editingGoal.deadline ? format(new Date(editingGoal.deadline), "yyyy-MM-dd") : "");
       setNote(editingGoal.note || "");
+      setPriority(editingGoal.priority || "medium");
     } else {
       setTitle("");
       setTarget("");
       setDeadline("");
       setNote("");
+      setPriority("medium");
     }
     setFile(null);
   }, [editingGoal, open]);
@@ -200,6 +213,7 @@ function CreateGoalDialog({
       targetAmount: target,
       deadline: deadline ? new Date(deadline) : null,
       note,
+      priority,
       photoUrl,
     };
 
@@ -258,6 +272,19 @@ function CreateGoalDialog({
               onChange={(e) => setTarget(e.target.value)} 
               className="rounded-xl"
             />
+          </div>
+          <div className="space-y-2">
+            <Label>Priority</Label>
+            <Select value={priority} onValueChange={(v) => setPriority(v as GoalPriority)}>
+              <SelectTrigger className="rounded-xl" data-testid="select-priority">
+                <SelectValue placeholder="Select priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="high">High (Top Priority)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>Deadline (Optional)</Label>

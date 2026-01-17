@@ -3,10 +3,12 @@ import { useExpenses, useGoals, useFamily } from "@/hooks/use-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Plus, Wallet, TrendingUp, Star, ArrowUpRight, ArrowDownLeft } from "lucide-react";
+import { Plus, Wallet, TrendingUp, Star, ArrowUpRight, ArrowDownLeft, ChevronRight, Flag, Target } from "lucide-react";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
+import { sortGoalsByPriority } from "@/lib/goals";
+import { Badge } from "@/components/ui/badge";
 
 const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa"];
 
@@ -70,19 +72,66 @@ export default function HomePage() {
         </Card>
 
         {/* Goals Progress Mini Card */}
-        {goals?.[0] && (
-          <Card className="col-span-2 md:col-span-1 border-border/50 shadow-sm overflow-hidden relative">
-            <div className="absolute top-0 left-0 h-1 bg-accent w-[60%]" />
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Star className="w-4 h-4 text-accent" /> Top Goal
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <div className="text-lg font-bold truncate">{goals[0].title}</div>
-              <div className="text-xs text-muted-foreground mt-1">
-                ${Number(goals[0].currentAmount)} / ${Number(goals[0].targetAmount)}
-              </div>
+        {(() => {
+          const sortedGoals = sortGoalsByPriority(goals || []);
+          const topGoal = sortedGoals[0];
+          if (!topGoal) return null;
+          
+          const progress = Math.min(100, (Number(topGoal.currentAmount) / Number(topGoal.targetAmount)) * 100);
+          const daysUntilDeadline = topGoal.deadline 
+            ? differenceInDays(new Date(topGoal.deadline), new Date())
+            : null;
+          
+          return (
+            <Card className="col-span-2 md:col-span-1 border-border/50 shadow-sm overflow-hidden relative">
+              <div 
+                className="absolute top-0 left-0 h-1 bg-accent" 
+                style={{ width: `${progress}%` }} 
+              />
+              <CardHeader className="p-4 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2 justify-between">
+                  <span className="flex items-center gap-2">
+                    <Star className="w-4 h-4 text-accent" /> Top Goal
+                  </span>
+                  {topGoal.priority === "high" && (
+                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
+                      <Flag className="w-2.5 h-2.5 mr-0.5" /> Priority
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 pt-0 space-y-3">
+                <div className="text-lg font-bold truncate">{topGoal.title}</div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>${Number(topGoal.currentAmount).toLocaleString()} / ${Number(topGoal.targetAmount).toLocaleString()}</span>
+                  <span className="font-medium text-primary">{progress.toFixed(0)}%</span>
+                </div>
+                {daysUntilDeadline !== null && daysUntilDeadline >= 0 && (
+                  <div className="text-xs text-muted-foreground">
+                    {daysUntilDeadline === 0 ? "Due today!" : `${daysUntilDeadline} days left`}
+                  </div>
+                )}
+                <Link href="/goals">
+                  <Button variant="outline" size="sm" className="w-full mt-2" data-testid="button-view-all-goals">
+                    View All Goals <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          );
+        })()}
+
+        {/* No Goals State */}
+        {goals?.length === 0 && (
+          <Card className="col-span-2 md:col-span-1 border-border/50 shadow-sm border-dashed">
+            <CardContent className="p-6 text-center">
+              <Target className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground mb-3">No savings goals yet</p>
+              <Link href="/goals">
+                <Button variant="outline" size="sm" data-testid="button-create-first-goal">
+                  <Plus className="w-4 h-4 mr-1" /> Set a Goal
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         )}
