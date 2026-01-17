@@ -109,7 +109,7 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       note,
       visibility: (isPublic ? "public" : "private") as "public" | "private",
       receiptUrl,
-      date: new Date(),
+      date: new Date().toISOString(),
     };
 
     console.log("[Expense] Attempting to save expense", {
@@ -222,13 +222,19 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         </div>
 
         <div className="sticky bottom-0 p-6 bg-background border-t">
-          <Button 
-            className="w-full h-14 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20" 
-            onClick={handleSubmit}
-            disabled={!canSubmit || isPending}
-          >
-            {isPending ? <Loader2 className="animate-spin" /> : "Save Expense"}
-          </Button>
+            <Button 
+              type="button"
+              className="w-full h-14 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20" 
+              onClick={(e) => {
+                console.log("[Expense] Button clicked");
+                e.preventDefault();
+                e.stopPropagation();
+                handleSubmit();
+              }}
+              disabled={!canSubmit || isPending}
+            >
+              {isPending ? <Loader2 className="animate-spin" /> : "Save Expense"}
+            </Button>
         </div>
       </DialogContent>
     </Dialog>
