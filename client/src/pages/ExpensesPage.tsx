@@ -109,7 +109,7 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       note,
       visibility: (isPublic ? "public" : "private") as "public" | "private",
       receiptUrl,
-      date: new Date().toISOString(),
+      date: new Date(),
     };
 
     console.log("[Expense] Attempting to save expense", {
@@ -127,8 +127,14 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         setNote("");
         setFile(null);
       },
-      onError: (error) => {
+      onError: async (error: any) => {
         console.error("[Expense] Save failed", error);
+        let message = "Failed to save expense. Please try again.";
+        try {
+          const body = await error.json();
+          if (body.message) message = body.message;
+        } catch (e) {}
+        console.error("[Expense] Error message:", message);
       }
     });
   };
