@@ -111,26 +111,13 @@ export class DatabaseStorage implements IStorage {
     }
     
     if (familyId) {
-        // Get all expenses for users in this family
-        // This is a join or subquery. Let's do a join.
-        // select * from expenses join users on expenses.userId = users.id where users.familyId = familyId
-        // Drizzle way:
-        return db.select({
-            id: expenses.id,
-            userId: expenses.userId,
-            amount: expenses.amount,
-            category: expenses.category,
-            note: expenses.note,
-            receiptUrl: expenses.receiptUrl,
-            visibility: expenses.visibility,
-            date: expenses.date,
-            createdAt: expenses.createdAt,
-            familyId: expenses.familyId
-        })
+        const results = await db.select()
         .from(expenses)
         .innerJoin(users, eq(expenses.userId, users.id))
         .where(eq(users.familyId, familyId))
         .orderBy(desc(expenses.date));
+        
+        return results.map(r => r.expenses);
     }
 
     return [];

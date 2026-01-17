@@ -26,6 +26,7 @@ export const users = pgTable("users", {
 export const expenses = pgTable("expenses", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
+  familyId: integer("family_id").references(() => families.id),
   amount: numeric("amount").notNull(), // Stored as string, handle as number in app
   category: text("category").notNull(),
   note: text("note"),

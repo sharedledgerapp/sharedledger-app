@@ -107,7 +107,7 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       amount,
       category,
       note,
-      visibility: isPublic ? "public" : "private" as "public" | "private",
+      visibility: (isPublic ? "public" : "private") as "public" | "private",
       receiptUrl,
       date: new Date(),
     };
