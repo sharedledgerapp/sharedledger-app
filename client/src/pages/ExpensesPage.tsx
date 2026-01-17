@@ -88,8 +88,19 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   const familyMembers = familyData?.members.filter(m => m.id !== user?.id) || [];
 
   const handleSubmit = async () => {
-    // ... validation ...
-    
+    if (amount === "0") return;
+    if (!user?.familyId) return;
+
+    let receiptUrl = undefined;
+    if (file) {
+      try {
+        const uploadRes = await uploadMutation.mutateAsync(file);
+        receiptUrl = uploadRes.url;
+      } catch (e) {
+        console.error("[Expense] Upload failed", e);
+      }
+    }
+
     const splits = splitType === "none" ? undefined : familyMembers
       .filter(m => splitWith.includes(m.id))
       .map(m => ({
@@ -100,7 +111,7 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       }));
 
     const expenseData = {
-      userId: user!.id,
+      userId: user.id,
       amount,
       category,
       note,
