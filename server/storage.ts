@@ -29,6 +29,7 @@ export interface IStorage {
   // Expenses
   createExpense(expense: InsertExpense & { familyId: number }, splits?: Omit<InsertExpenseSplit, 'expenseId'>[]): Promise<Expense & { splits: ExpenseSplit[] }>;
   getExpenses(userId?: number, familyId?: number): Promise<(Expense & { splits: ExpenseSplit[] })[]>;
+  updateExpense(id: number, updates: Partial<InsertExpense>, splits?: Omit<InsertExpenseSplit, 'expenseId'>[]): Promise<Expense & { splits: ExpenseSplit[] }>;
   deleteExpense(id: number): Promise<void>;
   getExpense(id: number): Promise<(Expense & { splits: ExpenseSplit[] }) | undefined>;
 
@@ -116,7 +117,6 @@ export class DatabaseStorage implements IStorage {
     } else if (userId) {
       baseQuery = db.select().from(expenses).where(eq(expenses.userId, userId));
     } else if (familyId) {
-      // Get all shared expenses for family members
       baseQuery = db.select({ expenses: expenses })
         .from(expenses)
         .innerJoin(users, eq(expenses.userId, users.id))
@@ -126,23 +126,35 @@ export class DatabaseStorage implements IStorage {
     }
 
     const results = await baseQuery.orderBy(desc(expenses.date));
-    const finalExpenses = Array.isArray(results[0]?.expenses) ? results.map((r: any) => r.expenses) : results;
+    const finalExpenses = results.map((r: any) => r.expenses || r) as Expense[];
     
-    // Fetch splits for all these expenses
-    const expenseIds = (finalExpenses as Expense[]).map(e => e.id);
+    const expenseIds = finalExpenses.map(e => e.id);
     if (expenseIds.length === 0) return [];
 
-    const allSplits = await db.select().from(expenseSplits).where(and(eq(expenseSplits.expenseId, expenseIds[0]))); // Need better way for multiple IDs
-    // For simplicity in prototype, let's just use findMany if possible or map.
-    // Since we're in a hurry, let's fetch all splits for these expenses.
-    // Drizzle doesn't have "in" easily in this helper without more imports.
-    
-    const splitsPromises = (finalExpenses as Expense[]).map(async (e) => {
+    const splitsPromises = finalExpenses.map(async (e) => {
       const splits = await db.select().from(expenseSplits).where(eq(expenseSplits.expenseId, e.id));
-      return { ...e, splits };
+      return { ...e, splits: splits.map(s => ({ ...s, amount: s.amount.toString() })) };
     });
 
     return Promise.all(splitsPromises);
+  }
+
+  async updateExpense(id: number, updates: Partial<InsertExpense>, splits?: Omit<InsertExpenseSplit, 'expenseId'>[]): Promise<Expense & { splits: ExpenseSplit[] }> {
+    return await db.transaction(async (tx) => {
+      const [expense] = await tx.update(expenses).set(updates).where(eq(expenses.id, id)).returning();
+      
+      if (splits) {
+        await tx.delete(expenseSplits).where(eq(expenseSplits.expenseId, id));
+        if (splits.length > 0) {
+          await tx.insert(expenseSplits).values(
+            splits.map(s => ({ ...s, amount: s.amount.toString(), expenseId: id })) as any
+          );
+        }
+      }
+      
+      const createdSplits = await tx.select().from(expenseSplits).where(eq(expenseSplits.expenseId, id));
+      return { ...expense, splits: createdSplits.map(s => ({ ...s, amount: s.amount.toString() })) };
+    });
   }
 
   async deleteExpense(id: number): Promise<void> {

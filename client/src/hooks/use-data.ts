@@ -57,6 +57,27 @@ export function useCreateExpense() {
   });
 }
 
+export function useUpdateExpense() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ id, ...data }: Partial<InsertExpense> & { id: number; splits?: any[] }) => {
+      const url = buildUrl(api.expenses.update.path, { id });
+      const res = await fetch(url, {
+        method: api.expenses.update.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to update expense");
+      return api.expenses.update.responses[200].parse(await res.json());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.expenses.list.path] });
+      toast({ title: "Expense Updated", description: "Your spending has been updated." });
+    },
+  });
+}
+
 export function useDeleteExpense() {
   const queryClient = useQueryClient();
   const { toast } = useToast();

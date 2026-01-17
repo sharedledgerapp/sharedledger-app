@@ -10,6 +10,7 @@ import {
   goals,
   allowances,
   families,
+  expenseSplits,
   loginSchema,
   registerSchema
 } from './schema';
@@ -115,6 +116,21 @@ export const api = {
       path: '/api/expenses/:id',
       responses: {
         204: z.void(),
+        403: errorSchemas.unauthorized,
+        404: errorSchemas.notFound,
+      },
+    },
+    update: {
+      method: 'PATCH' as const,
+      path: '/api/expenses/:id',
+      input: insertExpenseSchema.extend({
+        splits: z.array(z.object({
+          userId: z.number(),
+          amount: z.string(),
+        })).optional(),
+      }).partial(),
+      responses: {
+        200: z.custom<typeof expenses.$inferSelect & { splits: (typeof expenseSplits.$inferSelect)[] }>(),
         403: errorSchemas.unauthorized,
         404: errorSchemas.notFound,
       },

@@ -195,6 +195,31 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.patch("/api/expenses/:id", requireAuth, async (req, res, next) => {
+    try {
+      const user = req.user as any;
+      const id = parseInt(req.params.id);
+      const expense = await storage.getExpense(id);
+
+      if (!expense) return res.status(404).json({ message: "Not found" });
+      if (expense.userId !== user.id) return res.status(403).json({ message: "Forbidden" });
+
+      const body = req.body;
+      if (typeof body.date === 'string') {
+        body.date = new Date(body.date);
+      }
+
+      const { splits, ...expenseUpdates } = api.expenses.update.input.parse(body);
+      const updated = await storage.updateExpense(id, expenseUpdates, splits);
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      next(err);
+    }
+  });
+
   app.patch("/api/expenses/splits/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     const { isPaid } = z.object({ isPaid: z.boolean() }).parse(req.body);

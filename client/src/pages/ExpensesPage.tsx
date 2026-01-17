@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useExpenses, useCreateExpense, useUpload, useFamily } from "@/hooks/use-data";
+import { useState, useEffect } from "react";
+import { useExpenses, useCreateExpense, useUpdateExpense, useUpload, useFamily } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Camera, Image as ImageIcon, Loader2 } from "lucide-react";
+import { Plus, Camera, Image as ImageIcon, Loader2, Pencil } from "lucide-react";
 import { Keypad } from "@/components/Keypad";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,7 @@ const CATEGORIES = ["Food", "Transport", "Entertainment", "Shopping", "Utilities
 export default function ExpensesPage() {
   const { data: expenses, isLoading } = useExpenses();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<any>(null);
 
   return (
     <div className="space-y-6 pb-20">
@@ -34,7 +35,11 @@ export default function ExpensesPage() {
       ) : (
         <div className="space-y-3">
           {expenses?.map((expense) => (
-            <div key={expense.id} className="bg-white p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between group">
+            <div 
+              key={expense.id} 
+              onClick={() => setEditingExpense(expense)}
+              className="bg-white p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between group cursor-pointer hover:border-primary/30 transition-colors"
+            >
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-secondary/50 flex items-center justify-center text-2xl group-hover:scale-105 transition-transform">
                   {getCategoryEmoji(expense.category)}
@@ -65,12 +70,27 @@ export default function ExpensesPage() {
         </div>
       )}
 
-      <CreateExpenseDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
+      <CreateExpenseDialog 
+        open={isCreateOpen || !!editingExpense} 
+        onOpenChange={(open) => {
+          setIsCreateOpen(open);
+          if (!open) setEditingExpense(null);
+        }} 
+        editingExpense={editingExpense}
+      />
     </div>
   );
 }
 
-function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+function CreateExpenseDialog({ 
+  open, 
+  onOpenChange, 
+  editingExpense 
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+  editingExpense?: any;
+}) {
   const [amount, setAmount] = useState("0");
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [note, setNote] = useState("");
@@ -83,7 +103,33 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   const { user } = useAuth();
   const { data: familyData } = useFamily();
   const createMutation = useCreateExpense();
+  const updateMutation = useUpdateExpense();
   const uploadMutation = useUpload();
+
+  useEffect(() => {
+    if (editingExpense) {
+      setAmount(editingExpense.amount.toString());
+      setCategory(editingExpense.category);
+      setNote(editingExpense.note || "");
+      setIsPublic(editingExpense.visibility === "public");
+      setSplitType(editingExpense.splitType);
+      const splitUserIds = editingExpense.splits?.map((s: any) => s.userId) || [];
+      setSplitWith(splitUserIds);
+      const exacts: Record<number, string> = {};
+      editingExpense.splits?.forEach((s: any) => {
+        exacts[s.userId] = s.amount.toString();
+      });
+      setExactAmounts(exacts);
+    } else {
+      setAmount("0");
+      setCategory(CATEGORIES[0]);
+      setNote("");
+      setIsPublic(false);
+      setSplitType("none");
+      setSplitWith([]);
+      setExactAmounts({});
+    }
+  }, [editingExpense, open]);
 
   const familyMembers = familyData?.members.filter(m => m.id !== user?.id) || [];
 
@@ -91,7 +137,7 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     if (amount === "0") return;
     if (!user?.familyId) return;
 
-    let receiptUrl = undefined;
+    let receiptUrl = editingExpense?.receiptUrl;
     if (file) {
       try {
         const uploadRes = await uploadMutation.mutateAsync(file);
@@ -118,41 +164,26 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       visibility: (isPublic || splitType !== "none" ? "public" : "private") as "public" | "private",
       splitType,
       receiptUrl,
-      date: new Date().toISOString() as any, // Use ISO string for transport
+      date: editingExpense ? editingExpense.date : new Date().toISOString(),
       splits
     };
 
-    console.log("[Expense] Attempting to save expense", {
-      expenseData,
-      currentUserId: user?.id,
-      currentFamilyId: user?.familyId
-    });
-
-    createMutation.mutate(expenseData as any, {
-      onSuccess: () => {
-        console.log("[Expense] Save successful");
-        onOpenChange(false);
-        setAmount("0");
-        setCategory(CATEGORIES[0]);
-        setNote("");
-        setFile(null);
-        setSplitType("none");
-        setSplitWith([]);
-        setExactAmounts({});
-      },
-      onError: async (error: any) => {
-        console.error("[Expense] Save failed", error);
-        let message = "Failed to save expense. Please try again.";
-        try {
-          const body = await error.json();
-          if (body.message) message = body.message;
-        } catch (e) {}
-        console.error("[Expense] Error message:", message);
-      }
-    });
+    if (editingExpense) {
+      updateMutation.mutate({ ...expenseData, id: editingExpense.id }, {
+        onSuccess: () => {
+          onOpenChange(false);
+        }
+      });
+    } else {
+      createMutation.mutate(expenseData as any, {
+        onSuccess: () => {
+          onOpenChange(false);
+        }
+      });
+    }
   };
 
-  const isPending = createMutation.isPending || uploadMutation.isPending;
+  const isPending = createMutation.isPending || updateMutation.isPending || uploadMutation.isPending;
   const canSubmit = amount !== "0" && !!user?.familyId;
 
   return (
@@ -160,7 +191,7 @@ function CreateExpenseDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       <DialogContent className="max-w-md w-full h-[90vh] md:h-auto overflow-y-auto rounded-t-3xl md:rounded-2xl p-0 gap-0">
         <div className="sticky top-0 bg-background z-10 px-6 py-4 border-b">
           <DialogHeader>
-            <DialogTitle>Add Expense</DialogTitle>
+            <DialogTitle>{editingExpense ? "Edit Expense" : "Add Expense"}</DialogTitle>
           </DialogHeader>
         </div>
 

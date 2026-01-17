@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGoals, useCreateGoal, useUpdateGoal, useDeleteGoal } from "@/hooks/use-data";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -12,7 +12,7 @@ import { InsertGoal } from "@shared/schema";
 export default function GoalsPage() {
   const { data: goals, isLoading } = useGoals();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingGoal, setEditingGoal] = useState<number | null>(null);
+  const [editingGoal, setEditingGoal] = useState<any>(null);
 
   const deleteMutation = useDeleteGoal();
   const updateMutation = useUpdateGoal();
@@ -47,14 +47,24 @@ export default function GoalsPage() {
                       )}
                     </div>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    onClick={() => deleteMutation.mutate(goal.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-muted-foreground hover:text-primary"
+                      onClick={() => setEditingGoal(goal)}
+                    >
+                      <Plus className="w-4 h-4 rotate-45" /> {/* Edit icon placeholder or real one */}
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => deleteMutation.mutate(goal.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -99,40 +109,78 @@ export default function GoalsPage() {
         )}
       </div>
 
-      <CreateGoalDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
+      <CreateGoalDialog 
+        open={isCreateOpen || !!editingGoal} 
+        onOpenChange={(open) => {
+          setIsCreateOpen(open);
+          if (!open) setEditingGoal(null);
+        }} 
+        editingGoal={editingGoal}
+      />
     </div>
   );
 }
 
-function CreateGoalDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+function CreateGoalDialog({ 
+  open, 
+  onOpenChange, 
+  editingGoal 
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+  editingGoal?: any;
+}) {
   const [title, setTitle] = useState("");
   const [target, setTarget] = useState("");
   const createMutation = useCreateGoal();
+  const updateMutation = useUpdateGoal();
+
+  useEffect(() => {
+    if (editingGoal) {
+      setTitle(editingGoal.title);
+      setTarget(editingGoal.targetAmount.toString());
+    } else {
+      setTitle("");
+      setTarget("");
+    }
+  }, [editingGoal, open]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !target) return;
 
-    createMutation.mutate({
-      title,
-      targetAmount: target,
-      currentAmount: "0",
-      userId: 1, // Ignored by backend/schema default
-      isFamilyGoal: false, // Could add checkbox
-    }, {
-      onSuccess: () => {
-        onOpenChange(false);
-        setTitle("");
-        setTarget("");
-      }
-    });
+    if (editingGoal) {
+      updateMutation.mutate({
+        id: editingGoal.id,
+        title,
+        targetAmount: target,
+      }, {
+        onSuccess: () => {
+          onOpenChange(false);
+        }
+      });
+    } else {
+      createMutation.mutate({
+        title,
+        targetAmount: target,
+        currentAmount: "0",
+        userId: 1, // Ignored by backend/schema default
+        isFamilyGoal: false, // Could add checkbox
+      }, {
+        onSuccess: () => {
+          onOpenChange(false);
+          setTitle("");
+          setTarget("");
+        }
+      });
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="rounded-2xl max-w-sm">
         <DialogHeader>
-          <DialogTitle>Set a New Goal</DialogTitle>
+          <DialogTitle>{editingGoal ? "Edit Goal" : "Set a New Goal"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
           <div className="space-y-2">
@@ -154,11 +202,12 @@ function CreateGoalDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
               className="rounded-xl"
             />
           </div>
-          <Button type="submit" className="w-full rounded-xl" disabled={createMutation.isPending}>
-            {createMutation.isPending ? <Loader2 className="animate-spin" /> : "Create Goal"}
+          <Button type="submit" className="w-full rounded-xl" disabled={createMutation.isPending || updateMutation.isPending}>
+            {(createMutation.isPending || updateMutation.isPending) ? <Loader2 className="animate-spin" /> : (editingGoal ? "Save Changes" : "Create Goal")}
           </Button>
         </form>
       </DialogContent>
     </Dialog>
   );
 }
+
