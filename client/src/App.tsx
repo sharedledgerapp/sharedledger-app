@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { Layout } from "@/components/Layout";
 import { FamilyOnboardingModal } from "@/components/FamilyOnboardingModal";
 import NotFound from "@/pages/not-found";
+import OnboardingPage, { hasSeenOnboarding } from "@/pages/OnboardingPage";
 import AuthPage from "@/pages/AuthPage";
 import HomePage from "@/pages/HomePage";
 import ExpensesPage from "@/pages/ExpensesPage";
@@ -44,7 +45,15 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
 function Router() {
   return (
     <Switch>
-      <Route path="/auth" component={AuthPage} />
+      <Route path="/onboarding" component={OnboardingPage} />
+      <Route path="/auth">
+        {() => {
+          if (!hasSeenOnboarding()) {
+            return <Redirect to="/onboarding" />;
+          }
+          return <AuthPage />;
+        }}
+      </Route>
       
       {/* Protected Routes */}
       <Route path="/">
