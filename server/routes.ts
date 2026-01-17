@@ -50,19 +50,19 @@ export async function registerRoutes(
         // Joining existing family
         const family = await storage.getFamilyByCode(familyCode);
         if (!family) {
-          return res.status(400).json({ message: "Invalid family invite code. Please check with your parent." });
+          return res.status(400).json({ message: "Invalid family invite code. Please check with your parent or try again." });
         }
         familyId = family.id;
       } else if (familyName) {
         // Creating new family
         if (role !== 'parent') {
-             return res.status(400).json({ message: "Only parents can create families" });
+             return res.status(400).json({ message: "Only parents can create new family groups." });
         }
         const code = `FAM-${Math.floor(1000 + Math.random() * 9000)}`; // Human readable code
         const family = await storage.createFamily({ name: familyName, code });
         familyId = family.id;
       } else {
-        return res.status(400).json({ message: "Must provide family code or family name" });
+        return res.status(400).json({ message: "Please provide a family invite code or enter a new family name to get started." });
       }
 
       const hashedPassword = await hashPassword(userData.password);

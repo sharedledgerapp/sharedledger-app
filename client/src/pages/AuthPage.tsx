@@ -136,6 +136,13 @@ function RegisterForm() {
   const onSubmit = (data: z.infer<typeof registerSchema>) => {
     // Explicitly set role based on state
     data.role = role;
+    
+    // Safety check for familyCode
+    if (role === "child" && !data.familyCode) {
+      form.setError("familyCode", { message: "Family invite code is required for teens/young adults" });
+      return;
+    }
+
     registerMutation.mutate(data);
   };
 
