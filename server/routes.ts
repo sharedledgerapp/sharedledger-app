@@ -260,68 +260,6 @@ export async function registerRoutes(
     res.json({ url });
   });
 
-  // Seed Data (if empty)
-  if (app.get("env") === "demo") {
-    const existingFamilies = await db.select().from(families).limit(1);
-    if (existingFamilies.length === 0) {
-      const { hashPassword } = setupAuth(app);
-      
-      const smithFamily = await storage.createFamily({ name: "Smith Family", code: "SMITH123" });
-      const parentPass = await hashPassword("password123");
-      const childPass = await hashPassword("password123");
-
-      const parent = await storage.createUser({
-        username: "parent@example.com",
-        password: parentPass,
-        name: "John Smith",
-        role: "parent",
-        familyId: smithFamily.id
-      });
-
-      const child = await storage.createUser({
-        username: "teen@example.com",
-        password: childPass,
-        name: "Alex Smith",
-        role: "child",
-        familyId: smithFamily.id
-      });
-
-      await storage.createExpense({
-        userId: parent.id,
-        amount: "150.00",
-        category: "Groceries",
-        note: "Weekly shop",
-        visibility: "public",
-        date: new Date()
-      });
-
-      await storage.createExpense({
-        userId: child.id,
-        amount: "15.50",
-        category: "Entertainment",
-        note: "Cinema",
-        visibility: "private",
-        date: new Date()
-      });
-
-      await storage.createGoal({
-        userId: child.id,
-        familyId: smithFamily.id,
-        title: "New Phone",
-        targetAmount: "800.00",
-        currentAmount: "120.00",
-        isFamilyGoal: false
-      });
-      
-      await storage.upsertAllowance({
-          childId: child.id,
-          amount: "50.00",
-          frequency: "monthly"
-      });
-      
-      console.log("Database seeded!");
-    }
-  }
-  
+  // No seed data. App starts blank.
   return httpServer;
 }
