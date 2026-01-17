@@ -27,7 +27,7 @@ export interface IStorage {
   getFamilyMembers(familyId: number): Promise<User[]>;
   
   // Expenses
-  createExpense(expense: InsertExpense & { familyId: number }, splits?: InsertExpenseSplit[]): Promise<Expense & { splits: ExpenseSplit[] }>;
+  createExpense(expense: InsertExpense & { familyId: number }, splits?: Omit<InsertExpenseSplit, 'expenseId'>[]): Promise<Expense & { splits: ExpenseSplit[] }>;
   getExpenses(userId?: number, familyId?: number): Promise<(Expense & { splits: ExpenseSplit[] })[]>;
   deleteExpense(id: number): Promise<void>;
   getExpense(id: number): Promise<(Expense & { splits: ExpenseSplit[] }) | undefined>;
@@ -93,14 +93,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Expenses
-  async createExpense(insertExpense: InsertExpense & { familyId: number }, splits?: InsertExpenseSplit[]): Promise<Expense & { splits: ExpenseSplit[] }> {
+  async createExpense(insertExpense: InsertExpense & { familyId: number }, splits?: Omit<InsertExpenseSplit, 'expenseId'>[]): Promise<Expense & { splits: ExpenseSplit[] }> {
     return await db.transaction(async (tx) => {
       const [expense] = await tx.insert(expenses).values(insertExpense).returning();
       
       let createdSplits: ExpenseSplit[] = [];
       if (splits && splits.length > 0) {
         createdSplits = await tx.insert(expenseSplits).values(
-          splits.map(s => ({ ...s, expenseId: expense.id }))
+          splits.map(s => ({ ...s, expenseId: expense.id })) as any
         ).returning();
       }
       

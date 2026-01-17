@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, Wallet, Users, Trophy, LogOut } from "lucide-react";
+import { Home, Wallet, Users, Trophy, LogOut, Shield } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +14,7 @@ export function BottomNav() {
     { href: "/expenses", label: "Expenses", icon: Wallet },
     { href: "/goals", label: "Goals", icon: Trophy },
     { href: "/family", label: "Family", icon: Users },
+    { href: "/family-dashboard", label: "Shared", icon: Shield },
   ];
 
   return (
@@ -81,6 +82,9 @@ export function Layout({ children }: { children: ReactNode }) {
           </Link>
           <Link href="/family" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
             <Users className="w-5 h-5" /> Family
+          </Link>
+          <Link href="/family-dashboard" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
+            <Shield className="w-5 h-5" /> Shared Dashboard
           </Link>
         </nav>
         <div className="pt-6 border-t border-border">

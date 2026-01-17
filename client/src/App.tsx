@@ -10,6 +10,7 @@ import HomePage from "@/pages/HomePage";
 import ExpensesPage from "@/pages/ExpensesPage";
 import GoalsPage from "@/pages/GoalsPage";
 import FamilyPage from "@/pages/FamilyPage";
+import FamilyDashboard from "@/pages/FamilyDashboard";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
@@ -55,6 +56,9 @@ function Router() {
       </Route>
       <Route path="/family">
         {() => <ProtectedRoute component={FamilyPage} />}
+      </Route>
+      <Route path="/family-dashboard">
+        {() => <ProtectedRoute component={FamilyDashboard} />}
       </Route>
 
       <Route component={NotFound} />

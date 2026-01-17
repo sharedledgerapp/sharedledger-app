@@ -20,6 +20,7 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   role: text("role", { enum: ["parent", "child"] }).notNull(),
   familyId: integer("family_id").references(() => families.id),
+  shareTotalsConsent: boolean("share_totals_consent").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

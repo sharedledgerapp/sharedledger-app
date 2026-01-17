@@ -111,11 +111,37 @@ export async function registerRoutes(
     const family = await storage.getFamily(user.familyId);
     const members = await storage.getFamilyMembers(user.familyId);
     
-    // Privacy filtering?
-    // Parents view individual totals only, unless consented.
-    // This endpoint returns user objects. No private data yet.
+    // Calculate totals for each member for the current month
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const memberSummaries = await Promise.all(members.map(async (member) => {
+      if (!member.shareTotalsConsent) {
+        return {
+          id: member.id,
+          name: member.name,
+          role: member.role,
+          total: null,
+          isPrivate: true
+        };
+      }
+
+      const memberExpenses = await storage.getExpenses(member.id, user.familyId);
+      const monthlyTotal = memberExpenses
+        .filter(e => new Date(e.date) >= startOfMonth)
+        .reduce((sum, e) => sum + Number(e.amount), 0);
+
+      return {
+        id: member.id,
+        name: member.name,
+        role: member.role,
+        total: monthlyTotal.toFixed(2),
+        isPrivate: false
+      };
+    }));
     
-    res.json({ family, members });
+    res.json({ family, members: memberSummaries });
   });
 
   // === EXPENSES ROUTES ===
