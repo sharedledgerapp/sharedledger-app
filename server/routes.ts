@@ -128,8 +128,12 @@ export async function registerRoutes(
       }
 
       const memberExpenses = await storage.getExpenses(member.id, user.familyId);
+      // Aggregated total only includes public expenses when viewed by others, 
+      // but here we are calculating the dashboard total which should reflect 
+      // consent-based aggregated spending.
+      // The user wants "details marked shared with family" to be the only ones listed.
       const monthlyTotal = memberExpenses
-        .filter(e => new Date(e.date) >= startOfMonth)
+        .filter(e => new Date(e.date) >= startOfMonth && e.visibility === "public")
         .reduce((sum, e) => sum + Number(e.amount), 0);
 
       return {
@@ -158,8 +162,9 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Forbidden" });
       }
       
-      const expenses = await storage.getExpenses(targetUserId, user.familyId);
-      return res.json(expenses.filter(e => e.visibility === "public"));
+      const userExpenses = await storage.getExpenses(targetUserId, user.familyId);
+      // Ensure only public expenses are returned for other users
+      return res.json(userExpenses.filter(e => e.visibility === "public"));
     }
 
     const filtered = await storage.getExpenses(user.id, user.familyId);
