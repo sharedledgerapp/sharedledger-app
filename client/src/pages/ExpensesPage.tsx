@@ -57,7 +57,7 @@ export default function ExpensesPage() {
           {expenses?.length === 0 && (
             <div className="text-center py-20 bg-muted/20 rounded-2xl border-2 border-dashed border-muted">
               <p className="text-muted-foreground">No expenses yet.</p>
-              <Button variant="link" onClick={() => setIsCreateOpen(true)}>Add your first expense</Button>
+              <Button variant="ghost" onClick={() => setIsCreateOpen(true)}>Add your first expense</Button>
             </div>
           )}
         </div>

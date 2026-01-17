@@ -144,7 +144,7 @@ export async function registerRoutes(
     res.json(filtered);
   });
 
-  app.post(api.expenses.create.path, requireAuth, async (req, res) => {
+  app.post(api.expenses.create.path, requireAuth, async (req, res, next) => {
     try {
         const user = req.user as any;
         const input = api.expenses.create.input.parse(req.body);
