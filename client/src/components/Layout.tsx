@@ -66,10 +66,9 @@ export function Layout({ children }: { children: ReactNode }) {
           </button>
         )}
       </header>
-
       {/* Desktop Sidebar (hidden on mobile) */}
       <div className="hidden lg:flex flex-col w-64 fixed inset-y-0 left-0 border-r border-border bg-card p-6">
-        <h1 className="font-display font-bold text-2xl text-primary mb-10">FamilyLed</h1>
+        <h1 className="font-display font-bold text-2xl text-primary mb-10">FamilyLedger</h1>
         <nav className="space-y-2 flex-1">
           <Link href="/" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
             <Home className="w-5 h-5" /> Home
@@ -105,14 +104,12 @@ export function Layout({ children }: { children: ReactNode }) {
           </button>
         </div>
       </div>
-
       {/* Main Content */}
       <main className="flex-1 lg:pl-64 pb-20 pt-16 lg:pt-0">
         <div className="max-w-4xl mx-auto p-4 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
           {children}
         </div>
       </main>
-
       {/* Mobile Bottom Nav (hidden on desktop) */}
       <div className="lg:hidden">
         <BottomNav />
