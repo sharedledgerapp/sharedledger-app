@@ -148,11 +148,21 @@ export async function registerRoutes(
 
   app.get(api.expenses.list.path, requireAuth, async (req, res) => {
     const user = req.user as any;
+    const query = api.expenses.list.input?.parse(req.query);
+    const targetUserId = query?.userId || user.id;
     
-    // Strict backend filtering:
-    // Only return expenses belonging to the current user AND their family.
-    const filtered = await storage.getExpenses(user.id, user.familyId);
+    // If requesting another user's expenses, they must be in the same family and we only show public ones
+    if (targetUserId !== user.id) {
+      const targetUser = await storage.getUser(targetUserId);
+      if (!targetUser || targetUser.familyId !== user.familyId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const expenses = await storage.getExpenses(targetUserId, user.familyId);
+      return res.json(expenses.filter(e => e.visibility === "public"));
+    }
 
+    const filtered = await storage.getExpenses(user.id, user.familyId);
     res.json(filtered);
   });
 

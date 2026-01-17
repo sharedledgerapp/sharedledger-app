@@ -92,9 +92,10 @@ export const api = {
       path: '/api/expenses',
       input: z.object({
         userId: z.coerce.number().optional(), // Filter by user (if allowed)
+        publicOnly: z.coerce.boolean().optional(),
       }).optional(),
       responses: {
-        200: z.array(z.custom<typeof expenses.$inferSelect>()),
+        200: z.array(z.custom<typeof expenses.$inferSelect & { splits: (typeof expenseSplits.$inferSelect)[] }>()),
       },
     },
     create: {

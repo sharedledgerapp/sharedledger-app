@@ -198,7 +198,7 @@ function CreateGoalDialog({
     const goalData = {
       title,
       targetAmount: target,
-      deadline: deadline ? new Date(deadline).toISOString() : null,
+      deadline: deadline ? new Date(deadline) : null,
       note,
       photoUrl,
     };
@@ -207,7 +207,7 @@ function CreateGoalDialog({
       updateMutation.mutate({
         ...goalData,
         id: editingGoal.id,
-      }, {
+      } as any, {
         onSuccess: () => {
           onOpenChange(false);
         }
@@ -218,7 +218,7 @@ function CreateGoalDialog({
         currentAmount: "0",
         userId: 1, // Ignored by backend/schema default
         isFamilyGoal: false, // Could add checkbox
-      }, {
+      } as any, {
         onSuccess: () => {
           onOpenChange(false);
           setTitle("");
