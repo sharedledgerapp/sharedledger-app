@@ -29,6 +29,10 @@ export default function ExpensesPage() {
         </Button>
       </div>
 
+      <p className="text-sm font-medium text-muted-foreground" data-testid="text-privacy-note">
+        Only expenses you choose to share with your family will appear in the family dashboard.
+      </p>
+
       {isLoading ? (
         <div className="space-y-4">
           {[1,2,3,4].map(i => <div key={i} className="h-16 bg-muted animate-pulse rounded-xl" />)}
