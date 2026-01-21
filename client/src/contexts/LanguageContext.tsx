@@ -18,7 +18,8 @@ type TranslationKey =
   | "priority" | "daysLeft" | "dueToday" | "viewAllGoals" | "categoryDetails"
   | "profileUpdated" | "changesSaved" | "error" | "failedToUpdate" | "yourName"
   | "imageUrlPlaceholder" | "currency" | "scanReceipt" | "scanning" | "confirmDetails"
-  | "extractedFromReceipt" | "useThisData" | "tryAgain";
+  | "extractedFromReceipt" | "useThisData" | "tryAgain"
+  | "selectCurrency" | "currencyPromptMessage" | "confirmCurrency";
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -79,6 +80,9 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     extractedFromReceipt: "Extracted from receipt",
     useThisData: "Use This Data",
     tryAgain: "Try Again",
+    selectCurrency: "Select Your Currency",
+    currencyPromptMessage: "Choose the currency you'll use for tracking expenses. You can change this anytime in Settings.",
+    confirmCurrency: "Confirm Currency",
   },
   fr: {
     home: "Accueil",
@@ -138,6 +142,9 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     extractedFromReceipt: "Extrait du reçu",
     useThisData: "Utiliser ces données",
     tryAgain: "Réessayer",
+    selectCurrency: "Sélectionnez votre devise",
+    currencyPromptMessage: "Choisissez la devise que vous utiliserez pour suivre vos dépenses. Vous pouvez la modifier à tout moment dans les Paramètres.",
+    confirmCurrency: "Confirmer la devise",
   },
 };
 

@@ -8,13 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, Split, ScanLine, Check, X } from "lucide-react";
+import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, Split, ScanLine, Check, X, DollarSign } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Keypad } from "@/components/Keypad";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { useMutation } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 
 const CATEGORIES = ["Food", "Transport", "Entertainment", "Shopping", "Utilities", "Education", "Health", "Other"];
 
@@ -92,6 +93,7 @@ export default function ExpensesPage() {
           if (!open) setEditingExpense(null);
         }} 
         editingExpense={editingExpense}
+        isFirstExpense={!expenses || expenses.length === 0}
       />
     </div>
   );
@@ -105,14 +107,29 @@ interface ExtractedReceiptData {
   items: Array<{ name: string; price: number }> | null;
 }
 
+const CURRENCIES = [
+  { code: "USD", symbol: "$", name: "US Dollar" },
+  { code: "EUR", symbol: "\u20ac", name: "Euro" },
+  { code: "GBP", symbol: "\u00a3", name: "British Pound" },
+  { code: "CAD", symbol: "C$", name: "Canadian Dollar" },
+  { code: "AUD", symbol: "A$", name: "Australian Dollar" },
+  { code: "JPY", symbol: "\u00a5", name: "Japanese Yen" },
+  { code: "CHF", symbol: "CHF", name: "Swiss Franc" },
+  { code: "CNY", symbol: "\u00a5", name: "Chinese Yuan" },
+  { code: "INR", symbol: "\u20b9", name: "Indian Rupee" },
+  { code: "MXN", symbol: "MX$", name: "Mexican Peso" },
+];
+
 function CreateExpenseDialog({ 
   open, 
   onOpenChange, 
-  editingExpense 
+  editingExpense,
+  isFirstExpense = false
 }: { 
   open: boolean; 
   onOpenChange: (open: boolean) => void;
   editingExpense?: any;
+  isFirstExpense?: boolean;
 }) {
   const [amount, setAmount] = useState("0");
   const [category, setCategory] = useState(CATEGORIES[0]);
@@ -125,6 +142,8 @@ function CreateExpenseDialog({
   const [showReceiptConfirm, setShowReceiptConfirm] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedReceiptData | null>(null);
   const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
+  const [showCurrencyPrompt, setShowCurrencyPrompt] = useState(false);
+  const [selectedCurrency, setSelectedCurrency] = useState("USD");
   
   const { user } = useAuth();
   const { data: familyData } = useFamily();
@@ -132,6 +151,28 @@ function CreateExpenseDialog({
   const createMutation = useCreateExpense();
   const updateMutation = useUpdateExpense();
   const uploadMutation = useUpload();
+  
+  const updateCurrencyMutation = useMutation({
+    mutationFn: async (currency: string) => {
+      const res = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ currency }),
+      });
+      if (!res.ok) throw new Error('Failed to update currency');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+    },
+  });
+
+  useEffect(() => {
+    if (open && isFirstExpense && !editingExpense && !(user as any)?.currency) {
+      setShowCurrencyPrompt(true);
+    }
+  }, [open, isFirstExpense, editingExpense, user]);
 
   const scanReceiptMutation = useMutation({
     mutationFn: async (receiptFile: File) => {
@@ -257,6 +298,17 @@ function CreateExpenseDialog({
   const isPending = createMutation.isPending || updateMutation.isPending || uploadMutation.isPending;
   const canSubmit = amount !== "0" && !!user?.familyId;
 
+  const handleCurrencyConfirm = async () => {
+    await updateCurrencyMutation.mutateAsync(selectedCurrency);
+    setShowCurrencyPrompt(false);
+  };
+
+  const getCurrencySymbol = () => {
+    const userCurrency = (user as any)?.currency || selectedCurrency;
+    const curr = CURRENCIES.find(c => c.code === userCurrency);
+    return curr?.symbol || '$';
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md w-full h-[90vh] md:h-auto overflow-y-auto rounded-t-3xl md:rounded-2xl p-0 gap-0">
@@ -267,6 +319,48 @@ function CreateExpenseDialog({
         </div>
 
         <div className="p-6 space-y-6">
+          {/* Currency Selection Prompt for First Expense */}
+          {showCurrencyPrompt && (
+            <Card className="border-primary/30 bg-primary/5" data-testid="card-currency-prompt">
+              <CardContent className="p-4 space-y-4">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-5 h-5 text-primary" />
+                  <h4 className="font-semibold">{t("selectCurrency")}</h4>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {t("currencyPromptMessage")}
+                </p>
+                <Select value={selectedCurrency} onValueChange={setSelectedCurrency}>
+                  <SelectTrigger className="w-full" data-testid="select-currency-prompt">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover">
+                    {CURRENCIES.map((curr) => (
+                      <SelectItem key={curr.code} value={curr.code} data-testid={`option-currency-${curr.code}`}>
+                        <span className="flex items-center gap-2">
+                          <span className="font-mono w-6">{curr.symbol}</span>
+                          <span>{curr.code} - {curr.name}</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button 
+                  className="w-full" 
+                  onClick={handleCurrencyConfirm}
+                  disabled={updateCurrencyMutation.isPending}
+                  data-testid="button-confirm-currency"
+                >
+                  {updateCurrencyMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    t("confirmCurrency")
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           {!user?.familyId && (
             <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-xl font-medium">
               You must belong to a family to add expenses.
@@ -274,7 +368,7 @@ function CreateExpenseDialog({
           )}
           {/* Amount Display */}
           <div className="text-center py-4">
-            <span className="text-4xl font-bold font-display text-primary">${amount}</span>
+            <span className="text-4xl font-bold font-display text-primary">{getCurrencySymbol()}{amount}</span>
           </div>
 
           {/* Keypad */}
@@ -411,7 +505,7 @@ function CreateExpenseDialog({
 
             {/* Receipt Confirmation Dialog */}
             {showReceiptConfirm && extractedData && (
-              <Card className="border-primary/30 bg-primary/5">
+              <Card className="border-primary/30 bg-primary/5" data-testid="card-receipt-confirm">
                 <CardContent className="p-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <h4 className="font-semibold text-sm flex items-center gap-2">
@@ -422,23 +516,23 @@ function CreateExpenseDialog({
                   
                   {receiptPreviewUrl && (
                     <div className="w-full h-32 rounded-lg overflow-hidden bg-muted">
-                      <img src={receiptPreviewUrl} alt="Receipt" className="w-full h-full object-contain" />
+                      <img src={receiptPreviewUrl} alt="Receipt" className="w-full h-full object-contain" data-testid="img-receipt-preview" />
                     </div>
                   )}
                   
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="bg-background p-2 rounded-lg">
                       <span className="text-muted-foreground text-xs">Amount</span>
-                      <p className="font-bold text-primary">${extractedData.amount || '0.00'}</p>
+                      <p className="font-bold text-primary" data-testid="text-extracted-amount">${extractedData.amount || '0.00'}</p>
                     </div>
                     <div className="bg-background p-2 rounded-lg">
                       <span className="text-muted-foreground text-xs">Category</span>
-                      <p className="font-medium">{extractedData.category || 'Other'}</p>
+                      <p className="font-medium" data-testid="text-extracted-category">{extractedData.category || 'Other'}</p>
                     </div>
                     {extractedData.note && (
                       <div className="col-span-2 bg-background p-2 rounded-lg">
                         <span className="text-muted-foreground text-xs">Store/Note</span>
-                        <p className="font-medium truncate">{extractedData.note}</p>
+                        <p className="font-medium truncate" data-testid="text-extracted-note">{extractedData.note}</p>
                       </div>
                     )}
                   </div>
@@ -448,6 +542,7 @@ function CreateExpenseDialog({
                       size="sm" 
                       className="flex-1"
                       onClick={handleConfirmExtractedData}
+                      data-testid="button-use-extracted-data"
                     >
                       <Check className="w-4 h-4 mr-1" /> {t("useThisData")}
                     </Button>
@@ -455,6 +550,7 @@ function CreateExpenseDialog({
                       size="sm" 
                       variant="outline"
                       onClick={handleCancelExtractedData}
+                      data-testid="button-cancel-extracted-data"
                     >
                       <X className="w-4 h-4" />
                     </Button>
