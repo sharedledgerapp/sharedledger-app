@@ -37,7 +37,7 @@ export default function AuthPage() {
           <div className="w-16 h-16 bg-gradient-to-tr from-primary to-accent rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-primary/20 rotate-[-6deg]">
             <Users className="w-8 h-8 text-white" />
           </div>
-          <h1 className="font-display font-bold text-4xl tracking-tight text-foreground">FamilyLed</h1>
+          <h1 className="font-display font-bold text-4xl tracking-tight text-foreground">FamilyLedger</h1>
           <p className="text-muted-foreground">Manage your family finances together.</p>
         </div>
 

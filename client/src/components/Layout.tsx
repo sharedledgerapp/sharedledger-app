@@ -59,7 +59,7 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-background flex flex-col font-sans">
       {/* Mobile Top Bar */}
       <header className="fixed top-0 left-0 right-0 z-40 px-6 py-4 bg-background/80 backdrop-blur-md flex justify-between items-center border-b border-border/20 lg:hidden">
-        <h1 className="font-display font-bold text-xl text-primary tracking-tight">FamilyLed</h1>
+        <h1 className="font-display font-bold text-xl text-primary tracking-tight">FamilyLedger</h1>
         {user && (
           <Link href="/settings">
             <Avatar className="w-9 h-9 border-2 border-primary/20 cursor-pointer hover:border-primary/50 transition-colors" data-testid="button-profile-mobile">
