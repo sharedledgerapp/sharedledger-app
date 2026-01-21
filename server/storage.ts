@@ -20,7 +20,7 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser & { familyId?: number }): Promise<User>;
-  updateUser(id: number, updates: Partial<Pick<User, 'name' | 'profileImageUrl' | 'language'>>): Promise<User>;
+  updateUser(id: number, updates: Partial<Pick<User, 'name' | 'profileImageUrl' | 'language' | 'currency'>>): Promise<User>;
   
   // Family
   createFamily(family: InsertFamily): Promise<Family>;
@@ -82,7 +82,7 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUser(id: number, updates: Partial<Pick<User, 'name' | 'profileImageUrl' | 'language'>>): Promise<User> {
+  async updateUser(id: number, updates: Partial<Pick<User, 'name' | 'profileImageUrl' | 'language' | 'currency'>>): Promise<User> {
     const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
     return user;
   }

@@ -71,3 +71,29 @@ The `shared/` directory contains code used by both frontend and backend:
 ### Replit-Specific Integrations
 - `@replit/vite-plugin-runtime-error-modal` for development error display
 - `@replit/vite-plugin-cartographer` and `@replit/vite-plugin-dev-banner` for Replit development experience
+
+## Recent Changes (January 2026)
+
+### Receipt OCR Scanning
+- Integrated Google Gemini AI via Replit AI Integrations for receipt scanning
+- POST `/api/receipts/scan` endpoint processes receipt images and extracts:
+  - Amount
+  - Category (mapped to app categories)
+  - Store name/note
+  - Line items
+- Confirmation UI allows users to review and accept/reject extracted data before saving
+
+### Currency Preference
+- Added `currency` field to users table (default: "USD")
+- Supported currencies: USD, EUR, GBP, CAD, AUD, JPY, CHF, CNY, INR, MXN
+- Currency selection available in Settings page
+- First-time expense prompt for currency selection if not set
+- Expense list displays amounts with user's preferred currency symbol
+
+### Multilingual Support
+- Translation system via `LanguageContext` with English and French
+- All new features include translation keys for both languages
+
+### UI/UX Improvements
+- Fixed Select dropdown backgrounds (added `bg-popover` class) to prevent text obscuration
+- Added proper `data-testid` attributes for all new interactive elements

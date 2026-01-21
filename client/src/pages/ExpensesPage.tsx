@@ -19,10 +19,26 @@ import { queryClient } from "@/lib/queryClient";
 
 const CATEGORIES = ["Food", "Transport", "Entertainment", "Shopping", "Utilities", "Education", "Health", "Other"];
 
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: "$",
+  EUR: "\u20ac",
+  GBP: "\u00a3",
+  CAD: "C$",
+  AUD: "A$",
+  JPY: "\u00a5",
+  CHF: "CHF",
+  CNY: "\u00a5",
+  INR: "\u20b9",
+  MXN: "MX$",
+};
+
 export default function ExpensesPage() {
   const { data: expenses, isLoading } = useExpenses();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<any>(null);
+  const { user } = useAuth();
+  
+  const currencySymbol = CURRENCY_SYMBOLS[(user as any)?.currency || "USD"] || "$";
 
   return (
     <div className="space-y-6 pb-20">
@@ -73,7 +89,7 @@ export default function ExpensesPage() {
                 </div>
               </div>
               <div className="text-right">
-                <span className="block font-bold text-lg">-${Number(expense.amount).toFixed(2)}</span>
+                <span className="block font-bold text-lg">-{currencySymbol}{Number(expense.amount).toFixed(2)}</span>
               </div>
             </div>
           ))}
