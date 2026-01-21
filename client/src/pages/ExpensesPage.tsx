@@ -1,17 +1,20 @@
 import { useState, useEffect } from "react";
 import { useExpenses, useCreateExpense, useUpdateExpense, useUpload, useFamily } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, Split } from "lucide-react";
+import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, Split, ScanLine, Check, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Keypad } from "@/components/Keypad";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { Card, CardContent } from "@/components/ui/card";
+import { useMutation } from "@tanstack/react-query";
 
 const CATEGORIES = ["Food", "Transport", "Entertainment", "Shopping", "Utilities", "Education", "Health", "Other"];
 
@@ -94,6 +97,14 @@ export default function ExpensesPage() {
   );
 }
 
+interface ExtractedReceiptData {
+  amount: number | null;
+  category: string | null;
+  note: string | null;
+  date: string | null;
+  items: Array<{ name: string; price: number }> | null;
+}
+
 function CreateExpenseDialog({ 
   open, 
   onOpenChange, 
@@ -111,12 +122,60 @@ function CreateExpenseDialog({
   const [splitWith, setSplitWith] = useState<number[]>([]);
   const [exactAmounts, setExactAmounts] = useState<Record<number, string>>({});
   const [file, setFile] = useState<File | null>(null);
+  const [showReceiptConfirm, setShowReceiptConfirm] = useState(false);
+  const [extractedData, setExtractedData] = useState<ExtractedReceiptData | null>(null);
+  const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
   
   const { user } = useAuth();
   const { data: familyData } = useFamily();
+  const { t } = useLanguage();
   const createMutation = useCreateExpense();
   const updateMutation = useUpdateExpense();
   const uploadMutation = useUpload();
+
+  const scanReceiptMutation = useMutation({
+    mutationFn: async (receiptFile: File) => {
+      const formData = new FormData();
+      formData.append('receipt', receiptFile);
+      const res = await fetch('/api/receipts/scan', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to scan receipt');
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setExtractedData(data.extracted);
+      setReceiptPreviewUrl(data.imageUrl);
+      setShowReceiptConfirm(true);
+    },
+  });
+
+  const handleReceiptUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const uploadedFile = e.target.files?.[0];
+    if (uploadedFile) {
+      scanReceiptMutation.mutate(uploadedFile);
+      setFile(uploadedFile);
+    }
+  };
+
+  const handleConfirmExtractedData = () => {
+    if (extractedData) {
+      if (extractedData.amount) setAmount(extractedData.amount.toString());
+      if (extractedData.category && CATEGORIES.includes(extractedData.category)) {
+        setCategory(extractedData.category);
+      }
+      if (extractedData.note) setNote(extractedData.note);
+    }
+    setShowReceiptConfirm(false);
+  };
+
+  const handleCancelExtractedData = () => {
+    setShowReceiptConfirm(false);
+    setExtractedData(null);
+    setReceiptPreviewUrl(null);
+  };
 
   useEffect(() => {
     if (editingExpense) {
@@ -263,7 +322,7 @@ function CreateExpenseDialog({
                 <SelectTrigger className="rounded-xl">
                   <SelectValue placeholder="No splitting" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-popover">
                   <SelectItem value="none">No splitting (Personal)</SelectItem>
                   <SelectItem value="equal">Split Equally</SelectItem>
                   <SelectItem value="exact">Exact Amounts</SelectItem>
@@ -326,22 +385,83 @@ function CreateExpenseDialog({
               </p>
             </div>
             
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               <Button 
                 variant="outline" 
                 className="flex-1 rounded-xl h-12"
                 onClick={() => document.getElementById('receipt-upload')?.click()}
+                disabled={scanReceiptMutation.isPending}
               >
-                {file ? <span className="text-primary font-medium truncate">{file.name}</span> : <><Camera className="mr-2 h-4 w-4" /> Add Receipt</>}
+                {scanReceiptMutation.isPending ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("scanning")}</>
+                ) : file ? (
+                  <span className="text-primary font-medium truncate">{file.name}</span>
+                ) : (
+                  <><ScanLine className="mr-2 h-4 w-4" /> {t("scanReceipt")}</>
+                )}
               </Button>
               <input 
                 id="receipt-upload" 
                 type="file" 
                 accept="image/*" 
                 className="hidden" 
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                onChange={handleReceiptUpload}
               />
             </div>
+
+            {/* Receipt Confirmation Dialog */}
+            {showReceiptConfirm && extractedData && (
+              <Card className="border-primary/30 bg-primary/5">
+                <CardContent className="p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold text-sm flex items-center gap-2">
+                      <Check className="w-4 h-4 text-green-600" />
+                      {t("extractedFromReceipt")}
+                    </h4>
+                  </div>
+                  
+                  {receiptPreviewUrl && (
+                    <div className="w-full h-32 rounded-lg overflow-hidden bg-muted">
+                      <img src={receiptPreviewUrl} alt="Receipt" className="w-full h-full object-contain" />
+                    </div>
+                  )}
+                  
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="bg-background p-2 rounded-lg">
+                      <span className="text-muted-foreground text-xs">Amount</span>
+                      <p className="font-bold text-primary">${extractedData.amount || '0.00'}</p>
+                    </div>
+                    <div className="bg-background p-2 rounded-lg">
+                      <span className="text-muted-foreground text-xs">Category</span>
+                      <p className="font-medium">{extractedData.category || 'Other'}</p>
+                    </div>
+                    {extractedData.note && (
+                      <div className="col-span-2 bg-background p-2 rounded-lg">
+                        <span className="text-muted-foreground text-xs">Store/Note</span>
+                        <p className="font-medium truncate">{extractedData.note}</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={handleConfirmExtractedData}
+                    >
+                      <Check className="w-4 h-4 mr-1" /> {t("useThisData")}
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={handleCancelExtractedData}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
 

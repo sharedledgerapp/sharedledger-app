@@ -309,24 +309,24 @@ function CreateGoalDialog({
               <SelectTrigger className="rounded-xl" data-testid="select-visibility">
                 <SelectValue placeholder="Select visibility" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-popover">
                 <SelectItem value="private">
-                  <div className="flex items-center gap-2">
-                    <Lock className="w-3.5 h-3.5" />
+                  <span className="flex items-center gap-2">
+                    <Lock className="w-3.5 h-3.5 flex-shrink-0" />
                     <span>Private - Only you can see</span>
-                  </div>
+                  </span>
                 </SelectItem>
                 <SelectItem value="shared">
-                  <div className="flex items-center gap-2">
-                    <Globe className="w-3.5 h-3.5" />
+                  <span className="flex items-center gap-2">
+                    <Globe className="w-3.5 h-3.5 flex-shrink-0" />
                     <span>Shared - Visible to family</span>
-                  </div>
+                  </span>
                 </SelectItem>
                 <SelectItem value="family">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-3.5 h-3.5" />
+                  <span className="flex items-center gap-2">
+                    <Users className="w-3.5 h-3.5 flex-shrink-0" />
                     <span>Family Goal - Needs approval</span>
-                  </div>
+                  </span>
                 </SelectItem>
               </SelectContent>
             </Select>

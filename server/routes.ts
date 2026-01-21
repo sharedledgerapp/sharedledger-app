@@ -10,6 +10,7 @@ import { insertUserSchema, families } from "@shared/schema";
 import multer from "multer";
 import passport from "passport";
 import { db } from "./db";
+import { GoogleGenAI } from "@google/genai";
 
 // Middleware to check if user is authenticated
 function requireAuth(req: Request, res: Response, next: NextFunction) {
@@ -110,11 +111,89 @@ export async function registerRoutes(
       name: z.string().min(1).optional(),
       profileImageUrl: z.string().url().optional().nullable(),
       language: z.enum(["en", "fr"]).optional(),
+      currency: z.string().optional(),
     });
     
     const updates = updateSchema.parse(req.body);
     const updated = await storage.updateUser(user.id, updates);
     res.json(updated);
+  });
+
+  // === RECEIPT OCR ROUTE ===
+  
+  const ai = new GoogleGenAI({
+    apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+    httpOptions: {
+      apiVersion: "",
+      baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+    },
+  });
+
+  app.post("/api/receipts/scan", requireAuth, upload.single('receipt'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No receipt image uploaded" });
+      }
+
+      const b64 = Buffer.from(req.file.buffer).toString('base64');
+      const mimeType = req.file.mimetype;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                inlineData: {
+                  mimeType: mimeType,
+                  data: b64,
+                },
+              },
+              {
+                text: `Analyze this receipt image and extract the following information in JSON format:
+{
+  "amount": number (total amount, just the number),
+  "category": string (one of: "Food", "Transport", "Entertainment", "Shopping", "Utilities", "Education", "Health", "Other"),
+  "note": string (store name or description of purchase),
+  "date": string (date in ISO format if visible, otherwise null),
+  "items": array of {name: string, price: number} (individual line items if visible)
+}
+
+If any field cannot be determined, use null. Be precise with the total amount. Respond ONLY with valid JSON, no markdown.`,
+              },
+            ],
+          },
+        ],
+      });
+
+      const text = response.text || "";
+      
+      // Parse the JSON response
+      let extractedData;
+      try {
+        // Clean up response if it has markdown code blocks
+        const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        extractedData = JSON.parse(cleanedText);
+      } catch (parseError) {
+        console.error("Failed to parse OCR response:", text);
+        return res.status(500).json({ 
+          message: "Failed to parse receipt data", 
+          rawText: text 
+        });
+      }
+
+      // Also return the image as data URI for preview
+      const imageUrl = `data:${mimeType};base64,${b64}`;
+
+      res.json({
+        extracted: extractedData,
+        imageUrl,
+      });
+    } catch (error) {
+      console.error("Receipt scan error:", error);
+      res.status(500).json({ message: "Failed to scan receipt" });
+    }
   });
 
   // === FAMILY ROUTES ===

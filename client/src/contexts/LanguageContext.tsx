@@ -17,7 +17,8 @@ type TranslationKey =
   | "viewSpendingReflections" | "financialSnapshot" | "hi"
   | "priority" | "daysLeft" | "dueToday" | "viewAllGoals" | "categoryDetails"
   | "profileUpdated" | "changesSaved" | "error" | "failedToUpdate" | "yourName"
-  | "imageUrlPlaceholder";
+  | "imageUrlPlaceholder" | "currency" | "scanReceipt" | "scanning" | "confirmDetails"
+  | "extractedFromReceipt" | "useThisData" | "tryAgain";
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -71,6 +72,13 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     failedToUpdate: "Failed to update profile.",
     yourName: "Your name",
     imageUrlPlaceholder: "Image URL (optional)",
+    currency: "Currency",
+    scanReceipt: "Scan Receipt",
+    scanning: "Scanning...",
+    confirmDetails: "Confirm Details",
+    extractedFromReceipt: "Extracted from receipt",
+    useThisData: "Use This Data",
+    tryAgain: "Try Again",
   },
   fr: {
     home: "Accueil",
@@ -123,6 +131,13 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     failedToUpdate: "Impossible de mettre à jour le profil.",
     yourName: "Votre nom",
     imageUrlPlaceholder: "URL de l'image (optionnel)",
+    currency: "Devise",
+    scanReceipt: "Scanner le reçu",
+    scanning: "Numérisation...",
+    confirmDetails: "Confirmer les détails",
+    extractedFromReceipt: "Extrait du reçu",
+    useThisData: "Utiliser ces données",
+    tryAgain: "Réessayer",
   },
 };
 
