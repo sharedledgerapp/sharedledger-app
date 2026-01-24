@@ -97,3 +97,32 @@ The `shared/` directory contains code used by both frontend and backend:
 ### UI/UX Improvements
 - Fixed Select dropdown backgrounds (added `bg-popover` class) to prevent text obscuration
 - Added proper `data-testid` attributes for all new interactive elements
+
+### Progressive Web App (PWA)
+- **Manifest**: `/manifest.json` with app name, icons, standalone display mode
+- **Service Worker**: `/sw.js` with caching strategies:
+  - Cache-first for static assets (JS, CSS, images, fonts)
+  - Network-first for API calls with offline fallback
+  - Navigation fallback to `/` for SPA routing
+- **Icons**: 192x192 and 512x512 PNG icons with both "any" and "maskable" purposes
+- **Update Flow**: Prompts users when updates are available, reloads on controllerchange
+- **iOS/Android Meta Tags**: Full mobile web app capability support
+
+#### Installing the PWA
+1. Open the app URL in Chrome (Android) or Safari (iOS)
+2. Android: Tap menu (⋮) → "Add to Home Screen" or "Install app"
+3. iOS: Tap Share button → "Add to Home Screen"
+4. The app will launch in standalone mode without browser UI
+
+#### PWA Best Practices for Testing
+- The service worker caches pages and assets as users visit them
+- API data is cached for offline viewing (network-first strategy)
+- Updates are automatic - users get prompted when new versions are deployed
+- The Replit URL remains stable for consistent testing
+
+#### Offline Limitations (Private Testing)
+- Assets are cached on-demand (not precached at install time)
+- For reliable offline use: Open the app and visit key pages while online first
+- After initial use, cached pages and data will work offline
+- First-time offline access without prior online use may not work
+- This is acceptable for private family testing; production deployment would require additional precaching setup
