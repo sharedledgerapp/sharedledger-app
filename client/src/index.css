@@ -31,6 +31,10 @@
   --card: 0 0% 100%;
   --card-foreground: 222 47% 11%;
   
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --popover-border: 240 6% 90%;
+  
   --radius: 1rem;
   
   --font-sans: 'DM Sans', sans-serif;

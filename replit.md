@@ -109,7 +109,8 @@ The `shared/` directory contains code used by both frontend and backend:
 - All new features include translation keys for both languages
 
 ### UI/UX Improvements
-- Fixed Select dropdown backgrounds (added `bg-popover` class) to prevent text obscuration
+- Fixed Select dropdown backgrounds by adding missing CSS variables (`--popover`, `--popover-foreground`, `--popover-border`) to index.css
+- Dropdown menus now have solid white backgrounds instead of transparent
 - Added proper `data-testid` attributes for all new interactive elements
 
 ### Progressive Web App (PWA)
