@@ -211,14 +211,24 @@ function CreateExpenseDialog({
   };
 
   const handleConfirmExtractedData = () => {
+    console.log("[Expense] Use This Data clicked, extractedData:", extractedData);
     if (extractedData) {
-      if (extractedData.amount) setAmount(extractedData.amount.toString());
+      if (extractedData.amount) {
+        const amountStr = extractedData.amount.toString();
+        console.log("[Expense] Setting amount from OCR:", amountStr);
+        setAmount(amountStr);
+      }
       if (extractedData.category && CATEGORIES.includes(extractedData.category)) {
+        console.log("[Expense] Setting category from OCR:", extractedData.category);
         setCategory(extractedData.category);
       }
-      if (extractedData.note) setNote(extractedData.note);
+      if (extractedData.note) {
+        console.log("[Expense] Setting note from OCR:", extractedData.note);
+        setNote(extractedData.note);
+      }
     }
     setShowReceiptConfirm(false);
+    console.log("[Expense] Receipt confirm dialog closed, form should be populated");
   };
 
   const handleCancelExtractedData = () => {
