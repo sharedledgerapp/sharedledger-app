@@ -255,8 +255,15 @@ function CreateExpenseDialog({
   const familyMembers = familyData?.members.filter(m => m.id !== user?.id) || [];
 
   const handleSubmit = async () => {
-    if (amount === "0") return;
-    if (!user?.familyId) return;
+    console.log("[Expense] handleSubmit called, amount:", amount, "familyId:", user?.familyId);
+    if (amount === "0") {
+      console.log("[Expense] Rejected: amount is 0");
+      return;
+    }
+    if (!user?.familyId) {
+      console.log("[Expense] Rejected: no familyId");
+      return;
+    }
 
     let receiptUrl = editingExpense?.receiptUrl;
     if (file) {
@@ -570,17 +577,18 @@ function CreateExpenseDialog({
           </div>
         </div>
 
-        <div className="sticky bottom-0 p-6 bg-background border-t">
+        <div className="sticky bottom-0 p-6 bg-background border-t z-20">
             <Button 
               type="button"
               className="w-full h-14 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20" 
               onClick={(e) => {
-                console.log("[Expense] Button clicked");
+                console.log("[Expense] Button clicked, amount:", amount, "canSubmit:", canSubmit);
                 e.preventDefault();
                 e.stopPropagation();
                 handleSubmit();
               }}
               disabled={!canSubmit || isPending}
+              data-testid="button-save-expense"
             >
               {isPending ? <Loader2 className="animate-spin" /> : "Save Expense"}
             </Button>
