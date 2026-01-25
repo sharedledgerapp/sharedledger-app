@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, Split, ScanLine, Check, X, DollarSign } from "lucide-react";
+import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, Split, ScanLine, Check, X, DollarSign, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Keypad } from "@/components/Keypad";
 import { format } from "date-fns";
@@ -16,29 +16,19 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
+import { useDeleteExpense } from "@/hooks/use-data";
+import { getCurrencySymbol, CURRENCIES } from "@/lib/currency";
 
 const CATEGORIES = ["Food", "Transport", "Entertainment", "Shopping", "Utilities", "Education", "Health", "Other"];
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: "$",
-  EUR: "\u20ac",
-  GBP: "\u00a3",
-  CAD: "C$",
-  AUD: "A$",
-  JPY: "\u00a5",
-  CHF: "CHF",
-  CNY: "\u00a5",
-  INR: "\u20b9",
-  MXN: "MX$",
-};
 
 export default function ExpensesPage() {
   const { data: expenses, isLoading } = useExpenses();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<any>(null);
   const { user } = useAuth();
+  const deleteMutation = useDeleteExpense();
   
-  const currencySymbol = CURRENCY_SYMBOLS[(user as any)?.currency || "USD"] || "$";
+  const currencySymbol = getCurrencySymbol(user?.currency);
 
   return (
     <div className="space-y-6 pb-20">
@@ -62,10 +52,12 @@ export default function ExpensesPage() {
           {expenses?.map((expense) => (
             <div 
               key={expense.id} 
-              onClick={() => setEditingExpense(expense)}
-              className="bg-white p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between group cursor-pointer hover:border-primary/30 transition-colors"
+              className="bg-white dark:bg-card p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between group hover:border-primary/30 transition-colors"
             >
-              <div className="flex items-center gap-3">
+              <div 
+                className="flex items-center gap-3 flex-1 cursor-pointer"
+                onClick={() => setEditingExpense(expense)}
+              >
                 <div className="w-12 h-12 rounded-2xl bg-secondary/50 flex items-center justify-center text-2xl group-hover:scale-105 transition-transform">
                   {getCategoryEmoji(expense.category)}
                 </div>
@@ -88,8 +80,22 @@ export default function ExpensesPage() {
                   </div>
                 </div>
               </div>
-              <div className="text-right">
+              <div className="flex items-center gap-2">
                 <span className="block font-bold text-lg">-{currencySymbol}{Number(expense.amount).toFixed(2)}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (confirm("Are you sure you want to delete this expense?")) {
+                      deleteMutation.mutate(expense.id);
+                    }
+                  }}
+                  data-testid={`button-delete-expense-${expense.id}`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
               </div>
             </div>
           ))}
@@ -122,19 +128,6 @@ interface ExtractedReceiptData {
   date: string | null;
   items: Array<{ name: string; price: number }> | null;
 }
-
-const CURRENCIES = [
-  { code: "USD", symbol: "$", name: "US Dollar" },
-  { code: "EUR", symbol: "\u20ac", name: "Euro" },
-  { code: "GBP", symbol: "\u00a3", name: "British Pound" },
-  { code: "CAD", symbol: "C$", name: "Canadian Dollar" },
-  { code: "AUD", symbol: "A$", name: "Australian Dollar" },
-  { code: "JPY", symbol: "\u00a5", name: "Japanese Yen" },
-  { code: "CHF", symbol: "CHF", name: "Swiss Franc" },
-  { code: "CNY", symbol: "\u00a5", name: "Chinese Yuan" },
-  { code: "INR", symbol: "\u20b9", name: "Indian Rupee" },
-  { code: "MXN", symbol: "MX$", name: "Mexican Peso" },
-];
 
 function CreateExpenseDialog({ 
   open, 

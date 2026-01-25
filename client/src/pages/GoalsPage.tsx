@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useGoals, useCreateGoal, useUpdateGoal, useDeleteGoal, useUpload } from "@/hooks/use-data";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -13,14 +14,17 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { sortGoalsByPriority, type GoalPriority } from "@/lib/goals";
+import { getCurrencySymbol } from "@/lib/currency";
 
 export default function GoalsPage() {
+  const { user } = useAuth();
   const { data: goals, isLoading } = useGoals();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<any>(null);
 
   const deleteMutation = useDeleteGoal();
   const updateMutation = useUpdateGoal();
+  const currencySymbol = getCurrencySymbol(user?.currency);
 
   return (
     <div className="space-y-6 pb-20">
@@ -93,8 +97,8 @@ export default function GoalsPage() {
 
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm font-medium">
-                    <span>${Number(goal.currentAmount).toLocaleString()} saved</span>
-                    <span className="text-muted-foreground">of ${Number(goal.targetAmount).toLocaleString()}</span>
+                    <span>{currencySymbol}{Number(goal.currentAmount).toLocaleString()} saved</span>
+                    <span className="text-muted-foreground">of {currencySymbol}{Number(goal.targetAmount).toLocaleString()}</span>
                   </div>
                   <Progress value={progress} className="h-3 rounded-full bg-secondary" />
                   <div className="flex justify-end">
@@ -296,7 +300,7 @@ function CreateGoalDialog({
               <SelectTrigger className="rounded-xl" data-testid="select-priority">
                 <SelectValue placeholder="Select priority" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-popover">
                 <SelectItem value="low">Low</SelectItem>
                 <SelectItem value="medium">Medium</SelectItem>
                 <SelectItem value="high">High (Top Priority)</SelectItem>

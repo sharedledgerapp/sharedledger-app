@@ -119,6 +119,23 @@ export async function registerRoutes(
     res.json(updated);
   });
 
+  // === DELETE ACCOUNT ===
+  app.delete("/api/user/account", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    try {
+      await storage.deleteUser(user.id);
+      req.logout((err) => {
+        if (err) {
+          console.error("Logout error after account deletion:", err);
+        }
+        res.status(200).json({ message: "Account deleted successfully" });
+      });
+    } catch (error) {
+      console.error("Failed to delete account:", error);
+      res.status(500).json({ message: "Failed to delete account" });
+    }
+  });
+
   // === RECEIPT OCR ROUTE ===
   
   const ai = new GoogleGenAI({

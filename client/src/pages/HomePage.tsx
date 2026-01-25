@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { format, differenceInDays } from "date-fns";
 import { sortGoalsByPriority } from "@/lib/goals";
 import { Badge } from "@/components/ui/badge";
+import { getCurrencySymbol } from "@/lib/currency";
 
 const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa"];
 
@@ -18,6 +19,7 @@ export default function HomePage() {
   const { t, language } = useLanguage();
   const { data: expenses, isLoading: expensesLoading } = useExpenses();
   const { data: goals, isLoading: goalsLoading } = useGoals();
+  const currencySymbol = getCurrencySymbol(user?.currency);
   
   if (expensesLoading || goalsLoading) {
     return <DashboardSkeleton />;
@@ -63,7 +65,7 @@ export default function HomePage() {
               <span className="text-sm font-medium">{t("totalSpent")}</span>
             </div>
             <div className="text-4xl font-display font-bold">
-              ${totalSpent.toFixed(2)}
+              {currencySymbol}{totalSpent.toFixed(2)}
             </div>
             <div className="mt-4 flex gap-3 text-xs font-medium text-white/90">
               <div className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg backdrop-blur-sm">
@@ -105,7 +107,7 @@ export default function HomePage() {
               <CardContent className="p-4 pt-0 space-y-3">
                 <div className="text-lg font-bold truncate">{topGoal.title}</div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>${Number(topGoal.currentAmount).toLocaleString()} / ${Number(topGoal.targetAmount).toLocaleString()}</span>
+                  <span>{currencySymbol}{Number(topGoal.currentAmount).toLocaleString()} / {currencySymbol}{Number(topGoal.targetAmount).toLocaleString()}</span>
                   <span className="font-medium text-primary">{progress.toFixed(0)}%</span>
                 </div>
                 {daysUntilDeadline !== null && daysUntilDeadline >= 0 && (
@@ -202,7 +204,7 @@ export default function HomePage() {
                   <p className="text-xs text-muted-foreground">{format(new Date(expense.date), "MMM d")}</p>
                 </div>
               </div>
-              <span className="font-bold text-foreground">-${Number(expense.amount).toFixed(2)}</span>
+              <span className="font-bold text-foreground">-{currencySymbol}{Number(expense.amount).toFixed(2)}</span>
             </div>
           ))}
           {!expenses?.length && (

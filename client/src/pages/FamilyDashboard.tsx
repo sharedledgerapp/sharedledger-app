@@ -9,12 +9,14 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, Shield, ShieldOff, TrendingDown, ChevronRight, Wallet, Trophy, Target, Globe, Check, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { getCurrencySymbol } from "@/lib/currency";
 
 export default function FamilyDashboard() {
   const { user } = useAuth();
   const { data: familyData, isLoading } = useFamily();
   const [viewingMember, setViewingMember] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<"expenses" | "goals">("expenses");
+  const currencySymbol = getCurrencySymbol(user?.currency);
 
   if (isLoading) {
     return (
@@ -80,7 +82,7 @@ export default function FamilyDashboard() {
                       </div>
                     ) : (
                       <div>
-                        <span className="text-lg font-bold">${Number(member.total).toFixed(2)}</span>
+                        <span className="text-lg font-bold">{currencySymbol}{Number(member.total).toFixed(2)}</span>
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider">This Month</p>
                       </div>
                     )}
@@ -98,7 +100,7 @@ export default function FamilyDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">${familyTotal.toFixed(2)}</div>
+              <div className="text-3xl font-bold">{currencySymbol}{familyTotal.toFixed(2)}</div>
               <p className="text-xs opacity-70 mt-1">Total aggregated spending across all visible members</p>
             </CardContent>
           </Card>
@@ -132,6 +134,7 @@ function SharedGoalsView() {
   const { user } = useAuth();
   const { data: sharedGoals, isLoading } = useSharedGoals();
   const approveGoalMutation = useApproveGoal();
+  const currencySymbol = getCurrencySymbol(user?.currency);
 
   if (isLoading) {
     return (
@@ -170,6 +173,7 @@ function SharedGoalsView() {
                 isParent={user?.role === "parent"}
                 onApprove={() => approveGoalMutation.mutate(goal.id)}
                 isApproving={approveGoalMutation.isPending}
+                currencySymbol={currencySymbol}
               />
             ))}
           </div>
@@ -184,7 +188,7 @@ function SharedGoalsView() {
           </div>
           <div className="grid gap-3">
             {personalSharedGoals.map((goal: any) => (
-              <GoalCard key={goal.id} goal={goal} />
+              <GoalCard key={goal.id} goal={goal} currencySymbol={currencySymbol} />
             ))}
           </div>
         </div>
@@ -205,12 +209,14 @@ function GoalCard({
   goal, 
   isParent, 
   onApprove,
-  isApproving 
+  isApproving,
+  currencySymbol 
 }: { 
   goal: any; 
   isParent?: boolean;
   onApprove?: () => void;
   isApproving?: boolean;
+  currencySymbol: string;
 }) {
   const progress = Math.min(100, (Number(goal.currentAmount) / Number(goal.targetAmount)) * 100);
   const needsApproval = goal.visibility === "family" && !goal.isApproved;
@@ -251,8 +257,8 @@ function GoalCard({
 
         <div className="space-y-2">
           <div className="flex justify-between text-xs">
-            <span className="font-medium">${Number(goal.currentAmount).toLocaleString()}</span>
-            <span className="text-muted-foreground">of ${Number(goal.targetAmount).toLocaleString()}</span>
+            <span className="font-medium">{currencySymbol}{Number(goal.currentAmount).toLocaleString()}</span>
+            <span className="text-muted-foreground">of {currencySymbol}{Number(goal.targetAmount).toLocaleString()}</span>
           </div>
           <Progress value={progress} className="h-2 rounded-full bg-secondary" />
           <div className="flex justify-between items-center">
@@ -287,7 +293,9 @@ function GoalCard({
 }
 
 function MemberDetailsDialog({ member, open, onOpenChange }: { member: any; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { user } = useAuth();
   const { data: expenses, isLoading } = useExpenses(member.id);
+  const currencySymbol = getCurrencySymbol(user?.currency);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -328,7 +336,7 @@ function MemberDetailsDialog({ member, open, onOpenChange }: { member: any; open
                         <p className="text-[10px] text-muted-foreground">{format(new Date(expense.date), "MMM d, h:mm a")}</p>
                       </div>
                     </div>
-                    <span className="font-bold text-sm">-${Number(expense.amount).toFixed(2)}</span>
+                    <span className="font-bold text-sm">-{currencySymbol}{Number(expense.amount).toFixed(2)}</span>
                   </div>
                 ))
               )}

@@ -21,6 +21,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser & { familyId?: number }): Promise<User>;
   updateUser(id: number, updates: Partial<Pick<User, 'name' | 'profileImageUrl' | 'language' | 'currency'>>): Promise<User>;
+  deleteUser(id: number): Promise<void>;
   
   // Family
   createFamily(family: InsertFamily): Promise<Family>;
@@ -85,6 +86,34 @@ export class DatabaseStorage implements IStorage {
   async updateUser(id: number, updates: Partial<Pick<User, 'name' | 'profileImageUrl' | 'language' | 'currency'>>): Promise<User> {
     const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
     return user;
+  }
+
+  async deleteUser(id: number): Promise<void> {
+    // Delete user's expense splits first
+    await db.delete(expenseSplits).where(eq(expenseSplits.userId, id));
+    
+    // Delete user's expenses and their splits
+    const userExpenses = await db.select({ id: expenses.id }).from(expenses).where(eq(expenses.userId, id));
+    for (const expense of userExpenses) {
+      await db.delete(expenseSplits).where(eq(expenseSplits.expenseId, expense.id));
+    }
+    await db.delete(expenses).where(eq(expenses.userId, id));
+    
+    // Delete user's goal approvals
+    await db.delete(goalApprovals).where(eq(goalApprovals.userId, id));
+    
+    // Delete user's goals and their approvals
+    const userGoals = await db.select({ id: goals.id }).from(goals).where(eq(goals.userId, id));
+    for (const goal of userGoals) {
+      await db.delete(goalApprovals).where(eq(goalApprovals.goalId, goal.id));
+    }
+    await db.delete(goals).where(eq(goals.userId, id));
+    
+    // Delete user's allowances
+    await db.delete(allowances).where(eq(allowances.childId, id));
+    
+    // Finally delete the user
+    await db.delete(users).where(eq(users.id, id));
   }
 
   // Family

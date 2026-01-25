@@ -7,33 +7,48 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, User, Globe, ChevronLeft, Loader2, DollarSign } from "lucide-react";
-import { Link } from "wouter";
+import { LogOut, User, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-
-const CURRENCIES = [
-  { code: "USD", symbol: "$", name: "US Dollar" },
-  { code: "EUR", symbol: "€", name: "Euro" },
-  { code: "GBP", symbol: "£", name: "British Pound" },
-  { code: "CAD", symbol: "$", name: "Canadian Dollar" },
-  { code: "AUD", symbol: "$", name: "Australian Dollar" },
-  { code: "JPY", symbol: "¥", name: "Japanese Yen" },
-  { code: "CHF", symbol: "Fr", name: "Swiss Franc" },
-  { code: "CNY", symbol: "¥", name: "Chinese Yuan" },
-  { code: "INR", symbol: "₹", name: "Indian Rupee" },
-  { code: "MXN", symbol: "$", name: "Mexican Peso" },
-];
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { CURRENCIES } from "@/lib/currency";
 
 export default function SettingsPage() {
   const { user, logoutMutation } = useAuth();
   const { language, setLanguage, t, isUpdating: isLanguageUpdating } = useLanguage();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   
   const [name, setName] = useState(user?.name || "");
   const [profileImageUrl, setProfileImageUrl] = useState(user?.profileImageUrl || "");
-  const [currency, setCurrency] = useState((user as any)?.currency || "USD");
+  const [currency, setCurrency] = useState((user as any)?.currency || "EUR");
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("DELETE", "/api/user/account");
+      if (!res.ok) throw new Error("Failed to delete account");
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      toast({
+        title: t("accountDeleted") || "Account Deleted",
+        description: t("accountDeletedMessage") || "Your account has been permanently deleted.",
+      });
+      setLocation("/auth");
+    },
+    onError: () => {
+      toast({
+        title: t("error"),
+        description: t("failedToDeleteAccount") || "Failed to delete account. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: { name?: string; profileImageUrl?: string; currency?: string }) => {
@@ -153,7 +168,7 @@ export default function SettingsPage() {
             <SelectTrigger className="w-full" data-testid="select-currency">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-popover">
               {CURRENCIES.map((curr) => (
                 <SelectItem key={curr.code} value={curr.code} data-testid={`option-currency-${curr.code}`}>
                   <span className="flex items-center gap-2">
@@ -183,7 +198,7 @@ export default function SettingsPage() {
             <SelectTrigger className="w-full" data-testid="select-language">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-popover">
               <SelectItem value="en" data-testid="option-english">
                 {t("english")}
               </SelectItem>
@@ -195,10 +210,10 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-border/50 border-destructive/30">
+      <Card className="border-border/50">
         <CardContent className="pt-6">
           <Button 
-            variant="destructive" 
+            variant="outline" 
             className="w-full"
             onClick={() => logoutMutation.mutate()}
             disabled={logoutMutation.isPending}
@@ -213,6 +228,83 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <Card className="border-border/50 border-destructive/30">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2 text-destructive">
+            <AlertTriangle className="w-5 h-5" />
+            {t("dangerZone") || "Danger Zone"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            {t("deleteAccountWarning") || "Once you delete your account, there is no going back. All your data will be permanently removed."}
+          </p>
+          <Button 
+            variant="destructive" 
+            className="w-full"
+            onClick={() => setShowDeleteDialog(true)}
+            data-testid="button-delete-account"
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            {t("deleteAccount") || "Delete Account"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-destructive flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              {t("confirmDeleteAccount") || "Delete Your Account?"}
+            </DialogTitle>
+            <DialogDescription>
+              {t("deleteAccountPermanent") || "This action cannot be undone. All your expenses, goals, and data will be permanently deleted."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Label htmlFor="delete-confirm">
+              {t("typeDeleteToConfirm") || 'Type "DELETE" to confirm:'}
+            </Label>
+            <Input
+              id="delete-confirm"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="DELETE"
+              data-testid="input-delete-confirm"
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeleteDialog(false);
+                setDeleteConfirmText("");
+              }}
+              data-testid="button-cancel-delete"
+            >
+              {t("cancel") || "Cancel"}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                deleteAccountMutation.mutate();
+                setShowDeleteDialog(false);
+              }}
+              disabled={deleteConfirmText !== "DELETE" || deleteAccountMutation.isPending}
+              data-testid="button-confirm-delete"
+            >
+              {deleteAccountMutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4 mr-2" />
+              )}
+              {t("deleteAccountPermanently") || "Delete Account Permanently"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

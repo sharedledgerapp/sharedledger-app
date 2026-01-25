@@ -19,7 +19,10 @@ type TranslationKey =
   | "profileUpdated" | "changesSaved" | "error" | "failedToUpdate" | "yourName"
   | "imageUrlPlaceholder" | "currency" | "scanReceipt" | "scanning" | "confirmDetails"
   | "extractedFromReceipt" | "useThisData" | "tryAgain"
-  | "selectCurrency" | "currencyPromptMessage" | "confirmCurrency";
+  | "selectCurrency" | "currencyPromptMessage" | "confirmCurrency"
+  | "dangerZone" | "deleteAccountWarning" | "deleteAccount" | "confirmDeleteAccount"
+  | "deleteAccountPermanent" | "typeDeleteToConfirm" | "deleteAccountPermanently"
+  | "accountDeleted" | "accountDeletedMessage" | "failedToDeleteAccount";
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -83,6 +86,16 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     selectCurrency: "Select Your Currency",
     currencyPromptMessage: "Choose the currency you'll use for tracking expenses. You can change this anytime in Settings.",
     confirmCurrency: "Confirm Currency",
+    dangerZone: "Danger Zone",
+    deleteAccountWarning: "Once you delete your account, there is no going back. All your data will be permanently removed.",
+    deleteAccount: "Delete Account",
+    confirmDeleteAccount: "Delete Your Account?",
+    deleteAccountPermanent: "This action cannot be undone. All your expenses, goals, and data will be permanently deleted.",
+    typeDeleteToConfirm: 'Type "DELETE" to confirm:',
+    deleteAccountPermanently: "Delete Account Permanently",
+    accountDeleted: "Account Deleted",
+    accountDeletedMessage: "Your account has been permanently deleted.",
+    failedToDeleteAccount: "Failed to delete account. Please try again.",
   },
   fr: {
     home: "Accueil",
@@ -145,6 +158,16 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     selectCurrency: "Sélectionnez votre devise",
     currencyPromptMessage: "Choisissez la devise que vous utiliserez pour suivre vos dépenses. Vous pouvez la modifier à tout moment dans les Paramètres.",
     confirmCurrency: "Confirmer la devise",
+    dangerZone: "Zone de danger",
+    deleteAccountWarning: "Une fois votre compte supprimé, il n'y a pas de retour en arrière. Toutes vos données seront définitivement supprimées.",
+    deleteAccount: "Supprimer le compte",
+    confirmDeleteAccount: "Supprimer votre compte?",
+    deleteAccountPermanent: "Cette action est irréversible. Toutes vos dépenses, objectifs et données seront définitivement supprimés.",
+    typeDeleteToConfirm: 'Tapez "DELETE" pour confirmer:',
+    deleteAccountPermanently: "Supprimer le compte définitivement",
+    accountDeleted: "Compte supprimé",
+    accountDeletedMessage: "Votre compte a été définitivement supprimé.",
+    failedToDeleteAccount: "Échec de la suppression du compte. Veuillez réessayer.",
   },
 };
 

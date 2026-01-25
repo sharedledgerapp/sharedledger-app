@@ -84,11 +84,25 @@ The `shared/` directory contains code used by both frontend and backend:
 - Confirmation UI allows users to review and accept/reject extracted data before saving
 
 ### Currency Preference
-- Added `currency` field to users table (default: "USD")
+- Added `currency` field to users table (default: "EUR")
 - Supported currencies: USD, EUR, GBP, CAD, AUD, JPY, CHF, CNY, INR, MXN
 - Currency selection available in Settings page
 - First-time expense prompt for currency selection if not set
-- Expense list displays amounts with user's preferred currency symbol
+- Currency utility (`client/src/lib/currency.ts`) provides `getCurrencySymbol()` and `formatAmount()` helpers
+- Currency symbols applied consistently across: HomePage, ExpensesPage, GoalsPage, FamilyDashboard
+
+### Account & Data Deletion
+- Users can delete expenses via trash icon on expense cards
+- Users can delete goals via trash icon on goal cards
+- DELETE `/api/user/account` endpoint for account deletion with cascade:
+  - Deletes user's expense splits
+  - Deletes user's expenses and their associated splits
+  - Deletes user's goal approvals
+  - Deletes user's goals and their associated approvals
+  - Deletes user's allowances
+  - Deletes the user account
+- Danger Zone UI in Settings page with confirmation dialog requiring "DELETE" text input
+- Full translation support (English/French) for deletion UI
 
 ### Multilingual Support
 - Translation system via `LanguageContext` with English and French
