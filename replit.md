@@ -104,6 +104,18 @@ The `shared/` directory contains code used by both frontend and backend:
 - Danger Zone UI in Settings page with confirmation dialog requiring "DELETE" text input
 - Full translation support (English/French) for deletion UI
 
+### Custom Expense Categories
+- Users can customize their expense categories in Settings
+- Default categories: Food, Transport, Entertainment, Shopping, Utilities, Education, Health, Other
+- `categories` text array field added to users table
+- Settings page includes Categories management section with:
+  - Add new category (max 20 categories, 30 chars each)
+  - Inline edit category names (click to edit)
+  - Remove categories
+  - Reset to defaults
+- Expense dialog uses user's custom categories with fallback to defaults
+- Hint link in expense dialog: "Customize categories in Settings"
+
 ### Multilingual Support
 - Translation system via `LanguageContext` with English and French
 - All new features include translation keys for both languages
