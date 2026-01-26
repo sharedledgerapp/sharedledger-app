@@ -112,6 +112,7 @@ export async function registerRoutes(
       profileImageUrl: z.string().url().optional().nullable(),
       language: z.enum(["en", "fr"]).optional(),
       currency: z.string().optional(),
+      categories: z.array(z.string().min(1).max(30)).max(20).optional(),
     });
     
     const updates = updateSchema.parse(req.body);

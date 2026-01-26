@@ -24,6 +24,7 @@ export const users = pgTable("users", {
   profileImageUrl: text("profile_image_url"),
   language: text("language", { enum: ["en", "fr"] }).default("en").notNull(),
   currency: text("currency").default("EUR").notNull(),
+  categories: text("categories").array(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

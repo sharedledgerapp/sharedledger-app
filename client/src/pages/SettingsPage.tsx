@@ -7,13 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, User, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle } from "lucide-react";
+import { LogOut, User, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CURRENCIES } from "@/lib/currency";
+
+export const DEFAULT_CATEGORIES = ["Food", "Transport", "Entertainment", "Shopping", "Utilities", "Education", "Health", "Other"];
 
 export default function SettingsPage() {
   const { user, logoutMutation } = useAuth();
@@ -26,6 +28,11 @@ export default function SettingsPage() {
   const [currency, setCurrency] = useState((user as any)?.currency || "EUR");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  
+  const userCategories = (user as any)?.categories as string[] | null;
+  const [categories, setCategories] = useState<string[]>(userCategories || DEFAULT_CATEGORIES);
+  const [newCategory, setNewCategory] = useState("");
+  const [editingCategory, setEditingCategory] = useState<{ index: number; value: string } | null>(null);
 
   const deleteAccountMutation = useMutation({
     mutationFn: async () => {
@@ -70,6 +77,67 @@ export default function SettingsPage() {
       });
     },
   });
+
+  const updateCategoriesMutation = useMutation({
+    mutationFn: async (newCategories: string[]) => {
+      const res = await apiRequest("PATCH", "/api/user/profile", { categories: newCategories });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      toast({
+        title: t("categoriesUpdated") || "Categories Updated",
+        description: t("changesSaved"),
+      });
+    },
+    onError: () => {
+      toast({
+        title: t("error"),
+        description: t("failedToUpdate"),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleAddCategory = () => {
+    const trimmed = newCategory.trim();
+    if (trimmed && !categories.includes(trimmed) && categories.length < 20) {
+      const updated = [...categories, trimmed];
+      setCategories(updated);
+      setNewCategory("");
+      updateCategoriesMutation.mutate(updated);
+    }
+  };
+
+  const handleRemoveCategory = (index: number) => {
+    if (categories.length > 1) {
+      const updated = categories.filter((_, i) => i !== index);
+      setCategories(updated);
+      updateCategoriesMutation.mutate(updated);
+    }
+  };
+
+  const handleEditCategory = (index: number) => {
+    setEditingCategory({ index, value: categories[index] });
+  };
+
+  const handleSaveEditCategory = () => {
+    if (editingCategory) {
+      const trimmed = editingCategory.value.trim();
+      if (trimmed && !categories.some((c, i) => c === trimmed && i !== editingCategory.index)) {
+        const updated = [...categories];
+        updated[editingCategory.index] = trimmed;
+        setCategories(updated);
+        updateCategoriesMutation.mutate(updated);
+      }
+      setEditingCategory(null);
+    }
+  };
+
+  const handleResetCategories = () => {
+    setCategories(DEFAULT_CATEGORIES);
+    updateCategoriesMutation.mutate(DEFAULT_CATEGORIES);
+  };
 
   const handleSaveProfile = () => {
     const updates: { name?: string; profileImageUrl?: string; currency?: string } = {};
@@ -207,6 +275,95 @@ export default function SettingsPage() {
               </SelectItem>
             </SelectContent>
           </Select>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Tag className="w-5 h-5 text-primary" />
+            {t("expenseCategories") || "Expense Categories"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            {t("customizeCategoriesDescription") || "Customize the categories for tracking your expenses. Click a category to edit its name."}
+          </p>
+          
+          <div className="space-y-2">
+            {categories.map((category, index) => (
+              <div 
+                key={index} 
+                className="flex items-center gap-2 p-2 rounded-lg border bg-card"
+                data-testid={`category-item-${index}`}
+              >
+                <GripVertical className="w-4 h-4 text-muted-foreground" />
+                {editingCategory?.index === index ? (
+                  <Input
+                    value={editingCategory.value}
+                    onChange={(e) => setEditingCategory({ ...editingCategory, value: e.target.value })}
+                    onBlur={handleSaveEditCategory}
+                    onKeyDown={(e) => e.key === "Enter" && handleSaveEditCategory()}
+                    className="flex-1 h-8"
+                    autoFocus
+                    maxLength={30}
+                    data-testid={`input-edit-category-${index}`}
+                  />
+                ) : (
+                  <span 
+                    className="flex-1 cursor-pointer hover:text-primary transition-colors"
+                    onClick={() => handleEditCategory(index)}
+                    data-testid={`text-category-${index}`}
+                  >
+                    {category}
+                  </span>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handleRemoveCategory(index)}
+                  disabled={categories.length <= 1 || updateCategoriesMutation.isPending}
+                  data-testid={`button-remove-category-${index}`}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-2">
+            <Input
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              placeholder={t("newCategoryPlaceholder") || "Add new category..."}
+              maxLength={30}
+              onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
+              data-testid="input-new-category"
+            />
+            <Button
+              onClick={handleAddCategory}
+              disabled={!newCategory.trim() || categories.length >= 20 || updateCategoriesMutation.isPending}
+              data-testid="button-add-category"
+            >
+              <Plus className="w-4 h-4" />
+            </Button>
+          </div>
+
+          <div className="flex justify-between items-center pt-2">
+            <span className="text-xs text-muted-foreground">
+              {categories.length}/20 {t("categories") || "categories"}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleResetCategories}
+              disabled={updateCategoriesMutation.isPending}
+              data-testid="button-reset-categories"
+            >
+              {t("resetToDefault") || "Reset to Default"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

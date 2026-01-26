@@ -18,8 +18,9 @@ import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useDeleteExpense } from "@/hooks/use-data";
 import { getCurrencySymbol, CURRENCIES } from "@/lib/currency";
-
-const CATEGORIES = ["Food", "Transport", "Entertainment", "Shopping", "Utilities", "Education", "Health", "Other"];
+import { DEFAULT_CATEGORIES } from "@/pages/SettingsPage";
+import { Link } from "wouter";
+import { Settings } from "lucide-react";
 
 export default function ExpensesPage() {
   const { data: expenses, isLoading } = useExpenses();
@@ -141,7 +142,7 @@ function CreateExpenseDialog({
   isFirstExpense?: boolean;
 }) {
   const [amount, setAmount] = useState("0");
-  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [category, setCategory] = useState(DEFAULT_CATEGORIES[0]);
   const [note, setNote] = useState("");
   const [isPublic, setIsPublic] = useState(false);
   const [splitType, setSplitType] = useState<"none" | "equal" | "exact">("none");
@@ -160,6 +161,8 @@ function CreateExpenseDialog({
   const createMutation = useCreateExpense();
   const updateMutation = useUpdateExpense();
   const uploadMutation = useUpload();
+  
+  const CATEGORIES = (user as any)?.categories || DEFAULT_CATEGORIES;
   
   const updateCurrencyMutation = useMutation({
     mutationFn: async (currency: string) => {
@@ -412,7 +415,7 @@ function CreateExpenseDialog({
 
           <div className="space-y-4">
             <div className="grid grid-cols-4 gap-2">
-              {CATEGORIES.map(cat => (
+              {CATEGORIES.map((cat: string) => (
                 <button
                   key={cat}
                   onClick={() => setCategory(cat)}
@@ -428,6 +431,11 @@ function CreateExpenseDialog({
                 </button>
               ))}
             </div>
+            
+            <Link href="/settings" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors">
+              <Settings className="w-3 h-3" />
+              <span>{t("customizeCategoriesHint")}</span>
+            </Link>
 
             <Input 
               placeholder="Add a note (optional)..." 

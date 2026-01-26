@@ -22,7 +22,9 @@ type TranslationKey =
   | "selectCurrency" | "currencyPromptMessage" | "confirmCurrency"
   | "dangerZone" | "deleteAccountWarning" | "deleteAccount" | "confirmDeleteAccount"
   | "deleteAccountPermanent" | "typeDeleteToConfirm" | "deleteAccountPermanently"
-  | "accountDeleted" | "accountDeletedMessage" | "failedToDeleteAccount";
+  | "accountDeleted" | "accountDeletedMessage" | "failedToDeleteAccount"
+  | "expenseCategories" | "customizeCategoriesDescription" | "newCategoryPlaceholder"
+  | "categories" | "resetToDefault" | "categoriesUpdated" | "customizeCategoriesHint";
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -96,6 +98,13 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     accountDeleted: "Account Deleted",
     accountDeletedMessage: "Your account has been permanently deleted.",
     failedToDeleteAccount: "Failed to delete account. Please try again.",
+    expenseCategories: "Expense Categories",
+    customizeCategoriesDescription: "Customize the categories for tracking your expenses. Click a category to edit its name.",
+    newCategoryPlaceholder: "Add new category...",
+    categories: "categories",
+    resetToDefault: "Reset to Default",
+    categoriesUpdated: "Categories Updated",
+    customizeCategoriesHint: "Customize categories in Settings",
   },
   fr: {
     home: "Accueil",
@@ -168,6 +177,13 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     accountDeleted: "Compte supprimé",
     accountDeletedMessage: "Votre compte a été définitivement supprimé.",
     failedToDeleteAccount: "Échec de la suppression du compte. Veuillez réessayer.",
+    expenseCategories: "Catégories de dépenses",
+    customizeCategoriesDescription: "Personnalisez les catégories pour suivre vos dépenses. Cliquez sur une catégorie pour modifier son nom.",
+    newCategoryPlaceholder: "Ajouter une catégorie...",
+    categories: "catégories",
+    resetToDefault: "Réinitialiser",
+    categoriesUpdated: "Catégories mises à jour",
+    customizeCategoriesHint: "Personnalisez les catégories dans Paramètres",
   },
 };
 
