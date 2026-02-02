@@ -27,6 +27,7 @@ export default function ExpensesPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<any>(null);
   const { user } = useAuth();
+  const { t } = useLanguage();
   const deleteMutation = useDeleteExpense();
   
   const currencySymbol = getCurrencySymbol(user?.currency);
@@ -66,16 +67,20 @@ export default function ExpensesPage() {
                   <p className="font-semibold text-foreground">{expense.note || expense.category}</p>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span>{format(new Date(expense.date), "MMM d, h:mm a")}</span>
-                    {(expense as any).paymentSource === "family" && (
+                    {(expense as any).paymentSource === "family" ? (
                       <Badge variant="outline" className="gap-1">
                         <Users className="w-3 h-3" />
-                        Family
+                        {t("familyBadge")}
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="gap-1">
+                        <Wallet className="w-3 h-3" />
+                        {t("personal")}
                       </Badge>
                     )}
                     {expense.visibility === "public" && (
-                      <Badge variant="secondary" className="gap-1">
-                        <Users className="w-3 h-3" />
-                        Shared
+                      <Badge variant="outline" className="gap-1 border-primary text-primary">
+                        {t("shared")}
                       </Badge>
                     )}
                   </div>

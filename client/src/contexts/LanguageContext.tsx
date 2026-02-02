@@ -27,7 +27,8 @@ type TranslationKey =
   | "categories" | "resetToDefault" | "categoriesUpdated" | "customizeCategoriesHint"
   | "paidWith" | "myMoney" | "familyMoney" | "reports" | "monthlyReport" | "weeklyReport"
   | "viewReports" | "noExpensesInPeriod" | "allCategories" | "backToReports"
-  | "previousMonth" | "nextMonth" | "previousWeek" | "nextWeek" | "expensesInCategory";
+  | "previousMonth" | "nextMonth" | "previousWeek" | "nextWeek" | "expensesInCategory"
+  | "expense" | "expensesPlural" | "personal" | "familyBadge";
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -123,6 +124,10 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     previousWeek: "Previous Week",
     nextWeek: "Next Week",
     expensesInCategory: "Expenses in",
+    expense: "expense",
+    expensesPlural: "expenses",
+    personal: "Personal",
+    familyBadge: "Family",
   },
   fr: {
     home: "Accueil",
@@ -217,6 +222,10 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     previousWeek: "Semaine précédente",
     nextWeek: "Semaine suivante",
     expensesInCategory: "Dépenses en",
+    expense: "dépense",
+    expensesPlural: "dépenses",
+    personal: "Personnel",
+    familyBadge: "Famille",
   },
 };
 

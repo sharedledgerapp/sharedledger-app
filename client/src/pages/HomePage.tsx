@@ -143,15 +143,15 @@ export default function HomePage() {
 
       {/* Spending Breakdown */}
       <section>
-        <Link href="/spending-reflections">
-          <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2 cursor-pointer hover:text-primary transition-colors group" data-testid="link-spending-reflections">
+        <Link href="/reports">
+          <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2 cursor-pointer hover:text-primary transition-colors group" data-testid="link-reports">
             <TrendingUp className="w-5 h-5 text-primary" /> 
             {t("spendingBreakdown")}
             <ChevronRight className="w-4 h-4 ml-auto text-muted-foreground group-hover:text-primary transition-colors" />
           </h3>
         </Link>
         
-        <Link href="/spending-reflections">
+        <Link href="/reports">
           <Card className="border-border/50 shadow-sm cursor-pointer hover:border-primary/50 transition-colors">
             <CardContent className="p-4 h-[250px]">
               {categoryData.length > 0 ? (

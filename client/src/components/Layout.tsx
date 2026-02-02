@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, Wallet, Users, Trophy, Shield, Settings } from "lucide-react";
+import { Home, Wallet, Users, Trophy, Shield, Settings, BarChart3 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
@@ -89,6 +89,9 @@ export function Layout({ children }: { children: ReactNode }) {
           </Link>
           <Link href="/family-dashboard" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
             <Shield className="w-5 h-5" /> {t("shared")}
+          </Link>
+          <Link href="/reports" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors" data-testid="link-reports-desktop">
+            <BarChart3 className="w-5 h-5" /> {t("reports")}
           </Link>
         </nav>
         <div className="pt-6 border-t border-border">

@@ -104,6 +104,22 @@ The `shared/` directory contains code used by both frontend and backend:
 - Danger Zone UI in Settings page with confirmation dialog requiring "DELETE" text input
 - Full translation support (English/French) for deletion UI
 
+### Payment Source Tracking
+- Replaced complex expense splitting with simple payment source indicator
+- `paymentSource` field added to expenses table (enum: "personal" | "family")
+- "Paid With" toggle in expense dialog: "My Money" vs "Family Money"
+- Payment source badge shown on expense cards
+- Default: "personal" (My Money)
+
+### Reports Page
+- New `/reports` route for historical expense analysis
+- Month/week period toggle with navigation
+- Total spent summary card with expense count
+- Pie chart breakdown by category
+- Clickable categories to view individual expenses
+- Category detail view shows all expenses in that category for the selected period
+- Links from Home page spending breakdown to Reports
+
 ### Custom Expense Categories
 - Users can customize their expense categories in Settings
 - Default categories: Food, Transport, Entertainment, Shopping, Utilities, Education, Health, Other
