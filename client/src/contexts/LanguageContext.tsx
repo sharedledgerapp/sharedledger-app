@@ -24,7 +24,10 @@ type TranslationKey =
   | "deleteAccountPermanent" | "typeDeleteToConfirm" | "deleteAccountPermanently"
   | "accountDeleted" | "accountDeletedMessage" | "failedToDeleteAccount"
   | "expenseCategories" | "customizeCategoriesDescription" | "newCategoryPlaceholder"
-  | "categories" | "resetToDefault" | "categoriesUpdated" | "customizeCategoriesHint";
+  | "categories" | "resetToDefault" | "categoriesUpdated" | "customizeCategoriesHint"
+  | "paidWith" | "myMoney" | "familyMoney" | "reports" | "monthlyReport" | "weeklyReport"
+  | "viewReports" | "noExpensesInPeriod" | "allCategories" | "backToReports"
+  | "previousMonth" | "nextMonth" | "previousWeek" | "nextWeek" | "expensesInCategory";
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -105,6 +108,21 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     resetToDefault: "Reset to Default",
     categoriesUpdated: "Categories Updated",
     customizeCategoriesHint: "Customize categories in Settings",
+    paidWith: "Paid With",
+    myMoney: "My Money",
+    familyMoney: "Family Money",
+    reports: "Reports",
+    monthlyReport: "Monthly Report",
+    weeklyReport: "Weekly Report",
+    viewReports: "View Reports",
+    noExpensesInPeriod: "No expenses in this period",
+    allCategories: "All Categories",
+    backToReports: "Back to Reports",
+    previousMonth: "Previous Month",
+    nextMonth: "Next Month",
+    previousWeek: "Previous Week",
+    nextWeek: "Next Week",
+    expensesInCategory: "Expenses in",
   },
   fr: {
     home: "Accueil",
@@ -184,6 +202,21 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     resetToDefault: "Réinitialiser",
     categoriesUpdated: "Catégories mises à jour",
     customizeCategoriesHint: "Personnalisez les catégories dans Paramètres",
+    paidWith: "Payé avec",
+    myMoney: "Mon argent",
+    familyMoney: "Argent familial",
+    reports: "Rapports",
+    monthlyReport: "Rapport mensuel",
+    weeklyReport: "Rapport hebdomadaire",
+    viewReports: "Voir les rapports",
+    noExpensesInPeriod: "Aucune dépense pour cette période",
+    allCategories: "Toutes les catégories",
+    backToReports: "Retour aux rapports",
+    previousMonth: "Mois précédent",
+    nextMonth: "Mois suivant",
+    previousWeek: "Semaine précédente",
+    nextWeek: "Semaine suivante",
+    expensesInCategory: "Dépenses en",
   },
 };
 

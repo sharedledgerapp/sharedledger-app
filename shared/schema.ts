@@ -38,6 +38,7 @@ export const expenses = pgTable("expenses", {
   receiptUrl: text("receipt_url"),
   visibility: text("visibility", { enum: ["private", "public"] }).default("private").notNull(),
   splitType: text("split_type", { enum: ["none", "equal", "exact"] }).default("none").notNull(),
+  paymentSource: text("payment_source", { enum: ["personal", "family"] }).default("personal").notNull(),
   date: timestamp("date").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });

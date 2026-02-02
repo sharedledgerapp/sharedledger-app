@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, Split, ScanLine, Check, X, DollarSign, Trash2 } from "lucide-react";
+import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, ScanLine, Check, X, DollarSign, Trash2, Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Keypad } from "@/components/Keypad";
 import { format } from "date-fns";
@@ -66,14 +66,14 @@ export default function ExpensesPage() {
                   <p className="font-semibold text-foreground">{expense.note || expense.category}</p>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span>{format(new Date(expense.date), "MMM d, h:mm a")}</span>
-                    {(expense as any).splitType !== "none" && (
-                      <Badge variant="outline">
-                        <Split className="w-3 h-3" />
-                        Split
+                    {(expense as any).paymentSource === "family" && (
+                      <Badge variant="outline" className="gap-1">
+                        <Users className="w-3 h-3" />
+                        Family
                       </Badge>
                     )}
-                    {expense.visibility === "public" && (expense as any).splitType === "none" && (
-                      <Badge variant="secondary">
+                    {expense.visibility === "public" && (
+                      <Badge variant="secondary" className="gap-1">
                         <Users className="w-3 h-3" />
                         Shared
                       </Badge>
@@ -145,9 +145,7 @@ function CreateExpenseDialog({
   const [category, setCategory] = useState(DEFAULT_CATEGORIES[0]);
   const [note, setNote] = useState("");
   const [isPublic, setIsPublic] = useState(false);
-  const [splitType, setSplitType] = useState<"none" | "equal" | "exact">("none");
-  const [splitWith, setSplitWith] = useState<number[]>([]);
-  const [exactAmounts, setExactAmounts] = useState<Record<number, string>>({});
+  const [paymentSource, setPaymentSource] = useState<"personal" | "family">("personal");
   const [file, setFile] = useState<File | null>(null);
   const [showReceiptConfirm, setShowReceiptConfirm] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedReceiptData | null>(null);
@@ -246,26 +244,15 @@ function CreateExpenseDialog({
       setCategory(editingExpense.category);
       setNote(editingExpense.note || "");
       setIsPublic(editingExpense.visibility === "public");
-      setSplitType(editingExpense.splitType);
-      const splitUserIds = editingExpense.splits?.map((s: any) => s.userId) || [];
-      setSplitWith(splitUserIds);
-      const exacts: Record<number, string> = {};
-      editingExpense.splits?.forEach((s: any) => {
-        exacts[s.userId] = s.amount.toString();
-      });
-      setExactAmounts(exacts);
+      setPaymentSource(editingExpense.paymentSource || "personal");
     } else {
       setAmount("0");
       setCategory(CATEGORIES[0]);
       setNote("");
       setIsPublic(false);
-      setSplitType("none");
-      setSplitWith([]);
-      setExactAmounts({});
+      setPaymentSource("personal");
     }
   }, [editingExpense, open]);
-
-  const familyMembers = familyData?.members.filter(m => m.id !== user?.id) || [];
 
   const handleSubmit = async () => {
     console.log("[Expense] handleSubmit called, amount:", amount, "familyId:", user?.familyId);
@@ -288,25 +275,15 @@ function CreateExpenseDialog({
       }
     }
 
-    const splits = splitType === "none" ? undefined : familyMembers
-      .filter(m => splitWith.includes(m.id))
-      .map(m => ({
-        userId: m.id,
-        amount: splitType === "equal" 
-          ? (Number(amount) / (splitWith.length + 1)).toFixed(2)
-          : exactAmounts[m.id] || "0"
-      }));
-
     const expenseData = {
       userId: user.id,
       amount,
       category,
       note,
-      visibility: (isPublic || splitType !== "none" ? "public" : "private") as "public" | "private",
-      splitType,
+      visibility: (isPublic ? "public" : "private") as "public" | "private",
+      paymentSource,
       receiptUrl,
       date: editingExpense ? editingExpense.date : new Date().toISOString(),
-      splits
     };
 
     if (editingExpense) {
@@ -445,60 +422,37 @@ function CreateExpenseDialog({
             />
 
             <div className="space-y-3">
-              <Label className="text-sm font-semibold">Expense Splitting</Label>
-              <Select value={splitType} onValueChange={(val: any) => setSplitType(val)}>
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="No splitting" />
-                </SelectTrigger>
-                <SelectContent className="bg-popover">
-                  <SelectItem value="none">No splitting (Personal)</SelectItem>
-                  <SelectItem value="equal">Split Equally</SelectItem>
-                  <SelectItem value="exact">Exact Amounts</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {splitType !== "none" && (
-                <div className="space-y-3 bg-muted/20 p-4 rounded-xl border border-border/50">
-                  <p className="text-xs text-muted-foreground mb-2">Select family members to split with:</p>
-                  {familyMembers.map(member => (
-                    <div key={member.id} className="flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-2">
-                        <Switch 
-                          checked={splitWith.includes(member.id)}
-                          onCheckedChange={(checked) => {
-                            if (checked) setSplitWith([...splitWith, member.id]);
-                            else setSplitWith(splitWith.filter(id => id !== member.id));
-                          }}
-                        />
-                        <span className="text-sm font-medium">{member.name}</span>
-                      </div>
-                      {splitType === "exact" && splitWith.includes(member.id) && (
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs text-muted-foreground">$</span>
-                          <Input 
-                            type="number" 
-                            className="w-20 h-8 text-sm px-2" 
-                            placeholder="0.00"
-                            value={exactAmounts[member.id] || ""}
-                            onChange={(e) => setExactAmounts({...exactAmounts, [member.id]: e.target.value})}
-                          />
-                        </div>
-                      )}
-                      {splitType === "equal" && splitWith.includes(member.id) && (
-                        <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-0.5 rounded">
-                          ${(Number(amount) / (splitWith.length + 1)).toFixed(2)}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                  {splitWith.length > 0 && (
-                    <div className="pt-2 border-t border-border/50 flex justify-between text-xs font-semibold">
-                      <span>Your share:</span>
-                      <span>${(Number(amount) - splitWith.reduce((acc, id) => acc + (splitType === "equal" ? Number(amount) / (splitWith.length + 1) : Number(exactAmounts[id] || 0)), 0)).toFixed(2)}</span>
-                    </div>
+              <Label className="text-sm font-semibold">{t("paidWith")}</Label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentSource("personal")}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all",
+                    paymentSource === "personal"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-background hover:bg-muted text-muted-foreground"
                   )}
-                </div>
-              )}
+                  data-testid="button-payment-personal"
+                >
+                  <Wallet className="w-4 h-4" />
+                  <span className="font-medium">{t("myMoney")}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentSource("family")}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all",
+                    paymentSource === "family"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-background hover:bg-muted text-muted-foreground"
+                  )}
+                  data-testid="button-payment-family"
+                >
+                  <Users className="w-4 h-4" />
+                  <span className="font-medium">{t("familyMoney")}</span>
+                </button>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -506,7 +460,7 @@ function CreateExpenseDialog({
                 <div className="flex items-center gap-2">
                   <Label htmlFor="public-mode" className="font-medium">Share with Family</Label>
                 </div>
-                <Switch id="public-mode" checked={isPublic || splitType !== "none"} disabled={splitType !== "none"} onCheckedChange={setIsPublic} />
+                <Switch id="public-mode" checked={isPublic} onCheckedChange={setIsPublic} data-testid="switch-share-family" />
               </div>
               <p className="text-xs text-muted-foreground px-1">
                 Only expenses you choose to share with your family will appear in the family dashboard.
