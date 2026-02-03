@@ -32,7 +32,8 @@ type TranslationKey =
   | "familyDashboard" | "members" | "month" | "week" | "sharedSpending"
   | "moneySourceSplit" | "familyMoneySource" | "personalMoneySource"
   | "noSharedExpenses" | "backToCategories" | "noExpensesInCategory"
-  | "spendingByCategory" | "familyGoals" | "recentSharedExpenses";
+  | "spendingByCategory" | "familyGoals" | "recentSharedExpenses"
+  | "statusCompleted" | "statusOnTrack" | "statusSlightlyBehind" | "statusBehind" | "priorityLabel";
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -146,6 +147,11 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     spendingByCategory: "Spending by Category",
     familyGoals: "Family Goals",
     recentSharedExpenses: "Recent Shared Expenses",
+    statusCompleted: "Completed",
+    statusOnTrack: "On Track",
+    statusSlightlyBehind: "Slightly Behind",
+    statusBehind: "Behind",
+    priorityLabel: "Priority",
   },
   fr: {
     home: "Accueil",
@@ -258,6 +264,11 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     spendingByCategory: "Dépenses par catégorie",
     familyGoals: "Objectifs familiaux",
     recentSharedExpenses: "Dépenses partagées récentes",
+    statusCompleted: "Terminé",
+    statusOnTrack: "En bonne voie",
+    statusSlightlyBehind: "Légèrement en retard",
+    statusBehind: "En retard",
+    priorityLabel: "Priorité",
   },
 };
 

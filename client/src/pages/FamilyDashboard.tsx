@@ -401,10 +401,10 @@ export default function FamilyDashboard() {
                 behind: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
               };
               const statusLabels = {
-                completed: "Completed",
-                on_track: "On Track",
-                slightly_behind: "Slightly Behind",
-                behind: "Behind",
+                completed: t("statusCompleted"),
+                on_track: t("statusOnTrack"),
+                slightly_behind: t("statusSlightlyBehind"),
+                behind: t("statusBehind"),
               };
               
               const daysLeft = goal.deadline 
@@ -423,7 +423,7 @@ export default function FamilyDashboard() {
                           <span className="font-medium">{goal.title}</span>
                           {goal.priority === "high" && (
                             <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
-                              <Flag className="w-2.5 h-2.5 mr-0.5" /> Priority
+                              <Flag className="w-2.5 h-2.5 mr-0.5" /> {t("priorityLabel")}
                             </Badge>
                           )}
                         </div>
