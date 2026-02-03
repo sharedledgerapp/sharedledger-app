@@ -1,0 +1,168 @@
+I want to implement a Family Dashboard that shows shared financial insights only, while respecting privacy and reusing existing components and logic where possible.
+
+🎯 Objective
+
+Create a Family Dashboard view that provides a clear, high-level overview of shared family finances for the selected period (month/week), without exposing personal-only expenses or individual spender identities.
+
+🧱 Core Requirements
+1. Family Dashboard Entry Point
+
+Add a dedicated Family Dashboard screen (not mixed with personal dashboard).
+
+Accessible via navigation (tab, toggle, or menu) labeled clearly as “Family”.
+
+Default view: current month, with ability to navigate to past periods (reuse existing date navigation).
+
+2. Family Summary Header
+
+Display a summary card at the top with:
+
+Total shared spending for the selected period
+
+Number of shared expenses
+
+Selected period label (e.g. “March 2026”)
+
+Number of active family members (optional if data already exists)
+
+⚠️ Use only expenses marked as shared = true.
+
+3. Shared Spending Visual Breakdown
+
+Create a pie or donut chart similar to the personal spending breakdown, but:
+
+Data source: shared expenses only
+
+Grouped by family categories
+
+Categories must be customizable (reuse existing category logic)
+
+Show:
+
+Category name
+
+Percentage of total shared spending
+
+Absolute amount
+
+Interaction
+
+Clicking a category shows a list of shared expenses in that category.
+
+Expense list should show:
+
+Category
+
+Amount
+
+Date
+
+Optional note
+
+❌ Do NOT show who spent the money.
+
+4. Money Source Split (Key Feature)
+
+Add a visual indicator showing how shared expenses were funded:
+
+Family Money
+
+Personal Money (used for shared expenses)
+
+Recommended UI:
+
+Stacked bar or dual-ring donut chart
+
+Show percentage and total amounts for each source
+
+Example logic:
+
+Sum of shared expenses where paymentSource = "family"
+
+Sum of shared expenses where paymentSource = "personal"
+
+This section must not expose individual contributors.
+
+5. Shared Savings Goals Snapshot
+
+Display shared family goals only:
+
+Goal name
+
+Progress bar
+
+Current amount vs target
+
+Status label (optional): “On track”, “Behind”, “Ahead”
+
+Clicking a goal should navigate to the existing goal detail view.
+
+6. Recent Shared Expenses
+
+Display the 5–10 most recent shared expenses:
+
+Sorted by date (newest first)
+
+Show:
+
+Category icon/name
+
+Amount
+
+Date
+
+Money source indicator (Family / Personal)
+
+Read-only list (no editing from this screen)
+
+🔐 Privacy & Permissions (Very Important)
+
+The Family Dashboard must:
+
+✅ Show only shared expenses
+
+❌ Never show personal-only expenses
+
+❌ Never show which family member made a transaction
+
+❌ Never show individual balances or spending totals
+
+Assume role-based access already exists and reuse it.
+
+♻️ Implementation Guidelines
+
+Reuse existing:
+
+Chart components
+
+Expense aggregation logic
+
+Category system
+
+Date navigation
+
+Avoid duplicating logic unnecessarily.
+
+Keep UI clean, calm, and high-level — this is a shared overview, not a control panel.
+
+🧪 Testing Expectations
+
+Verify that private expenses never appear on the Family Dashboard.
+
+Confirm category totals and money source splits update correctly.
+
+Ensure dashboard works offline (PWA support) for previously loaded data.
+
+🛑 Do NOT Add (Yet)
+
+Member-by-member breakdowns
+
+Leaderboards
+
+Hard budget enforcement
+
+Chat or comments
+
+✅ Deliverable
+
+A functional Family Dashboard view that visually summarizes shared expenses and goals, respects privacy, and integrates smoothly with the existing Family Ledger architecture.
