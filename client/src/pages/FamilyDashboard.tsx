@@ -1,363 +1,511 @@
 import { useState } from "react";
-import { useFamily, useExpenses, useSharedGoals, useApproveGoal } from "@/hooks/use-data";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Shield, ShieldOff, TrendingDown, ChevronRight, Wallet, Trophy, Target, Globe, Check, Loader2 } from "lucide-react";
-import { format } from "date-fns";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { 
+  Users, Wallet, TrendingUp, ChevronLeft, ChevronRight, 
+  Target, Calendar, Utensils, Bus, Gamepad2, ShoppingBag, 
+  Lightbulb, GraduationCap, Heart, Package, Home as HomeIcon,
+  Flag
+} from "lucide-react";
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, addWeeks, subMonths, subWeeks, differenceInDays } from "date-fns";
 import { getCurrencySymbol } from "@/lib/currency";
+import { Link } from "wouter";
+
+const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#a78bfa", "#fb923c", "#4ade80"];
+
+interface FamilyDashboardData {
+  period: {
+    type: "month" | "week";
+    start: string;
+    end: string;
+  };
+  summary: {
+    totalSpent: string;
+    expenseCount: number;
+    memberCount: number;
+    familyName: string;
+  };
+  categoryBreakdown: {
+    category: string;
+    amount: string;
+    count: number;
+    percentage: string;
+  }[];
+  moneySourceSplit: {
+    familyMoney: string;
+    personalMoney: string;
+    familyPercentage: string;
+    personalPercentage: string;
+  };
+  sharedGoals: {
+    id: number;
+    title: string;
+    targetAmount: string;
+    currentAmount: string;
+    priority: string;
+    deadline: string | null;
+  }[];
+  recentExpenses: {
+    id: number;
+    amount: string;
+    category: string;
+    note: string | null;
+    date: string;
+    paymentSource: string;
+  }[];
+}
+
+function getCategoryIcon(category: string) {
+  const IconMap: Record<string, React.ReactNode> = {
+    Food: <Utensils className="w-4 h-4" />,
+    Transport: <Bus className="w-4 h-4" />,
+    Entertainment: <Gamepad2 className="w-4 h-4" />,
+    Shopping: <ShoppingBag className="w-4 h-4" />,
+    Utilities: <Lightbulb className="w-4 h-4" />,
+    Education: <GraduationCap className="w-4 h-4" />,
+    Health: <Heart className="w-4 h-4" />,
+    Housing: <HomeIcon className="w-4 h-4" />,
+    Other: <Package className="w-4 h-4" />,
+  };
+  return IconMap[category] || <Package className="w-4 h-4" />;
+}
+
+function getGoalStatus(goal: FamilyDashboardData["sharedGoals"][0]) {
+  const progress = (Number(goal.currentAmount) / Number(goal.targetAmount)) * 100;
+  
+  if (!goal.deadline) {
+    return progress >= 100 ? "completed" : "on_track";
+  }
+  
+  const daysLeft = differenceInDays(new Date(goal.deadline), new Date());
+  const expectedProgress = Math.max(0, 100 - (daysLeft / 30) * 100);
+  
+  if (progress >= 100) return "completed";
+  if (progress >= expectedProgress) return "on_track";
+  if (progress >= expectedProgress * 0.8) return "slightly_behind";
+  return "behind";
+}
 
 export default function FamilyDashboard() {
   const { user } = useAuth();
-  const { data: familyData, isLoading } = useFamily();
-  const [viewingMember, setViewingMember] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<"expenses" | "goals">("expenses");
+  const { t } = useLanguage();
   const currencySymbol = getCurrencySymbol(user?.currency);
+  
+  const [periodType, setPeriodType] = useState<"month" | "week">("month");
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  const periodStart = periodType === "month" 
+    ? startOfMonth(currentDate) 
+    : startOfWeek(currentDate, { weekStartsOn: 0 });
+  const periodEnd = periodType === "month" 
+    ? endOfMonth(currentDate) 
+    : endOfWeek(currentDate, { weekStartsOn: 0 });
+
+  const { data, isLoading } = useQuery<FamilyDashboardData>({
+    queryKey: ["/api/family/dashboard", periodType, periodStart.toISOString(), periodEnd.toISOString()],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/family/dashboard?period=${periodType}&startDate=${periodStart.toISOString()}&endDate=${periodEnd.toISOString()}`,
+        { credentials: "include" }
+      );
+      if (!res.ok) throw new Error("Failed to load family dashboard");
+      return res.json();
+    },
+  });
+
+  const navigatePeriod = (direction: "prev" | "next") => {
+    if (periodType === "month") {
+      setCurrentDate(direction === "prev" ? subMonths(currentDate, 1) : addMonths(currentDate, 1));
+    } else {
+      setCurrentDate(direction === "prev" ? subWeeks(currentDate, 1) : addWeeks(currentDate, 1));
+    }
+  };
+
+  const periodLabel = periodType === "month"
+    ? format(currentDate, "MMMM yyyy")
+    : `${format(periodStart, "MMM d")} - ${format(periodEnd, "MMM d, yyyy")}`;
 
   if (isLoading) {
-    return (
-      <div className="space-y-4 p-6">
-        <div className="h-8 w-48 bg-muted animate-pulse rounded-lg" />
-        <div className="grid gap-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-24 bg-muted animate-pulse rounded-xl" />
-          ))}
-        </div>
-      </div>
-    );
+    return <FamilyDashboardSkeleton />;
   }
 
-  const members = (familyData?.members || []) as any[];
-  const familyTotal = members.reduce((sum, m) => sum + (m.total ? Number(m.total) : 0), 0);
+  const categoryExpenses = selectedCategory 
+    ? data?.recentExpenses.filter(e => e.category === selectedCategory) 
+    : null;
 
   return (
-    <div className="space-y-6 pb-20 p-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="font-display font-bold text-3xl">Family Dashboard</h1>
-        <p className="text-muted-foreground">{familyData?.family.name}</p>
+    <div className="space-y-6 pb-20">
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-display font-bold text-foreground" data-testid="text-family-dashboard-title">
+            {t("familyDashboard")}
+          </h1>
+          <p className="text-muted-foreground mt-1" data-testid="text-family-name">{data?.summary.familyName}</p>
+        </div>
+        <Badge variant="secondary" className="gap-1" data-testid="badge-member-count">
+          <Users className="w-3 h-3" />
+          {data?.summary.memberCount} {t("members")}
+        </Badge>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "expenses" | "goals")} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 h-11 p-1 bg-muted/50 rounded-xl">
-          <TabsTrigger value="expenses" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-expenses">
-            <Wallet className="w-4 h-4 mr-2" />
-            Expenses
-          </TabsTrigger>
-          <TabsTrigger value="goals" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-goals">
-            <Target className="w-4 h-4 mr-2" />
-            Shared Goals
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="expenses" className="mt-4 space-y-4">
-          <div className="grid gap-4">
-            {members.map((member) => (
-              <Card 
-                key={member.id} 
-                onClick={() => !member.isPrivate && setViewingMember(member)}
-                className={`overflow-hidden border-border/50 shadow-sm transition-all ${!member.isPrivate ? "cursor-pointer hover:border-primary/30 active:scale-[0.98]" : ""}`}
-              >
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                      <Users className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold">{member.name}</p>
-                        {!member.isPrivate && <ChevronRight className="w-3 h-3 text-muted-foreground" />}
-                      </div>
-                      <p className="text-xs text-muted-foreground capitalize">{member.role}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    {member.isPrivate ? (
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <ShieldOff className="w-3 h-3" />
-                        <span className="text-sm font-medium italic">Private</span>
-                      </div>
-                    ) : (
-                      <div>
-                        <span className="text-lg font-bold">{currencySymbol}{Number(member.total).toFixed(2)}</span>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">This Month</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex gap-2">
+          <Button
+            variant={periodType === "month" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setPeriodType("month")}
+            data-testid="button-period-month"
+          >
+            {t("month")}
+          </Button>
+          <Button
+            variant={periodType === "week" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setPeriodType("week")}
+            data-testid="button-period-week"
+          >
+            {t("week")}
+          </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => navigatePeriod("prev")}
+            data-testid="button-prev-period"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <span className="font-medium text-sm min-w-[140px] text-center" data-testid="text-period-label">{periodLabel}</span>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => navigatePeriod("next")}
+            data-testid="button-next-period"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
 
-          <Card className="bg-primary text-primary-foreground border-none shadow-lg shadow-primary/20">
+      <Card className="bg-gradient-to-br from-primary to-primary/80 border-none text-white shadow-xl shadow-primary/20">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-2 text-white/80 mb-1">
+            <Wallet className="w-4 h-4" />
+            <span className="text-sm font-medium">{t("sharedSpending")}</span>
+          </div>
+          <div className="text-4xl font-display font-bold" data-testid="text-total-shared-spending">
+            {currencySymbol}{data?.summary.totalSpent}
+          </div>
+          <div className="mt-4 flex gap-3 text-xs font-medium text-white/90">
+            <div className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg backdrop-blur-sm">
+              <TrendingUp className="w-3 h-3" />
+              {data?.summary.expenseCount} {t(data?.summary.expenseCount === 1 ? "expense" : "expensesPlural")}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/50 shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Wallet className="w-4 h-4 text-primary" />
+            {t("moneySourceSplit")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 pt-0">
+          {Number(data?.summary.totalSpent) > 0 ? (
+            <>
+              <div className="flex gap-2 mb-3">
+                <div className="flex-1">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-muted-foreground">{t("familyMoneySource")}</span>
+                    <span className="font-medium">{data?.moneySourceSplit.familyPercentage}%</span>
+                  </div>
+                  <Progress 
+                    value={Number(data?.moneySourceSplit.familyPercentage)} 
+                    className="h-2"
+                  />
+                  <div className="text-xs text-muted-foreground mt-1" data-testid="text-family-money-amount">
+                    {currencySymbol}{data?.moneySourceSplit.familyMoney}
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-muted-foreground">{t("personalMoneySource")}</span>
+                    <span className="font-medium">{data?.moneySourceSplit.personalPercentage}%</span>
+                  </div>
+                  <Progress 
+                    value={Number(data?.moneySourceSplit.personalPercentage)} 
+                    className="h-2 [&>div]:bg-accent"
+                  />
+                  <div className="text-xs text-muted-foreground mt-1" data-testid="text-personal-money-amount">
+                    {currencySymbol}{data?.moneySourceSplit.personalMoney}
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-4 text-muted-foreground text-sm">
+              {t("noSharedExpenses")}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {selectedCategory ? (
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setSelectedCategory(null)}
+              className="gap-1"
+              data-testid="button-back-categories"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              {t("backToCategories")}
+            </Button>
+          </div>
+          <Card className="border-border/50 shadow-sm">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium opacity-80 flex items-center gap-2">
-                <TrendingDown className="w-4 h-4" />
-                Combined Family Total
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                {getCategoryIcon(selectedCategory)}
+                {selectedCategory}
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{currencySymbol}{familyTotal.toFixed(2)}</div>
-              <p className="text-xs opacity-70 mt-1">Total aggregated spending across all visible members</p>
-            </CardContent>
-          </Card>
-
-          <div className="bg-muted/30 p-4 rounded-xl border border-dashed border-muted flex items-start gap-3">
-            <Shield className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Privacy Protection: Only expenses explicitly shared with the family are visible. 
-              Tap on a member to view their shared contributions.
-            </p>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="goals" className="mt-4">
-          <SharedGoalsView />
-        </TabsContent>
-      </Tabs>
-
-      {viewingMember && (
-        <MemberDetailsDialog 
-          member={viewingMember} 
-          open={!!viewingMember} 
-          onOpenChange={(open) => !open && setViewingMember(null)} 
-        />
-      )}
-    </div>
-  );
-}
-
-function SharedGoalsView() {
-  const { user } = useAuth();
-  const { data: sharedGoals, isLoading } = useSharedGoals();
-  const approveGoalMutation = useApproveGoal();
-  const currencySymbol = getCurrencySymbol(user?.currency);
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        {[1, 2, 3].map(i => <div key={i} className="h-32 bg-muted animate-pulse rounded-xl" />)}
-      </div>
-    );
-  }
-
-  const familyGoals = sharedGoals?.filter((g: any) => g.visibility === "family") || [];
-  const personalSharedGoals = sharedGoals?.filter((g: any) => g.visibility === "shared") || [];
-
-  if (sharedGoals?.length === 0) {
-    return (
-      <div className="text-center py-16 bg-muted/20 rounded-2xl border-2 border-dashed border-muted">
-        <Target className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-        <h3 className="font-medium text-lg">No shared goals yet</h3>
-        <p className="text-muted-foreground text-sm">Family members can share their goals or create family goals.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {familyGoals.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-primary" />
-            <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Family Goals</h3>
-          </div>
-          <div className="grid gap-3">
-            {familyGoals.map((goal: any) => (
-              <GoalCard 
-                key={goal.id} 
-                goal={goal} 
-                isParent={user?.role === "parent"}
-                onApprove={() => approveGoalMutation.mutate(goal.id)}
-                isApproving={approveGoalMutation.isPending}
-                currencySymbol={currencySymbol}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {personalSharedGoals.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Globe className="w-4 h-4 text-primary" />
-            <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Personal Goals Shared</h3>
-          </div>
-          <div className="grid gap-3">
-            {personalSharedGoals.map((goal: any) => (
-              <GoalCard key={goal.id} goal={goal} currencySymbol={currencySymbol} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="bg-muted/30 p-4 rounded-xl border border-dashed border-muted flex items-start gap-3">
-        <Shield className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          Family goals need approval from a parent before they become active. 
-          Personal shared goals are visible to the family but don't require approval.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function GoalCard({ 
-  goal, 
-  isParent, 
-  onApprove,
-  isApproving,
-  currencySymbol 
-}: { 
-  goal: any; 
-  isParent?: boolean;
-  onApprove?: () => void;
-  isApproving?: boolean;
-  currencySymbol: string;
-}) {
-  const progress = Math.min(100, (Number(goal.currentAmount) / Number(goal.targetAmount)) * 100);
-  const needsApproval = goal.visibility === "family" && !goal.isApproved;
-
-  return (
-    <Card className="overflow-hidden border-border/50 shadow-sm">
-      <CardContent className="p-4">
-        <div className="flex justify-between items-start mb-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center text-yellow-600 dark:text-yellow-400">
-              <Trophy className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-sm">{goal.title}</h3>
-              <p className="text-xs text-muted-foreground">by {goal.creatorName}</p>
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            {goal.visibility === "family" && (
-              <Badge 
-                variant={goal.isApproved ? "default" : "secondary"}
-                className="text-[10px] px-1.5 py-0 h-4"
-              >
-                {goal.isApproved ? (
-                  <><Check className="w-2.5 h-2.5 mr-0.5" /> Approved</>
-                ) : (
-                  "Pending Approval"
-                )}
-              </Badge>
-            )}
-            {goal.visibility === "shared" && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
-                <Globe className="w-2.5 h-2.5 mr-0.5" /> Personal
-              </Badge>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex justify-between text-xs">
-            <span className="font-medium">{currencySymbol}{Number(goal.currentAmount).toLocaleString()}</span>
-            <span className="text-muted-foreground">of {currencySymbol}{Number(goal.targetAmount).toLocaleString()}</span>
-          </div>
-          <Progress value={progress} className="h-2 rounded-full bg-secondary" />
-          <div className="flex justify-between items-center">
-            <span className="text-[10px] font-bold text-primary">{progress.toFixed(0)}%</span>
-            {goal.deadline && (
-              <span className="text-[10px] text-muted-foreground">
-                Due: {format(new Date(goal.deadline), "MMM d, yyyy")}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {needsApproval && isParent && onApprove && (
-          <Button 
-            onClick={onApprove}
-            disabled={isApproving}
-            className="w-full mt-3 h-8 text-xs"
-            size="sm"
-            data-testid={`button-approve-goal-${goal.id}`}
-          >
-            {isApproving ? (
-              <Loader2 className="w-3 h-3 animate-spin mr-1" />
-            ) : (
-              <Check className="w-3 h-3 mr-1" />
-            )}
-            Approve Family Goal
-          </Button>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function MemberDetailsDialog({ member, open, onOpenChange }: { member: any; open: boolean; onOpenChange: (open: boolean) => void }) {
-  const { user } = useAuth();
-  const { data: expenses, isLoading } = useExpenses(member.id);
-  const currencySymbol = getCurrencySymbol(user?.currency);
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md w-full h-[80vh] overflow-y-auto rounded-t-3xl md:rounded-2xl p-0">
-        <DialogHeader className="p-6 pb-2 border-b">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-              {member.name[0]}
-            </div>
-            <div>
-              <DialogTitle className="text-xl">{member.name}'s Shared Spending</DialogTitle>
-              <p className="text-xs text-muted-foreground">Showing public expenses for this month</p>
-            </div>
-          </div>
-        </DialogHeader>
-
-        <div className="p-6">
-          {isLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map(i => <div key={i} className="h-16 bg-muted animate-pulse rounded-xl" />)}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {expenses?.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Wallet className="w-10 h-10 mx-auto mb-2 opacity-20" />
-                  <p>No shared expenses found for this month.</p>
-                </div>
-              ) : (
-                expenses?.map((expense: any) => (
-                  <div key={expense.id} className="flex items-center justify-between p-3 rounded-xl border border-border/50 bg-background shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-secondary/50 flex items-center justify-center text-lg">
-                        {getCategoryEmoji(expense.category)}
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold">{expense.note || expense.category}</p>
-                        <p className="text-[10px] text-muted-foreground">{format(new Date(expense.date), "MMM d, h:mm a")}</p>
-                      </div>
+            <CardContent className="p-4 pt-0 space-y-3">
+              {categoryExpenses?.length ? categoryExpenses.map((expense) => (
+                <div 
+                  key={expense.id} 
+                  className="flex items-center justify-between py-2 border-b last:border-0"
+                  data-testid={`expense-item-${expense.id}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                      {getCategoryIcon(expense.category)}
                     </div>
+                    <div>
+                      <p className="text-sm font-medium">{expense.note || expense.category}</p>
+                      <p className="text-xs text-muted-foreground">{format(new Date(expense.date), "MMM d")}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={expense.paymentSource === "family" ? "outline" : "secondary"} className="text-xs">
+                      {expense.paymentSource === "family" ? t("familyBadge") : t("personal")}
+                    </Badge>
                     <span className="font-bold text-sm">-{currencySymbol}{Number(expense.amount).toFixed(2)}</span>
                   </div>
-                ))
+                </div>
+              )) : (
+                <div className="text-center py-4 text-muted-foreground text-sm">
+                  {t("noExpensesInCategory")}
+                </div>
               )}
+            </CardContent>
+          </Card>
+        </section>
+      ) : (
+        <section>
+          <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-primary" />
+            {t("spendingByCategory")}
+          </h3>
+          <Card className="border-border/50 shadow-sm">
+            <CardContent className="p-4">
+              {data?.categoryBreakdown.length ? (
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="h-[200px] flex-1">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={data.categoryBreakdown}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={50}
+                          outerRadius={70}
+                          paddingAngle={5}
+                          dataKey="amount"
+                          nameKey="category"
+                        >
+                          {data.categoryBreakdown.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          formatter={(value: any) => [`${currencySymbol}${Number(value).toFixed(2)}`, ""]}
+                          contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    {data.categoryBreakdown.map((cat, index) => (
+                      <button
+                        key={cat.category}
+                        className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                        onClick={() => setSelectedCategory(cat.category)}
+                        data-testid={`button-category-${cat.category.toLowerCase()}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                          />
+                          <span className="text-sm">{getCategoryIcon(cat.category)}</span>
+                          <span className="text-sm font-medium">{cat.category}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">{cat.percentage}%</span>
+                          <span className="text-sm font-bold">{currencySymbol}{cat.amount}</span>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
+                  {t("noSharedExpenses")}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      )}
+
+      {data?.sharedGoals.length ? (
+        <section>
+          <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2">
+            <Target className="w-5 h-5 text-primary" />
+            {t("familyGoals")}
+          </h3>
+          <div className="space-y-3">
+            {data.sharedGoals.map((goal) => {
+              const progress = Math.min(100, (Number(goal.currentAmount) / Number(goal.targetAmount)) * 100);
+              const status = getGoalStatus(goal);
+              const statusColors = {
+                completed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+                on_track: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+                slightly_behind: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+                behind: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+              };
+              const statusLabels = {
+                completed: "Completed",
+                on_track: "On Track",
+                slightly_behind: "Slightly Behind",
+                behind: "Behind",
+              };
+              
+              const daysLeft = goal.deadline 
+                ? differenceInDays(new Date(goal.deadline), new Date())
+                : null;
+              
+              return (
+                <Link key={goal.id} href="/goals">
+                  <Card 
+                    className="border-border/50 shadow-sm cursor-pointer hover:border-primary/50 transition-colors"
+                    data-testid={`goal-card-${goal.id}`}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{goal.title}</span>
+                          {goal.priority === "high" && (
+                            <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
+                              <Flag className="w-2.5 h-2.5 mr-0.5" /> Priority
+                            </Badge>
+                          )}
+                        </div>
+                        <Badge className={`text-xs ${statusColors[status]}`}>
+                          {statusLabels[status]}
+                        </Badge>
+                      </div>
+                      <Progress value={progress} className="h-2 mb-2" />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>{currencySymbol}{Number(goal.currentAmount).toLocaleString()} / {currencySymbol}{Number(goal.targetAmount).toLocaleString()}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-primary">{progress.toFixed(0)}%</span>
+                          {daysLeft !== null && daysLeft >= 0 && (
+                            <span>{daysLeft} {t("daysLeft")}</span>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      <section>
+        <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-primary" />
+          {t("recentSharedExpenses")}
+        </h3>
+        <div className="space-y-3">
+          {data?.recentExpenses.length ? data.recentExpenses.map((expense) => (
+            <div 
+              key={expense.id} 
+              className="bg-white dark:bg-card p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between"
+              data-testid={`recent-expense-${expense.id}`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
+                  {getCategoryIcon(expense.category)}
+                </div>
+                <div>
+                  <p className="font-semibold text-sm text-foreground">{expense.note || expense.category}</p>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>{format(new Date(expense.date), "MMM d")}</span>
+                    <Badge variant={expense.paymentSource === "family" ? "outline" : "secondary"} className="gap-1 text-xs">
+                      {expense.paymentSource === "family" ? (
+                        <><Users className="w-2 h-2" /> {t("familyBadge")}</>
+                      ) : (
+                        <><Wallet className="w-2 h-2" /> {t("personal")}</>
+                      )}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+              <span className="font-bold text-foreground">-{currencySymbol}{Number(expense.amount).toFixed(2)}</span>
+            </div>
+          )) : (
+            <div className="text-center py-8 text-muted-foreground text-sm bg-muted/30 rounded-xl">
+              {t("noSharedExpenses")}
             </div>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </section>
+    </div>
   );
 }
 
-function getCategoryEmoji(category: string) {
-  const map: Record<string, string> = {
-    Food: "🍔",
-    Transport: "🚌",
-    Entertainment: "🎮",
-    Shopping: "🛍️",
-    Utilities: "💡",
-    Education: "📚",
-    Health: "🏥",
-    Other: "📦"
-  };
-  return map[category] || "💸";
+function FamilyDashboardSkeleton() {
+  return (
+    <div className="space-y-6 p-6">
+      <div className="flex justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-32" />
+        </div>
+        <Skeleton className="h-6 w-24 rounded-full" />
+      </div>
+      <Skeleton className="h-40 w-full rounded-2xl" />
+      <Skeleton className="h-32 w-full rounded-2xl" />
+      <Skeleton className="h-64 w-full rounded-2xl" />
+    </div>
+  );
 }

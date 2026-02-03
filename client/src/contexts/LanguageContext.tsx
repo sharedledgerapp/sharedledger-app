@@ -28,7 +28,11 @@ type TranslationKey =
   | "paidWith" | "myMoney" | "familyMoney" | "reports" | "monthlyReport" | "weeklyReport"
   | "viewReports" | "noExpensesInPeriod" | "allCategories" | "backToReports"
   | "previousMonth" | "nextMonth" | "previousWeek" | "nextWeek" | "expensesInCategory"
-  | "expense" | "expensesPlural" | "personal" | "familyBadge";
+  | "expense" | "expensesPlural" | "personal" | "familyBadge"
+  | "familyDashboard" | "members" | "month" | "week" | "sharedSpending"
+  | "moneySourceSplit" | "familyMoneySource" | "personalMoneySource"
+  | "noSharedExpenses" | "backToCategories" | "noExpensesInCategory"
+  | "spendingByCategory" | "familyGoals" | "recentSharedExpenses";
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -128,6 +132,20 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     expensesPlural: "expenses",
     personal: "Personal",
     familyBadge: "Family",
+    familyDashboard: "Family Dashboard",
+    members: "members",
+    month: "Month",
+    week: "Week",
+    sharedSpending: "Shared Spending",
+    moneySourceSplit: "Money Source Split",
+    familyMoneySource: "Family Money",
+    personalMoneySource: "Personal Money",
+    noSharedExpenses: "No shared expenses yet",
+    backToCategories: "Back to Categories",
+    noExpensesInCategory: "No expenses in this category",
+    spendingByCategory: "Spending by Category",
+    familyGoals: "Family Goals",
+    recentSharedExpenses: "Recent Shared Expenses",
   },
   fr: {
     home: "Accueil",
@@ -226,6 +244,20 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     expensesPlural: "dépenses",
     personal: "Personnel",
     familyBadge: "Famille",
+    familyDashboard: "Tableau de bord familial",
+    members: "membres",
+    month: "Mois",
+    week: "Semaine",
+    sharedSpending: "Dépenses partagées",
+    moneySourceSplit: "Répartition des sources",
+    familyMoneySource: "Argent familial",
+    personalMoneySource: "Argent personnel",
+    noSharedExpenses: "Pas encore de dépenses partagées",
+    backToCategories: "Retour aux catégories",
+    noExpensesInCategory: "Aucune dépense dans cette catégorie",
+    spendingByCategory: "Dépenses par catégorie",
+    familyGoals: "Objectifs familiaux",
+    recentSharedExpenses: "Dépenses partagées récentes",
   },
 };
 

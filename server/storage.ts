@@ -8,7 +8,7 @@ import {
   type Allowance, type InsertAllowance, type ExpenseSplit, type InsertExpenseSplit,
   type UpdateGoalRequest, type UpdateAllowanceRequest
 } from "@shared/schema";
-import { eq, and, desc, or, ne } from "drizzle-orm";
+import { eq, and, desc, or, ne, gte, lte } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -32,6 +32,7 @@ export interface IStorage {
   // Expenses
   createExpense(expense: InsertExpense & { familyId: number }, splits?: Omit<InsertExpenseSplit, 'expenseId'>[]): Promise<Expense & { splits: ExpenseSplit[] }>;
   getExpenses(userId?: number, familyId?: number): Promise<(Expense & { splits: ExpenseSplit[] })[]>;
+  getSharedExpenses(familyId: number, startDate?: Date, endDate?: Date): Promise<Expense[]>;
   updateExpense(id: number, updates: Partial<InsertExpense>, splits?: Omit<InsertExpenseSplit, 'expenseId'>[]): Promise<Expense & { splits: ExpenseSplit[] }>;
   deleteExpense(id: number): Promise<void>;
   getExpense(id: number): Promise<(Expense & { splits: ExpenseSplit[] }) | undefined>;
@@ -212,6 +213,27 @@ export class DatabaseStorage implements IStorage {
     if (!expense) return undefined;
     const splits = await db.select().from(expenseSplits).where(eq(expenseSplits.expenseId, id));
     return { ...expense, splits: splits.map(s => ({ ...s, amount: s.amount.toString() })) };
+  }
+
+  async getSharedExpenses(familyId: number, startDate?: Date, endDate?: Date): Promise<Expense[]> {
+    let conditions = [
+      eq(expenses.familyId, familyId),
+      eq(expenses.visibility, "public")
+    ];
+    
+    if (startDate) {
+      conditions.push(gte(expenses.date, startDate));
+    }
+    if (endDate) {
+      conditions.push(lte(expenses.date, endDate));
+    }
+    
+    const results = await db.select()
+      .from(expenses)
+      .where(and(...conditions))
+      .orderBy(desc(expenses.date));
+    
+    return results;
   }
 
   async updateSplitPayment(splitId: number, isPaid: boolean): Promise<ExpenseSplit> {

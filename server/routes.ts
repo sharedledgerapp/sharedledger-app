@@ -214,6 +214,119 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
   });
 
+  // === FAMILY DASHBOARD ROUTE ===
+
+  app.get("/api/family/dashboard", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    if (!user.familyId) return res.status(404).json({ message: "No family" });
+
+    const { period = "month", startDate, endDate } = req.query as {
+      period?: "month" | "week";
+      startDate?: string;
+      endDate?: string;
+    };
+
+    let start: Date;
+    let end: Date;
+
+    if (startDate && endDate) {
+      start = new Date(startDate);
+      end = new Date(endDate);
+    } else {
+      const now = new Date();
+      if (period === "week") {
+        const dayOfWeek = now.getDay();
+        start = new Date(now);
+        start.setDate(now.getDate() - dayOfWeek);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        end.setHours(23, 59, 59, 999);
+      } else {
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      }
+    }
+
+    // Get shared expenses for the period
+    const sharedExpenses = await storage.getSharedExpenses(user.familyId, start, end);
+
+    // Calculate aggregations
+    const totalSpent = sharedExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
+    const expenseCount = sharedExpenses.length;
+
+    // Category breakdown
+    const categoryBreakdown = sharedExpenses.reduce((acc, e) => {
+      const existing = acc.find((c: any) => c.category === e.category);
+      if (existing) {
+        existing.amount += Number(e.amount);
+        existing.count += 1;
+      } else {
+        acc.push({ category: e.category, amount: Number(e.amount), count: 1 });
+      }
+      return acc;
+    }, [] as { category: string; amount: number; count: number }[]);
+
+    // Money source split
+    const familyMoney = sharedExpenses
+      .filter(e => e.paymentSource === "family")
+      .reduce((sum, e) => sum + Number(e.amount), 0);
+    const personalMoney = sharedExpenses
+      .filter(e => e.paymentSource === "personal")
+      .reduce((sum, e) => sum + Number(e.amount), 0);
+
+    // Get family info
+    const family = await storage.getFamily(user.familyId);
+    const members = await storage.getFamilyMembers(user.familyId);
+
+    // Get shared goals (visibility = family or shared, isApproved = true for family goals)
+    const sharedGoals = await storage.getSharedGoals(user.familyId);
+
+    // Recent shared expenses (last 10)
+    const recentExpenses = sharedExpenses.slice(0, 10).map(e => ({
+      id: e.id,
+      amount: e.amount,
+      category: e.category,
+      note: e.note,
+      date: e.date,
+      paymentSource: e.paymentSource,
+    }));
+
+    res.json({
+      period: {
+        type: period,
+        start: start.toISOString(),
+        end: end.toISOString(),
+      },
+      summary: {
+        totalSpent: totalSpent.toFixed(2),
+        expenseCount,
+        memberCount: members.length,
+        familyName: family?.name,
+      },
+      categoryBreakdown: categoryBreakdown.map(c => ({
+        ...c,
+        amount: c.amount.toFixed(2),
+        percentage: totalSpent > 0 ? ((c.amount / totalSpent) * 100).toFixed(1) : "0",
+      })),
+      moneySourceSplit: {
+        familyMoney: familyMoney.toFixed(2),
+        personalMoney: personalMoney.toFixed(2),
+        familyPercentage: totalSpent > 0 ? ((familyMoney / totalSpent) * 100).toFixed(1) : "0",
+        personalPercentage: totalSpent > 0 ? ((personalMoney / totalSpent) * 100).toFixed(1) : "0",
+      },
+      sharedGoals: sharedGoals.filter(g => g.visibility === "family" && g.isApproved).map(g => ({
+        id: g.id,
+        title: g.title,
+        targetAmount: g.targetAmount,
+        currentAmount: g.currentAmount,
+        priority: g.priority,
+        deadline: g.deadline,
+      })),
+      recentExpenses,
+    });
+  });
+
   // === FAMILY ROUTES ===
 
   app.get(api.family.get.path, requireAuth, async (req, res) => {
