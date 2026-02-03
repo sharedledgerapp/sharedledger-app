@@ -132,6 +132,21 @@ The `shared/` directory contains code used by both frontend and backend:
 - Expense dialog uses user's custom categories with fallback to defaults
 - Hint link in expense dialog: "Customize categories in Settings"
 
+### Family Dashboard (Privacy-Focused Insights)
+- New `/family-dashboard` route for aggregated family financial insights
+- GET `/api/family/dashboard` endpoint with period filtering (month/week) and date navigation
+- **Privacy Protection**: Only shows expenses with visibility="public" (shared expenses)
+  - No individual member spending totals exposed
+  - No user IDs or names attached to expense data
+  - Aggregation performed server-side for security
+- **Features**:
+  - Total shared spending summary with expense count
+  - Category breakdown pie chart (clickable to drill down)
+  - Money source split visualization (Family Money vs Personal Money percentages)
+  - Shared family goals with smart status indicators (On Track, Slightly Behind, Behind, Completed)
+  - Recent shared expenses list (up to 10 items) with payment source badges
+- Accessible via "Shared" tab in bottom nav (mobile) and sidebar (desktop)
+
 ### Multilingual Support
 - Translation system via `LanguageContext` with English and French
 - All new features include translation keys for both languages
