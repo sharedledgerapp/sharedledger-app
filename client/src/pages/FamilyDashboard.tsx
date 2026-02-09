@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { useExpenses } from "@/hooks/use-data";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,6 +22,15 @@ import { Link } from "wouter";
 
 const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#a78bfa", "#fb923c", "#4ade80"];
 
+interface MemberSpending {
+  id: number;
+  name: string;
+  role: string;
+  total: string;
+  expenseCount: number;
+  isPrivate: boolean;
+}
+
 interface FamilyDashboardData {
   period: {
     type: "month" | "week";
@@ -32,6 +43,7 @@ interface FamilyDashboardData {
     memberCount: number;
     familyName: string;
   };
+  memberSpending: MemberSpending[];
   categoryBreakdown: {
     category: string;
     amount: string;
@@ -101,6 +113,7 @@ export default function FamilyDashboard() {
   const [periodType, setPeriodType] = useState<"month" | "week">("month");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [viewingMember, setViewingMember] = useState<MemberSpending | null>(null);
 
   const periodStart = periodType === "month" 
     ? startOfMonth(currentDate) 
@@ -213,6 +226,46 @@ export default function FamilyDashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {data?.memberSpending && data.memberSpending.length > 0 && (
+        <section>
+          <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2">
+            <Users className="w-5 h-5 text-primary" />
+            {t("members")}
+          </h3>
+          <div className="grid gap-3">
+            {data.memberSpending.map((member) => (
+              <Card
+                key={member.id}
+                className="border-border/50 shadow-sm cursor-pointer hover:border-primary/30 transition-all active:scale-[0.98]"
+                onClick={() => setViewingMember(member)}
+                data-testid={`member-card-${member.id}`}
+              >
+                <CardContent className="p-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                      {member.name[0]?.toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold">{member.name}</p>
+                        <ChevronRight className="w-3 h-3 text-muted-foreground" />
+                      </div>
+                      <p className="text-xs text-muted-foreground capitalize">{member.role}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-lg font-bold">{currencySymbol}{member.total}</span>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                      {member.expenseCount} {t(member.expenseCount === 1 ? "expense" : "expensesPlural")}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
 
       <Card className="border-border/50 shadow-sm">
         <CardHeader className="pb-2">
@@ -489,7 +542,86 @@ export default function FamilyDashboard() {
           )}
         </div>
       </section>
+
+      {viewingMember && (
+        <MemberDetailsDialog
+          member={viewingMember}
+          open={!!viewingMember}
+          onOpenChange={(open) => !open && setViewingMember(null)}
+          currencySymbol={currencySymbol}
+        />
+      )}
     </div>
+  );
+}
+
+function MemberDetailsDialog({ 
+  member, 
+  open, 
+  onOpenChange, 
+  currencySymbol 
+}: { 
+  member: MemberSpending; 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+  currencySymbol: string;
+}) {
+  const { t } = useLanguage();
+  const { data: expenses, isLoading } = useExpenses(member.id);
+
+  const sharedExpenses = (expenses || []).filter((e: any) => e.visibility === "public");
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md w-full max-h-[80vh] overflow-y-auto rounded-t-3xl md:rounded-2xl p-0">
+        <DialogHeader className="p-6 pb-2 border-b">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+              {member.name[0]?.toUpperCase()}
+            </div>
+            <div>
+              <DialogTitle className="text-xl">{member.name}</DialogTitle>
+              <p className="text-xs text-muted-foreground">{t("sharedSpending")}</p>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="p-6">
+          {isLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
+            </div>
+          ) : sharedExpenses.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Wallet className="w-10 h-10 mx-auto mb-2 opacity-20" />
+              <p>{t("noSharedExpenses")}</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {sharedExpenses.map((expense: any) => (
+                <div key={expense.id} className="flex items-center justify-between p-3 rounded-xl border border-border/50 bg-background shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-secondary/50 flex items-center justify-center">
+                      {getCategoryIcon(expense.category)}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">{expense.note || expense.category}</p>
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                        <span>{format(new Date(expense.date), "MMM d")}</span>
+                        <Badge variant={expense.paymentSource === "family" ? "outline" : "secondary"} className="text-[10px] px-1 py-0 h-4">
+                          {expense.paymentSource === "family" ? t("familyBadge") : t("personal")}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  <span className="font-bold text-sm">-{currencySymbol}{Number(expense.amount).toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -504,6 +636,8 @@ function FamilyDashboardSkeleton() {
         <Skeleton className="h-6 w-24 rounded-full" />
       </div>
       <Skeleton className="h-40 w-full rounded-2xl" />
+      <Skeleton className="h-24 w-full rounded-2xl" />
+      <Skeleton className="h-24 w-full rounded-2xl" />
       <Skeleton className="h-32 w-full rounded-2xl" />
       <Skeleton className="h-64 w-full rounded-2xl" />
     </div>

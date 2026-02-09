@@ -1,10 +1,11 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useExpenses, useGoals, useFamily } from "@/hooks/use-data";
+import { useExpenses, useGoals } from "@/hooks/use-data";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Plus, Wallet, TrendingUp, Star, ArrowUpRight, ArrowDownLeft, ChevronRight, Flag, Target } from "lucide-react";
+import { Plus, Wallet, TrendingUp, TrendingDown, Star, ArrowUpRight, ArrowDownRight, ChevronRight, Flag, Target, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package } from "lucide-react";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, differenceInDays } from "date-fns";
@@ -20,15 +21,25 @@ export default function HomePage() {
   const { data: expenses, isLoading: expensesLoading } = useExpenses();
   const { data: goals, isLoading: goalsLoading } = useGoals();
   const currencySymbol = getCurrencySymbol(user?.currency);
+
+  const { data: spendingSummary } = useQuery<{
+    currentMonthTotal: string;
+    prevMonthTotal: string;
+    percentageChange: string;
+    trend: "up" | "down";
+  }>({
+    queryKey: ["/api/spending/summary"],
+  });
   
   if (expensesLoading || goalsLoading) {
     return <DashboardSkeleton />;
   }
 
-  // Calculate totals
-  const totalSpent = expenses?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0;
+  const monthlyTotal = spendingSummary ? Number(spendingSummary.currentMonthTotal) : 0;
+  const percentageChange = spendingSummary ? Math.abs(Number(spendingSummary.percentageChange)) : 0;
+  const trend = spendingSummary?.trend || "up";
+  const prevMonthTotal = spendingSummary ? Number(spendingSummary.prevMonthTotal) : 0;
   
-  // Prepare chart data
   const categoryData = expenses?.reduce((acc, curr) => {
     const existing = acc.find(i => i.name === curr.category);
     if (existing) {
@@ -41,7 +52,6 @@ export default function HomePage() {
 
   return (
     <div className="space-y-6 pb-20">
-      {/* Welcome Header */}
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-display font-bold text-foreground">
@@ -56,7 +66,6 @@ export default function HomePage() {
         </Link>
       </div>
 
-      {/* Main Stats Card */}
       <div className="grid grid-cols-2 gap-4">
         <Card className="col-span-2 bg-gradient-to-br from-primary to-primary/80 border-none text-white shadow-xl shadow-primary/20">
           <CardContent className="p-6">
@@ -64,18 +73,29 @@ export default function HomePage() {
               <Wallet className="w-4 h-4" />
               <span className="text-sm font-medium">{t("totalSpent")}</span>
             </div>
-            <div className="text-4xl font-display font-bold">
-              {currencySymbol}{totalSpent.toFixed(2)}
+            <div className="text-4xl font-display font-bold" data-testid="text-monthly-total">
+              {currencySymbol}{monthlyTotal.toFixed(2)}
             </div>
             <div className="mt-4 flex gap-3 text-xs font-medium text-white/90">
-              <div className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg backdrop-blur-sm">
-                <ArrowUpRight className="w-3 h-3" /> +12% {t("thisMonth")}
-              </div>
+              {prevMonthTotal > 0 ? (
+                <div className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg backdrop-blur-sm" data-testid="badge-trend">
+                  {trend === "up" ? (
+                    <ArrowUpRight className="w-3 h-3" />
+                  ) : (
+                    <ArrowDownRight className="w-3 h-3" />
+                  )}
+                  {trend === "up" ? "+" : "-"}{percentageChange.toFixed(0)}% {t("thisMonth")}
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg backdrop-blur-sm">
+                  <Wallet className="w-3 h-3" />
+                  {t("thisMonth")}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Goals Progress Mini Card */}
         {(() => {
           const sortedGoals = sortGoalsByPriority(goals || []);
           const topGoal = sortedGoals[0];
@@ -125,7 +145,6 @@ export default function HomePage() {
           );
         })()}
 
-        {/* No Goals State */}
         {goals?.length === 0 && (
           <Card className="col-span-2 md:col-span-1 border-border/50 shadow-sm border-dashed">
             <CardContent className="p-6 text-center">
@@ -141,7 +160,6 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* Spending Breakdown */}
       <section>
         <Link href="/reports">
           <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2 cursor-pointer hover:text-primary transition-colors group" data-testid="link-reports">
@@ -185,7 +203,6 @@ export default function HomePage() {
         </Link>
       </section>
 
-      {/* Recent Transactions */}
       <section>
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-display font-bold text-lg">{t("recentActivity")}</h3>
@@ -194,10 +211,10 @@ export default function HomePage() {
         
         <div className="space-y-3">
           {expenses?.slice(0, 5).map((expense) => (
-            <div key={expense.id} className="bg-white p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between">
+            <div key={expense.id} className="bg-white dark:bg-card p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-xl">
-                  {getCategoryEmoji(expense.category)}
+                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
+                  {getCategoryIconComponent(expense.category)}
                 </div>
                 <div>
                   <p className="font-semibold text-sm text-foreground">{expense.note || expense.category}</p>
@@ -218,18 +235,19 @@ export default function HomePage() {
   );
 }
 
-function getCategoryEmoji(category: string) {
-  const map: Record<string, string> = {
-    Food: "🍔",
-    Transport: "🚌",
-    Entertainment: "🎮",
-    Shopping: "🛍️",
-    Utilities: "💡",
-    Education: "📚",
-    Health: "🏥",
-    Other: "📦"
+function getCategoryIconComponent(category: string) {
+  const icons: Record<string, any> = {
+    Food: Utensils,
+    Transport: Bus,
+    Entertainment: Gamepad2,
+    Shopping: ShoppingBag,
+    Utilities: Lightbulb,
+    Education: GraduationCap,
+    Health: Heart,
+    Other: Package,
   };
-  return map[category] || "💸";
+  const Icon = icons[category] || Package;
+  return <Icon className="w-5 h-5 text-muted-foreground" />;
 }
 
 function DashboardSkeleton() {

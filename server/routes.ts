@@ -216,6 +216,39 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   // === FAMILY DASHBOARD ROUTE ===
 
+  app.get("/api/spending/summary", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const now = new Date();
+
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+
+    const allExpenses = await storage.getExpenses(user.id);
+
+    const currentMonthTotal = allExpenses
+      .filter(e => new Date(e.date) >= currentMonthStart && new Date(e.date) <= currentMonthEnd)
+      .reduce((sum, e) => sum + Number(e.amount), 0);
+
+    const prevMonthTotal = allExpenses
+      .filter(e => new Date(e.date) >= prevMonthStart && new Date(e.date) <= prevMonthEnd)
+      .reduce((sum, e) => sum + Number(e.amount), 0);
+
+    let percentageChange = 0;
+    if (prevMonthTotal > 0) {
+      percentageChange = ((currentMonthTotal - prevMonthTotal) / prevMonthTotal) * 100;
+    }
+
+    res.json({
+      currentMonthTotal: currentMonthTotal.toFixed(2),
+      prevMonthTotal: prevMonthTotal.toFixed(2),
+      percentageChange: percentageChange.toFixed(1),
+      trend: currentMonthTotal >= prevMonthTotal ? "up" : "down",
+    });
+  });
+
   app.get("/api/family/dashboard", requireAuth, async (req, res) => {
     const user = req.user as any;
     if (!user.familyId) return res.status(404).json({ message: "No family" });
@@ -279,6 +312,21 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const family = await storage.getFamily(user.familyId);
     const members = await storage.getFamilyMembers(user.familyId);
 
+    // Per-member shared spending totals (only public expenses, name + total only)
+    const memberSpending = members.map(member => {
+      const memberExpenses = sharedExpenses.filter(e => e.userId === member.id);
+      const memberTotal = memberExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
+      const isPrivate = memberExpenses.length === 0 && member.id !== user.id;
+      return {
+        id: member.id,
+        name: member.name,
+        role: member.role,
+        total: memberTotal.toFixed(2),
+        expenseCount: memberExpenses.length,
+        isPrivate: false,
+      };
+    });
+
     // Get shared goals (visibility = family or shared, isApproved = true for family goals)
     const sharedGoals = await storage.getSharedGoals(user.familyId);
 
@@ -304,6 +352,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         memberCount: members.length,
         familyName: family?.name,
       },
+      memberSpending,
       categoryBreakdown: categoryBreakdown.map(c => ({
         ...c,
         amount: c.amount.toFixed(2),
