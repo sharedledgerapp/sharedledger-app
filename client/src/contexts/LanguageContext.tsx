@@ -37,7 +37,7 @@ type TranslationKey =
   | "messages" | "savedNotes" | "typeMessage" | "send" | "noMessages" | "startConversation"
   | "addNote" | "noteTitlePlaceholder" | "noteContentPlaceholder" | "noNotes" | "addFirstNote"
   | "deleteNote" | "markComplete" | "markIncomplete" | "noteDeleted" | "messageSent" | "noteSaved"
-  | "shoppingList" | "by";
+  | "shoppingList" | "by" | "noGoals";
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -175,6 +175,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     noteSaved: "Note saved",
     shoppingList: "Shopping List",
     by: "by",
+    noGoals: "No shared goals yet",
   },
   fr: {
     home: "Accueil",
@@ -311,6 +312,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     noteSaved: "Note sauvegardée",
     shoppingList: "Liste de courses",
     by: "par",
+    noGoals: "Pas encore d'objectifs partagés",
   },
 };
 

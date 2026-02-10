@@ -114,6 +114,7 @@ export default function FamilyDashboard() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [viewingMember, setViewingMember] = useState<MemberSpending | null>(null);
+  const [bottomView, setBottomView] = useState<"expenses" | "goals">("expenses");
 
   const periodStart = periodType === "month" 
     ? startOfMonth(currentDate) 
@@ -437,77 +438,95 @@ export default function FamilyDashboard() {
         </section>
       )}
 
-      {data?.sharedGoals.length ? (
-        <section>
-          <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2">
-            <Target className="w-5 h-5 text-primary" />
-            {t("familyGoals")}
-          </h3>
-          <div className="space-y-3">
-            {data.sharedGoals.map((goal) => {
-              const progress = Math.min(100, (Number(goal.currentAmount) / Number(goal.targetAmount)) * 100);
-              const status = getGoalStatus(goal);
-              const statusColors = {
-                completed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-                on_track: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-                slightly_behind: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-                behind: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-              };
-              const statusLabels = {
-                completed: t("statusCompleted"),
-                on_track: t("statusOnTrack"),
-                slightly_behind: t("statusSlightlyBehind"),
-                behind: t("statusBehind"),
-              };
-              
-              const daysLeft = goal.deadline 
-                ? differenceInDays(new Date(goal.deadline), new Date())
-                : null;
-              
-              return (
-                <Link key={goal.id} href="/goals">
-                  <Card 
-                    className="border-border/50 shadow-sm cursor-pointer hover:border-primary/50 transition-colors"
-                    data-testid={`goal-card-${goal.id}`}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{goal.title}</span>
-                          {goal.priority === "high" && (
-                            <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
-                              <Flag className="w-2.5 h-2.5 mr-0.5" /> {t("priorityLabel")}
-                            </Badge>
-                          )}
-                        </div>
-                        <Badge className={`text-xs ${statusColors[status]}`}>
-                          {statusLabels[status]}
-                        </Badge>
-                      </div>
-                      <Progress value={progress} className="h-2 mb-2" />
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{currencySymbol}{Number(goal.currentAmount).toLocaleString()} / {currencySymbol}{Number(goal.targetAmount).toLocaleString()}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-primary">{progress.toFixed(0)}%</span>
-                          {daysLeft !== null && daysLeft >= 0 && (
-                            <span>{daysLeft} {t("daysLeft")}</span>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      ) : null}
-
       <section>
-        <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-primary" />
-          {t("recentSharedExpenses")}
-        </h3>
+        <div className="flex items-center flex-wrap gap-2 mb-4">
+          <Button
+            variant={bottomView === "expenses" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setBottomView("expenses")}
+            className="gap-1"
+            data-testid="button-view-expenses"
+          >
+            <Calendar className="w-4 h-4" />
+            {t("recentSharedExpenses")}
+          </Button>
+          <Button
+            variant={bottomView === "goals" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setBottomView("goals")}
+            className="gap-1"
+            data-testid="button-view-goals"
+          >
+            <Target className="w-4 h-4" />
+            {t("familyGoals")}
+          </Button>
+        </div>
+
+        {bottomView === "goals" ? (
+          data?.sharedGoals.length ? (
+            <div className="space-y-3">
+              {data.sharedGoals.map((goal) => {
+                const progress = Math.min(100, (Number(goal.currentAmount) / Number(goal.targetAmount)) * 100);
+                const status = getGoalStatus(goal);
+                const statusColors = {
+                  completed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+                  on_track: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+                  slightly_behind: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+                  behind: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+                };
+                const statusLabels = {
+                  completed: t("statusCompleted"),
+                  on_track: t("statusOnTrack"),
+                  slightly_behind: t("statusSlightlyBehind"),
+                  behind: t("statusBehind"),
+                };
+                
+                const daysLeft = goal.deadline 
+                  ? differenceInDays(new Date(goal.deadline), new Date())
+                  : null;
+                
+                return (
+                  <Link key={goal.id} href="/goals">
+                    <Card 
+                      className="border-border/50 shadow-sm cursor-pointer hover:border-primary/50 transition-colors"
+                      data-testid={`goal-card-${goal.id}`}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{goal.title}</span>
+                            {goal.priority === "high" && (
+                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
+                                <Flag className="w-2.5 h-2.5 mr-0.5" /> {t("priorityLabel")}
+                              </Badge>
+                            )}
+                          </div>
+                          <Badge className={`text-xs ${statusColors[status]}`}>
+                            {statusLabels[status]}
+                          </Badge>
+                        </div>
+                        <Progress value={progress} className="h-2 mb-2" />
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>{currencySymbol}{Number(goal.currentAmount).toLocaleString()} / {currencySymbol}{Number(goal.targetAmount).toLocaleString()}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-primary">{progress.toFixed(0)}%</span>
+                            {daysLeft !== null && daysLeft >= 0 && (
+                              <span>{daysLeft} {t("daysLeft")}</span>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground text-sm bg-muted/30 rounded-xl">
+              {t("noGoals")}
+            </div>
+          )
+        ) : (
         <div className="space-y-3">
           {data?.recentExpenses.length ? data.recentExpenses.map((expense) => (
             <div 
@@ -541,6 +560,7 @@ export default function FamilyDashboard() {
             </div>
           )}
         </div>
+        )}
       </section>
 
       {viewingMember && (
