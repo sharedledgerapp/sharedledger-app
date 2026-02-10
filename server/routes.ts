@@ -364,7 +364,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         familyPercentage: totalSpent > 0 ? ((familyMoney / totalSpent) * 100).toFixed(1) : "0",
         personalPercentage: totalSpent > 0 ? ((personalMoney / totalSpent) * 100).toFixed(1) : "0",
       },
-      sharedGoals: sharedGoals.filter(g => g.visibility === "family" && g.isApproved).map(g => ({
+      sharedGoals: sharedGoals.filter(g => (g.visibility === "family" && g.isApproved) || g.visibility === "shared").map(g => ({
         id: g.id,
         title: g.title,
         targetAmount: g.targetAmount,
