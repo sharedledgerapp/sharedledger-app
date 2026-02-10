@@ -33,7 +33,11 @@ type TranslationKey =
   | "moneySourceSplit" | "familyMoneySource" | "personalMoneySource"
   | "noSharedExpenses" | "backToCategories" | "noExpensesInCategory"
   | "spendingByCategory" | "familyGoals" | "recentSharedExpenses"
-  | "statusCompleted" | "statusOnTrack" | "statusSlightlyBehind" | "statusBehind" | "priorityLabel";
+  | "statusCompleted" | "statusOnTrack" | "statusSlightlyBehind" | "statusBehind" | "priorityLabel"
+  | "messages" | "savedNotes" | "typeMessage" | "send" | "noMessages" | "startConversation"
+  | "addNote" | "noteTitlePlaceholder" | "noteContentPlaceholder" | "noNotes" | "addFirstNote"
+  | "deleteNote" | "markComplete" | "markIncomplete" | "noteDeleted" | "messageSent" | "noteSaved"
+  | "shoppingList" | "by";
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -152,6 +156,25 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     statusSlightlyBehind: "Slightly Behind",
     statusBehind: "Behind",
     priorityLabel: "Priority",
+    messages: "Messages",
+    savedNotes: "Saved Notes",
+    typeMessage: "Type a message...",
+    send: "Send",
+    noMessages: "No messages yet",
+    startConversation: "Start a conversation with your family",
+    addNote: "Add Note",
+    noteTitlePlaceholder: "Note title (e.g. Shopping list)",
+    noteContentPlaceholder: "Details (optional)",
+    noNotes: "No saved notes",
+    addFirstNote: "Add a note like a shopping list or reminder",
+    deleteNote: "Delete Note",
+    markComplete: "Mark complete",
+    markIncomplete: "Mark incomplete",
+    noteDeleted: "Note deleted",
+    messageSent: "Message sent",
+    noteSaved: "Note saved",
+    shoppingList: "Shopping List",
+    by: "by",
   },
   fr: {
     home: "Accueil",
@@ -269,6 +292,25 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     statusSlightlyBehind: "Légèrement en retard",
     statusBehind: "En retard",
     priorityLabel: "Priorité",
+    messages: "Messages",
+    savedNotes: "Notes sauvegardées",
+    typeMessage: "Écrire un message...",
+    send: "Envoyer",
+    noMessages: "Aucun message",
+    startConversation: "Commencez une conversation avec votre famille",
+    addNote: "Ajouter une note",
+    noteTitlePlaceholder: "Titre (ex. Liste de courses)",
+    noteContentPlaceholder: "Détails (optionnel)",
+    noNotes: "Aucune note sauvegardée",
+    addFirstNote: "Ajoutez une note comme une liste de courses ou un rappel",
+    deleteNote: "Supprimer la note",
+    markComplete: "Marquer comme terminé",
+    markIncomplete: "Marquer comme non terminé",
+    noteDeleted: "Note supprimée",
+    messageSent: "Message envoyé",
+    noteSaved: "Note sauvegardée",
+    shoppingList: "Liste de courses",
+    by: "par",
   },
 };
 

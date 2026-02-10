@@ -2,11 +2,13 @@
 import { db } from "./db";
 import { 
   users, families, expenses, goals, allowances, expenseSplits, goalApprovals,
+  messages, notes, messageReadStatus,
   type User, type InsertUser, type Family, type InsertFamily,
   type Expense, type InsertExpense, type Goal, type InsertGoal,
   type GoalApproval, type InsertGoalApproval,
   type Allowance, type InsertAllowance, type ExpenseSplit, type InsertExpenseSplit,
-  type UpdateGoalRequest, type UpdateAllowanceRequest
+  type UpdateGoalRequest, type UpdateAllowanceRequest,
+  type Message, type InsertMessage, type Note, type InsertNote, type MessageReadStatus
 } from "@shared/schema";
 import { eq, and, desc, or, ne, gte, lte } from "drizzle-orm";
 import session from "express-session";
@@ -54,6 +56,19 @@ export interface IStorage {
   // Allowances
   upsertAllowance(allowance: InsertAllowance): Promise<Allowance>;
   getAllowances(familyId: number): Promise<Allowance[]>;
+
+  // Messages
+  createMessage(message: InsertMessage): Promise<Message>;
+  getMessages(familyId: number, limit?: number): Promise<(Message & { senderName: string })[]>;
+  getUnreadCount(userId: number, familyId: number): Promise<number>;
+  markMessagesRead(userId: number, familyId: number): Promise<void>;
+
+  // Notes
+  createNote(note: InsertNote): Promise<Note>;
+  getNote(id: number): Promise<Note | undefined>;
+  getNotes(familyId: number): Promise<(Note & { creatorName: string })[]>;
+  updateNote(id: number, updates: Partial<Pick<Note, 'title' | 'content' | 'isCompleted'>>): Promise<Note>;
+  deleteNote(id: number): Promise<void>;
 
   sessionStore: session.Store;
 }
@@ -112,6 +127,11 @@ export class DatabaseStorage implements IStorage {
     
     // Delete user's allowances
     await db.delete(allowances).where(eq(allowances.childId, id));
+    
+    // Delete user's messages and notes
+    await db.delete(messages).where(eq(messages.userId, id));
+    await db.delete(notes).where(eq(notes.userId, id));
+    await db.delete(messageReadStatus).where(eq(messageReadStatus.userId, id));
     
     // Finally delete the user
     await db.delete(users).where(eq(users.id, id));
@@ -379,6 +399,91 @@ export class DatabaseStorage implements IStorage {
     .where(eq(users.familyId, familyId));
     
     return results;
+  }
+
+  // Messages
+  async createMessage(insertMessage: InsertMessage): Promise<Message> {
+    const [message] = await db.insert(messages).values(insertMessage).returning();
+    return message;
+  }
+
+  async getMessages(familyId: number, limit = 50): Promise<(Message & { senderName: string })[]> {
+    const results = await db.select({
+      message: messages,
+      senderName: users.name,
+    })
+    .from(messages)
+    .innerJoin(users, eq(messages.userId, users.id))
+    .where(eq(messages.familyId, familyId))
+    .orderBy(desc(messages.createdAt))
+    .limit(limit);
+
+    return results.map(r => ({ ...r.message, senderName: r.senderName })).reverse();
+  }
+
+  async getUnreadCount(userId: number, familyId: number): Promise<number> {
+    const [readStatus] = await db.select()
+      .from(messageReadStatus)
+      .where(and(eq(messageReadStatus.userId, userId), eq(messageReadStatus.familyId, familyId)));
+
+    const lastReadAt = readStatus?.lastReadAt || new Date(0);
+
+    const result = await db.select({ id: messages.id })
+      .from(messages)
+      .where(and(
+        eq(messages.familyId, familyId),
+        ne(messages.userId, userId),
+        gte(messages.createdAt, lastReadAt)
+      ));
+
+    return result.length;
+  }
+
+  async markMessagesRead(userId: number, familyId: number): Promise<void> {
+    const [existing] = await db.select()
+      .from(messageReadStatus)
+      .where(and(eq(messageReadStatus.userId, userId), eq(messageReadStatus.familyId, familyId)));
+
+    if (existing) {
+      await db.update(messageReadStatus)
+        .set({ lastReadAt: new Date() })
+        .where(eq(messageReadStatus.id, existing.id));
+    } else {
+      await db.insert(messageReadStatus).values({ userId, familyId, lastReadAt: new Date() });
+    }
+  }
+
+  // Notes
+  async createNote(insertNote: InsertNote): Promise<Note> {
+    const [note] = await db.insert(notes).values(insertNote).returning();
+    return note;
+  }
+
+  async getNote(id: number): Promise<Note | undefined> {
+    const [note] = await db.select().from(notes).where(eq(notes.id, id));
+    return note;
+  }
+
+  async getNotes(familyId: number): Promise<(Note & { creatorName: string })[]> {
+    const results = await db.select({
+      note: notes,
+      creatorName: users.name,
+    })
+    .from(notes)
+    .innerJoin(users, eq(notes.userId, users.id))
+    .where(eq(notes.familyId, familyId))
+    .orderBy(desc(notes.createdAt));
+
+    return results.map(r => ({ ...r.note, creatorName: r.creatorName }));
+  }
+
+  async updateNote(id: number, updates: Partial<Pick<Note, 'title' | 'content' | 'isCompleted'>>): Promise<Note> {
+    const [note] = await db.update(notes).set(updates).where(eq(notes.id, id)).returning();
+    return note;
+  }
+
+  async deleteNote(id: number): Promise<void> {
+    await db.delete(notes).where(eq(notes.id, id));
   }
 }
 

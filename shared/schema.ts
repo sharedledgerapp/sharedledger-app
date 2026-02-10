@@ -82,6 +82,31 @@ export const allowances = pgTable("allowances", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  familyId: integer("family_id").notNull().references(() => families.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const notes = pgTable("notes", {
+  id: serial("id").primaryKey(),
+  familyId: integer("family_id").notNull().references(() => families.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  title: text("title").notNull(),
+  content: text("content"),
+  isCompleted: boolean("is_completed").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const messageReadStatus = pgTable("message_read_status", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  familyId: integer("family_id").notNull().references(() => families.id),
+  lastReadAt: timestamp("last_read_at").defaultNow().notNull(),
+});
+
 // === RELATIONS ===
 
 export const familiesRelations = relations(families, ({ many }) => ({
@@ -145,6 +170,28 @@ export const goalApprovalsRelations = relations(goalApprovals, ({ one }) => ({
   }),
 }));
 
+export const messagesRelations = relations(messages, ({ one }) => ({
+  family: one(families, {
+    fields: [messages.familyId],
+    references: [families.id],
+  }),
+  user: one(users, {
+    fields: [messages.userId],
+    references: [users.id],
+  }),
+}));
+
+export const notesRelations = relations(notes, ({ one }) => ({
+  family: one(families, {
+    fields: [notes.familyId],
+    references: [families.id],
+  }),
+  user: one(users, {
+    fields: [notes.userId],
+    references: [users.id],
+  }),
+}));
+
 // === ZOD SCHEMAS ===
 
 export const insertFamilySchema = createInsertSchema(families).omit({ id: true, createdAt: true });
@@ -154,6 +201,8 @@ export const insertExpenseSplitSchema = createInsertSchema(expenseSplits).omit({
 export const insertGoalSchema = createInsertSchema(goals).omit({ id: true, createdAt: true, isApproved: true });
 export const insertGoalApprovalSchema = createInsertSchema(goalApprovals).omit({ id: true, createdAt: true });
 export const insertAllowanceSchema = createInsertSchema(allowances).omit({ id: true, updatedAt: true });
+export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
+export const insertNoteSchema = createInsertSchema(notes).omit({ id: true, createdAt: true, isCompleted: true });
 
 // === TYPES ===
 
@@ -164,6 +213,9 @@ export type ExpenseSplit = typeof expenseSplits.$inferSelect;
 export type Goal = typeof goals.$inferSelect;
 export type GoalApproval = typeof goalApprovals.$inferSelect;
 export type Allowance = typeof allowances.$inferSelect;
+export type Message = typeof messages.$inferSelect;
+export type Note = typeof notes.$inferSelect;
+export type MessageReadStatus = typeof messageReadStatus.$inferSelect;
 
 export type InsertFamily = z.infer<typeof insertFamilySchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -172,6 +224,8 @@ export type InsertExpenseSplit = z.infer<typeof insertExpenseSplitSchema>;
 export type InsertGoal = z.infer<typeof insertGoalSchema>;
 export type InsertGoalApproval = z.infer<typeof insertGoalApprovalSchema>;
 export type InsertAllowance = z.infer<typeof insertAllowanceSchema>;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type InsertNote = z.infer<typeof insertNoteSchema>;
 
 // Request types
 export type CreateExpenseRequest = InsertExpense;

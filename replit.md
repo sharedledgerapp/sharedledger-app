@@ -40,6 +40,9 @@ Preferred communication style: Simple, everyday language.
 - `expenses` - Individual expense entries with visibility controls (private/public)
 - `goals` - Personal and family savings goals
 - `allowances` - Parent-set recurring allowances for children
+- `messages` - Family group chat messages
+- `notes` - Shared family notes (shopping lists, reminders)
+- `message_read_status` - Per-user unread message tracking
 
 ### Shared Code Pattern
 The `shared/` directory contains code used by both frontend and backend:
@@ -72,7 +75,28 @@ The `shared/` directory contains code used by both frontend and backend:
 - `@replit/vite-plugin-runtime-error-modal` for development error display
 - `@replit/vite-plugin-cartographer` and `@replit/vite-plugin-dev-banner` for Replit development experience
 
-## Recent Changes (January 2026)
+## Recent Changes (February 2026)
+
+### Internal Messaging & Notes System
+- Family group chat accessible via message icon in header (next to profile avatar)
+- `/messages` route with two-tab interface: Messages and Saved Notes
+- **Messages Tab**: Real-time family chat with:
+  - Auto-refreshing every 5 seconds
+  - Sender name grouping and smart time formatting
+  - Bubble-style UI (own messages right-aligned in primary color, others left-aligned)
+  - Send via button or Enter key
+- **Saved Notes Tab**: Shared family notes (shopping lists, reminders) with:
+  - Create notes with title and optional content
+  - Complete/incomplete toggle (checkbox)
+  - Delete notes
+  - Completed notes shown separately at bottom
+  - Creator name and date displayed
+- Unread message badge on message icon (polls every 15 seconds)
+- API endpoints: GET/POST `/api/messages`, GET `/api/messages/unread`, GET/POST `/api/notes`, PATCH/DELETE `/api/notes/:id`
+- Family-scoped security: all message/note operations verified against user's family
+- Cascade deletion: user account deletion also removes their messages, notes, and read status
+
+## Previous Changes (January 2026)
 
 ### Receipt OCR Scanning
 - Integrated Google Gemini AI via Replit AI Integrations for receipt scanning

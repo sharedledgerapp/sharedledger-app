@@ -668,6 +668,90 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     res.json(allowance);
   });
 
+  // === MESSAGES ROUTES ===
+
+  app.get('/api/messages', requireAuth, async (req, res) => {
+    const user = req.user as any;
+    if (!user.familyId) return res.status(400).json({ message: "Not in a family" });
+    const msgs = await storage.getMessages(user.familyId);
+    await storage.markMessagesRead(user.id, user.familyId);
+    res.json(msgs);
+  });
+
+  app.post('/api/messages', requireAuth, async (req, res) => {
+    const user = req.user as any;
+    if (!user.familyId) return res.status(400).json({ message: "Not in a family" });
+    const { content } = req.body;
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      return res.status(400).json({ message: "Message content is required" });
+    }
+    const message = await storage.createMessage({
+      familyId: user.familyId,
+      userId: user.id,
+      content: content.trim(),
+    });
+    res.status(201).json({ ...message, senderName: user.name });
+  });
+
+  app.get('/api/messages/unread', requireAuth, async (req, res) => {
+    const user = req.user as any;
+    if (!user.familyId) return res.json({ count: 0 });
+    const count = await storage.getUnreadCount(user.id, user.familyId);
+    res.json({ count });
+  });
+
+  // === NOTES ROUTES ===
+
+  app.get('/api/notes', requireAuth, async (req, res) => {
+    const user = req.user as any;
+    if (!user.familyId) return res.status(400).json({ message: "Not in a family" });
+    const notesList = await storage.getNotes(user.familyId);
+    res.json(notesList);
+  });
+
+  app.post('/api/notes', requireAuth, async (req, res) => {
+    const user = req.user as any;
+    if (!user.familyId) return res.status(400).json({ message: "Not in a family" });
+    const { title, content } = req.body;
+    if (!title || typeof title !== 'string' || title.trim().length === 0) {
+      return res.status(400).json({ message: "Note title is required" });
+    }
+    const note = await storage.createNote({
+      familyId: user.familyId,
+      userId: user.id,
+      title: title.trim(),
+      content: content || null,
+    });
+    res.status(201).json({ ...note, creatorName: user.name });
+  });
+
+  app.patch('/api/notes/:id', requireAuth, async (req, res) => {
+    const user = req.user as any;
+    if (!user.familyId) return res.status(400).json({ message: "Not in a family" });
+    const noteId = parseInt(req.params.id);
+    const note = await storage.getNote(noteId);
+    if (!note) return res.status(404).json({ message: "Note not found" });
+    if (note.familyId !== user.familyId) return res.status(403).json({ message: "Forbidden" });
+    const { title, content, isCompleted } = req.body;
+    const updates: any = {};
+    if (title !== undefined) updates.title = title;
+    if (content !== undefined) updates.content = content;
+    if (isCompleted !== undefined) updates.isCompleted = isCompleted;
+    const updated = await storage.updateNote(noteId, updates);
+    res.json(updated);
+  });
+
+  app.delete('/api/notes/:id', requireAuth, async (req, res) => {
+    const user = req.user as any;
+    if (!user.familyId) return res.status(400).json({ message: "Not in a family" });
+    const noteId = parseInt(req.params.id);
+    const note = await storage.getNote(noteId);
+    if (!note) return res.status(404).json({ message: "Note not found" });
+    if (note.familyId !== user.familyId) return res.status(403).json({ message: "Forbidden" });
+    await storage.deleteNote(noteId);
+    res.status(204).send();
+  });
+
   // === UPLOAD ROUTE ===
   app.post(api.upload.create.path, requireAuth, upload.single('file'), (req, res) => {
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });

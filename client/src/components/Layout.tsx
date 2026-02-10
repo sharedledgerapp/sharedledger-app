@@ -1,10 +1,11 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, Wallet, Users, Trophy, Shield, Settings, BarChart3 } from "lucide-react";
+import { Home, Wallet, Users, Trophy, Shield, Settings, BarChart3, MessageCircle } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useQuery } from "@tanstack/react-query";
 
 export function BottomNav() {
   const [location] = useLocation();
@@ -55,20 +56,39 @@ export function Layout({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { t } = useLanguage();
 
+  const { data: unreadData } = useQuery<{ count: number }>({
+    queryKey: ['/api/messages/unread'],
+    refetchInterval: 15000,
+    enabled: !!user,
+  });
+  const unreadCount = unreadData?.count || 0;
+
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
       {/* Mobile Top Bar */}
       <header className="fixed top-0 left-0 right-0 z-40 px-6 py-4 bg-background/80 backdrop-blur-md flex justify-between items-center border-b border-border/20 lg:hidden">
         <h1 className="font-display font-bold text-xl text-primary tracking-tight">FamilyLedger</h1>
         {user && (
-          <Link href="/settings">
-            <Avatar className="w-9 h-9 border-2 border-primary/20 cursor-pointer hover:border-primary/50 transition-colors" data-testid="button-profile-mobile">
-              <AvatarImage src={user.profileImageUrl || undefined} alt={user.name} />
-              <AvatarFallback className="text-sm bg-primary/10 text-primary font-bold">
-                {user.name?.[0]?.toUpperCase() || "U"}
-              </AvatarFallback>
-            </Avatar>
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/messages">
+              <div className="relative cursor-pointer" data-testid="button-messages-mobile">
+                <MessageCircle className="w-6 h-6 text-muted-foreground hover:text-foreground transition-colors" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1" data-testid="badge-unread-count">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </div>
+            </Link>
+            <Link href="/settings">
+              <Avatar className="w-9 h-9 border-2 border-primary/20 cursor-pointer hover:border-primary/50 transition-colors" data-testid="button-profile-mobile">
+                <AvatarImage src={user.profileImageUrl || undefined} alt={user.name} />
+                <AvatarFallback className="text-sm bg-primary/10 text-primary font-bold">
+                  {user.name?.[0]?.toUpperCase() || "U"}
+                </AvatarFallback>
+              </Avatar>
+            </Link>
+          </div>
         )}
       </header>
       {/* Desktop Sidebar (hidden on mobile) */}
@@ -92,6 +112,17 @@ export function Layout({ children }: { children: ReactNode }) {
           </Link>
           <Link href="/reports" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors" data-testid="link-reports-desktop">
             <BarChart3 className="w-5 h-5" /> {t("reports")}
+          </Link>
+          <Link href="/messages" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors" data-testid="link-messages-desktop">
+            <div className="relative">
+              <MessageCircle className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] rounded-full bg-destructive text-destructive-foreground text-[8px] font-bold flex items-center justify-center px-0.5">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </div>
+            {t("messages")}
           </Link>
         </nav>
         <div className="pt-6 border-t border-border">
