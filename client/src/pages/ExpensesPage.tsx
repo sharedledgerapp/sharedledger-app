@@ -3,24 +3,61 @@ import { useExpenses, useCreateExpense, useUpdateExpense, useUpload, useFamily }
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, ScanLine, Check, X, DollarSign, Trash2, Wallet } from "lucide-react";
+import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, ScanLine, Check, X, DollarSign, Trash2, Wallet, Repeat, CreditCard, Zap, Building, Shield, Package, Pause, Play, Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Keypad } from "@/components/Keypad";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
-import { useMutation } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useDeleteExpense } from "@/hooks/use-data";
 import { getCurrencySymbol, CURRENCIES } from "@/lib/currency";
 import { DEFAULT_CATEGORIES } from "@/pages/SettingsPage";
 import { Link } from "wouter";
-import { Settings } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import type { RecurringExpense } from "@shared/schema";
+
+const RECURRING_CATEGORIES = ["Subscriptions", "Utilities", "Taxes", "Insurance", "Other"] as const;
+const FREQUENCIES = ["monthly", "quarterly", "yearly"] as const;
+
+type RecurringCategory = typeof RECURRING_CATEGORIES[number];
+
+function getCategoryIcon(category: string) {
+  const icons: Record<string, any> = {
+    Subscriptions: CreditCard,
+    Utilities: Zap,
+    Taxes: Building,
+    Insurance: Shield,
+    Other: Package,
+  };
+  return icons[category] || Package;
+}
+
+function getCategoryColor(category: string) {
+  const colors: Record<string, string> = {
+    Subscriptions: "#818cf8",
+    Utilities: "#fbbf24",
+    Taxes: "#f472b6",
+    Insurance: "#34d399",
+    Other: "#60a5fa",
+  };
+  return colors[category] || "#94a3b8";
+}
+
+function toMonthlyAmount(amount: number, frequency: string): number {
+  switch (frequency) {
+    case "yearly": return amount / 12;
+    case "quarterly": return amount / 3;
+    default: return amount;
+  }
+}
 
 export default function ExpensesPage() {
   const { data: expenses, isLoading } = useExpenses();
@@ -28,91 +65,516 @@ export default function ExpensesPage() {
   const [editingExpense, setEditingExpense] = useState<any>(null);
   const { user } = useAuth();
   const { t } = useLanguage();
+  const { toast } = useToast();
+  const qc = useQueryClient();
   const deleteMutation = useDeleteExpense();
   
   const currencySymbol = getCurrencySymbol(user?.currency);
 
+  const [view, setView] = useState<"everyday" | "recurring">("everyday");
+  const [showRecurringDialog, setShowRecurringDialog] = useState(false);
+  const [editingRecurring, setEditingRecurring] = useState<RecurringExpense | null>(null);
+  const [recurringForm, setRecurringForm] = useState({
+    name: "",
+    amount: "",
+    category: "Subscriptions" as RecurringCategory,
+    frequency: "monthly" as typeof FREQUENCIES[number],
+    note: "",
+  });
+
+  const { data: recurringExpenses, isLoading: recurringLoading } = useQuery<RecurringExpense[]>({
+    queryKey: ["/api/recurring-expenses"],
+  });
+
+  const createRecurringMutation = useMutation({
+    mutationFn: async (data: typeof recurringForm) => {
+      const res = await apiRequest("POST", "/api/recurring-expenses", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/recurring-expenses"] });
+      toast({ title: t("recurringAdded") });
+      resetRecurringForm();
+    },
+  });
+
+  const updateRecurringMutation = useMutation({
+    mutationFn: async ({ id, ...data }: typeof recurringForm & { id: number }) => {
+      const res = await apiRequest("PATCH", `/api/recurring-expenses/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/recurring-expenses"] });
+      toast({ title: t("recurringUpdated") });
+      resetRecurringForm();
+    },
+  });
+
+  const deleteRecurringMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/recurring-expenses/${id}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/recurring-expenses"] });
+      toast({ title: t("recurringDeleted") });
+    },
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/recurring-expenses/${id}`, { isActive });
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/recurring-expenses"] });
+    },
+  });
+
+  function resetRecurringForm() {
+    setShowRecurringDialog(false);
+    setEditingRecurring(null);
+    setRecurringForm({ name: "", amount: "", category: "Subscriptions", frequency: "monthly", note: "" });
+  }
+
+  function openEditRecurringDialog(expense: RecurringExpense) {
+    setEditingRecurring(expense);
+    setRecurringForm({
+      name: expense.name,
+      amount: String(expense.amount),
+      category: expense.category as RecurringCategory,
+      frequency: expense.frequency as typeof FREQUENCIES[number],
+      note: expense.note || "",
+    });
+    setShowRecurringDialog(true);
+  }
+
+  function handleSubmitRecurring() {
+    if (!recurringForm.name || !recurringForm.amount || Number(recurringForm.amount) <= 0) return;
+    if (editingRecurring) {
+      updateRecurringMutation.mutate({ ...recurringForm, id: editingRecurring.id });
+    } else {
+      createRecurringMutation.mutate(recurringForm);
+    }
+  }
+
+  const frequencyLabel = (freq: string) => {
+    const labels: Record<string, string> = {
+      monthly: t("perMonth"),
+      quarterly: t("perQuarter"),
+      yearly: t("perYear"),
+    };
+    return labels[freq] || "";
+  };
+
+  const categoryLabel = (cat: string) => {
+    const labels: Record<string, string> = {
+      Subscriptions: t("subscriptions"),
+      Utilities: t("utilities"),
+      Taxes: t("taxes"),
+      Insurance: t("insurance"),
+      Other: t("other"),
+    };
+    return labels[cat] || cat;
+  };
+
+  const frequencyFullLabel = (freq: string) => {
+    const labels: Record<string, string> = {
+      monthly: t("monthly"),
+      quarterly: t("quarterly"),
+      yearly: t("yearly"),
+    };
+    return labels[freq] || freq;
+  };
+
+  const activeRecurring = recurringExpenses?.filter(e => e.isActive) || [];
+  const groupedRecurring = RECURRING_CATEGORIES.reduce((acc, cat) => {
+    const items = activeRecurring.filter(e => e.category === cat);
+    if (items.length > 0) {
+      acc.push({
+        category: cat,
+        items,
+        total: items.reduce((sum, e) => sum + toMonthlyAmount(Number(e.amount), e.frequency), 0),
+      });
+    }
+    return acc;
+  }, [] as { category: string; items: RecurringExpense[]; total: number }[]);
+
+  const totalRecurringMonthly = groupedRecurring.reduce((sum, g) => sum + g.total, 0);
+  const inactiveRecurring = recurringExpenses?.filter(e => !e.isActive) || [];
+
   return (
     <div className="space-y-6 pb-20">
       <div className="flex justify-between items-center">
-        <h1 className="font-display font-bold text-3xl">Expenses</h1>
-        <Button onClick={() => setIsCreateOpen(true)} className="rounded-full shadow-lg shadow-primary/25">
-          <Plus className="w-5 h-5 mr-2" /> Add New
+        <h1 className="font-display font-bold text-3xl">{t("expenses")}</h1>
+        {view === "everyday" && (
+          <Button onClick={() => setIsCreateOpen(true)} className="rounded-full shadow-lg shadow-primary/25" data-testid="button-add-expense">
+            <Plus className="w-5 h-5 mr-2" /> Add New
+          </Button>
+        )}
+        {view === "recurring" && (
+          <Button
+            onClick={() => { resetRecurringForm(); setShowRecurringDialog(true); }}
+            className="rounded-full shadow-lg shadow-primary/25"
+            data-testid="button-add-recurring"
+          >
+            <Plus className="w-5 h-5 mr-2" /> {t("addRecurring")}
+          </Button>
+        )}
+      </div>
+
+      <div className="flex gap-2">
+        <Button
+          variant={view === "everyday" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setView("everyday")}
+          data-testid="button-everyday-view"
+          className="flex-1"
+        >
+          <Wallet className="w-4 h-4 mr-1.5" />
+          {t("everydayExpenses")}
+        </Button>
+        <Button
+          variant={view === "recurring" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setView("recurring")}
+          data-testid="button-recurring-view"
+          className="flex-1"
+        >
+          <Repeat className="w-4 h-4 mr-1.5" />
+          {t("recurringExpenses")}
         </Button>
       </div>
 
-      <p className="text-sm font-medium text-muted-foreground" data-testid="text-privacy-note">
-        Only expenses you choose to share with your family will appear in the family dashboard.
-      </p>
+      {view === "everyday" ? (
+        <>
+          <p className="text-sm font-medium text-muted-foreground" data-testid="text-privacy-note">
+            Only expenses you choose to share with your family will appear in the family dashboard.
+          </p>
 
-      {isLoading ? (
-        <div className="space-y-4">
-          {[1,2,3,4].map(i => <div key={i} className="h-16 bg-muted animate-pulse rounded-xl" />)}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {expenses?.map((expense) => (
-            <div 
-              key={expense.id} 
-              className="bg-white dark:bg-card p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between group hover:border-primary/30 transition-colors"
-            >
-              <div 
-                className="flex items-center gap-3 flex-1 cursor-pointer"
-                onClick={() => setEditingExpense(expense)}
-              >
-                <div className="w-12 h-12 rounded-2xl bg-secondary/50 flex items-center justify-center text-2xl group-hover:scale-105 transition-transform">
-                  {getCategoryEmoji(expense.category)}
-                </div>
-                <div>
-                  <p className="font-semibold text-foreground">{expense.note || expense.category}</p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{format(new Date(expense.date), "MMM d, h:mm a")}</span>
-                    {(expense as any).paymentSource === "family" ? (
-                      <Badge variant="outline" className="gap-1">
-                        <Users className="w-3 h-3" />
-                        {t("familyBadge")}
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="gap-1">
-                        <Wallet className="w-3 h-3" />
-                        {t("personal")}
-                      </Badge>
-                    )}
-                    {expense.visibility === "public" && (
-                      <Badge variant="outline" className="gap-1 border-primary text-primary">
-                        {t("shared")}
-                      </Badge>
-                    )}
+          {isLoading ? (
+            <div className="space-y-4">
+              {[1,2,3,4].map(i => <div key={i} className="h-16 bg-muted animate-pulse rounded-xl" />)}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {expenses?.map((expense) => (
+                <div 
+                  key={expense.id} 
+                  className="bg-white dark:bg-card p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between group hover:border-primary/30 transition-colors"
+                >
+                  <div 
+                    className="flex items-center gap-3 flex-1 cursor-pointer"
+                    onClick={() => setEditingExpense(expense)}
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-secondary/50 flex items-center justify-center text-2xl group-hover:scale-105 transition-transform">
+                      {getCategoryEmoji(expense.category)}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground">{expense.note || expense.category}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{format(new Date(expense.date), "MMM d, h:mm a")}</span>
+                        {(expense as any).paymentSource === "family" ? (
+                          <Badge variant="outline" className="gap-1">
+                            <Users className="w-3 h-3" />
+                            {t("familyBadge")}
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="gap-1">
+                            <Wallet className="w-3 h-3" />
+                            {t("personal")}
+                          </Badge>
+                        )}
+                        {expense.visibility === "public" && (
+                          <Badge variant="outline" className="gap-1 border-primary text-primary">
+                            {t("shared")}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="block font-bold text-lg">-{currencySymbol}{Number(expense.amount).toFixed(2)}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm("Are you sure you want to delete this expense?")) {
+                          deleteMutation.mutate(expense.id);
+                        }
+                      }}
+                      data-testid={`button-delete-expense-${expense.id}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="block font-bold text-lg">-{currencySymbol}{Number(expense.amount).toFixed(2)}</span>
+              ))}
+              {expenses?.length === 0 && (
+                <div className="text-center py-20 bg-muted/20 rounded-2xl border-2 border-dashed border-muted">
+                  <p className="text-muted-foreground">{t("noTransactions")}</p>
+                  <Button variant="ghost" onClick={() => setIsCreateOpen(true)}>Add your first expense</Button>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="space-y-4">
+          {recurringLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-20 w-full rounded-xl" />
+              <Skeleton className="h-20 w-full rounded-xl" />
+            </div>
+          ) : groupedRecurring.length > 0 ? (
+            <>
+              <Card className="bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Repeat className="w-4 h-4" />
+                      <span className="text-sm font-medium">{t("totalRecurring")}</span>
+                    </div>
+                    <span className="text-sm text-muted-foreground">{t("perMonth")}</span>
+                  </div>
+                  <div className="text-3xl font-display font-bold mt-1" data-testid="text-total-recurring">
+                    {currencySymbol}{totalRecurringMonthly.toFixed(2)}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {groupedRecurring.map((group) => {
+                const CategoryIcon = getCategoryIcon(group.category);
+                return (
+                  <div key={group.category} data-testid={`group-${group.category.toLowerCase()}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center"
+                          style={{ backgroundColor: getCategoryColor(group.category) + "20" }}
+                        >
+                          <CategoryIcon className="w-4 h-4" style={{ color: getCategoryColor(group.category) }} />
+                        </div>
+                        <span className="font-semibold text-sm">{categoryLabel(group.category)}</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {group.items.length}
+                        </Badge>
+                      </div>
+                      <span className="font-bold text-sm" data-testid={`text-group-total-${group.category.toLowerCase()}`}>
+                        {currencySymbol}{group.total.toFixed(2)}{t("perMonth")}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 ml-10">
+                      {group.items.map((expense) => (
+                        <div
+                          key={expense.id}
+                          className="bg-white dark:bg-card p-3 rounded-lg border border-border/50 shadow-sm flex items-center justify-between"
+                          data-testid={`recurring-item-${expense.id}`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm text-foreground truncate">{expense.name}</p>
+                            {expense.note && (
+                              <p className="text-xs text-muted-foreground truncate">{expense.note}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 ml-2">
+                            <div className="text-right">
+                              <span className="font-bold text-sm">
+                                {currencySymbol}{Number(expense.amount).toFixed(2)}
+                              </span>
+                              <span className="text-xs text-muted-foreground ml-0.5">
+                                {frequencyLabel(expense.frequency)}
+                              </span>
+                            </div>
+                            <div className="flex items-center">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => openEditRecurringDialog(expense)}
+                                data-testid={`button-edit-recurring-${expense.id}`}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => toggleActiveMutation.mutate({ id: expense.id, isActive: false })}
+                                data-testid={`button-pause-recurring-${expense.id}`}
+                              >
+                                <Pause className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="text-destructive"
+                                onClick={() => deleteRecurringMutation.mutate(expense.id)}
+                                data-testid={`button-delete-recurring-${expense.id}`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {inactiveRecurring.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2 mt-4">
+                    <span className="text-sm font-medium text-muted-foreground">{t("pausedLabel")}</span>
+                    <Badge variant="secondary" className="text-xs">{inactiveRecurring.length}</Badge>
+                  </div>
+                  <div className="space-y-2">
+                    {inactiveRecurring.map((expense) => (
+                      <div
+                        key={expense.id}
+                        className="bg-muted/30 p-3 rounded-lg border border-border/30 flex items-center justify-between opacity-60"
+                        data-testid={`recurring-paused-${expense.id}`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm text-foreground truncate">{expense.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {categoryLabel(expense.category)} - {currencySymbol}{Number(expense.amount).toFixed(2)}{frequencyLabel(expense.frequency)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => toggleActiveMutation.mutate({ id: expense.id, isActive: true })}
+                            data-testid={`button-resume-recurring-${expense.id}`}
+                          >
+                            <Play className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="text-destructive"
+                            onClick={() => deleteRecurringMutation.mutate(expense.id)}
+                            data-testid={`button-delete-paused-${expense.id}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <Card className="border-dashed">
+              <CardContent className="p-6 text-center">
+                <Repeat className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm font-medium text-foreground mb-1">{t("noRecurringExpenses")}</p>
+                <p className="text-xs text-muted-foreground mb-4">{t("addFirstRecurring")}</p>
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (confirm("Are you sure you want to delete this expense?")) {
-                      deleteMutation.mutate(expense.id);
-                    }
-                  }}
-                  data-testid={`button-delete-expense-${expense.id}`}
+                  size="sm"
+                  onClick={() => { resetRecurringForm(); setShowRecurringDialog(true); }}
+                  data-testid="button-add-first-recurring"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Plus className="w-4 h-4 mr-1" /> {t("addRecurring")}
                 </Button>
-              </div>
-            </div>
-          ))}
-          {expenses?.length === 0 && (
-            <div className="text-center py-20 bg-muted/20 rounded-2xl border-2 border-dashed border-muted">
-              <p className="text-muted-foreground">No expenses yet.</p>
-              <Button variant="ghost" onClick={() => setIsCreateOpen(true)}>Add your first expense</Button>
-            </div>
+              </CardContent>
+            </Card>
           )}
         </div>
       )}
+
+      <Dialog open={showRecurringDialog} onOpenChange={(open) => { if (!open) resetRecurringForm(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle data-testid="text-recurring-dialog-title">
+              {editingRecurring ? t("editRecurring") : t("addRecurring")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>{t("recurringName")}</Label>
+              <Input
+                value={recurringForm.name}
+                onChange={(e) => setRecurringForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Netflix, Electric bill..."
+                data-testid="input-recurring-name"
+              />
+            </div>
+            <div>
+              <Label>{t("recurringAmount")}</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={recurringForm.amount}
+                onChange={(e) => setRecurringForm(f => ({ ...f, amount: e.target.value }))}
+                placeholder="0.00"
+                data-testid="input-recurring-amount"
+              />
+            </div>
+            <div>
+              <Label>{t("recurringCategory")}</Label>
+              <Select
+                value={recurringForm.category}
+                onValueChange={(v) => setRecurringForm(f => ({ ...f, category: v as RecurringCategory }))}
+              >
+                <SelectTrigger data-testid="select-recurring-category">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {RECURRING_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat} data-testid={`option-category-${cat.toLowerCase()}`}>
+                      {categoryLabel(cat)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>{t("recurringFrequency")}</Label>
+              <Select
+                value={recurringForm.frequency}
+                onValueChange={(v) => setRecurringForm(f => ({ ...f, frequency: v as typeof FREQUENCIES[number] }))}
+              >
+                <SelectTrigger data-testid="select-recurring-frequency">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FREQUENCIES.map((freq) => (
+                    <SelectItem key={freq} value={freq} data-testid={`option-frequency-${freq}`}>
+                      {frequencyFullLabel(freq)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>{t("recurringNote")}</Label>
+              <Input
+                value={recurringForm.note}
+                onChange={(e) => setRecurringForm(f => ({ ...f, note: e.target.value }))}
+                placeholder=""
+                data-testid="input-recurring-note"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={resetRecurringForm} data-testid="button-cancel-recurring">
+              {t("cancel")}
+            </Button>
+            <Button
+              onClick={handleSubmitRecurring}
+              disabled={!recurringForm.name || !recurringForm.amount || Number(recurringForm.amount) <= 0 || createRecurringMutation.isPending || updateRecurringMutation.isPending}
+              data-testid="button-save-recurring"
+            >
+              {t("save")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <CreateExpenseDialog 
         open={isCreateOpen || !!editingExpense} 
@@ -217,24 +679,18 @@ function CreateExpenseDialog({
   };
 
   const handleConfirmExtractedData = () => {
-    console.log("[Expense] Use This Data clicked, extractedData:", extractedData);
     if (extractedData) {
       if (extractedData.amount) {
-        const amountStr = extractedData.amount.toString();
-        console.log("[Expense] Setting amount from OCR:", amountStr);
-        setAmount(amountStr);
+        setAmount(extractedData.amount.toString());
       }
       if (extractedData.category && CATEGORIES.includes(extractedData.category)) {
-        console.log("[Expense] Setting category from OCR:", extractedData.category);
         setCategory(extractedData.category);
       }
       if (extractedData.note) {
-        console.log("[Expense] Setting note from OCR:", extractedData.note);
         setNote(extractedData.note);
       }
     }
     setShowReceiptConfirm(false);
-    console.log("[Expense] Receipt confirm dialog closed, form should be populated");
   };
 
   const handleCancelExtractedData = () => {
@@ -260,15 +716,8 @@ function CreateExpenseDialog({
   }, [editingExpense, open]);
 
   const handleSubmit = async () => {
-    console.log("[Expense] handleSubmit called, amount:", amount, "familyId:", user?.familyId);
-    if (amount === "0") {
-      console.log("[Expense] Rejected: amount is 0");
-      return;
-    }
-    if (!user?.familyId) {
-      console.log("[Expense] Rejected: no familyId");
-      return;
-    }
+    if (amount === "0") return;
+    if (!user?.familyId) return;
 
     let receiptUrl = editingExpense?.receiptUrl;
     if (file) {
@@ -314,7 +763,7 @@ function CreateExpenseDialog({
     setShowCurrencyPrompt(false);
   };
 
-  const getCurrencySymbol = () => {
+  const getCurrencySymbolLocal = () => {
     const userCurrency = (user as any)?.currency || selectedCurrency;
     const curr = CURRENCIES.find(c => c.code === userCurrency);
     return curr?.symbol || '$';
@@ -330,7 +779,6 @@ function CreateExpenseDialog({
         </div>
 
         <div className="p-6 space-y-6">
-          {/* Currency Selection Prompt for First Expense */}
           {showCurrencyPrompt && (
             <Card className="border-primary/30 bg-primary/5" data-testid="card-currency-prompt">
               <CardContent className="p-4 space-y-4">
@@ -377,12 +825,10 @@ function CreateExpenseDialog({
               You must belong to a family to add expenses.
             </div>
           )}
-          {/* Amount Display */}
           <div className="text-center py-4">
-            <span className="text-4xl font-bold font-display text-primary">{getCurrencySymbol()}{amount}</span>
+            <span className="text-4xl font-bold font-display text-primary">{getCurrencySymbolLocal()}{amount}</span>
           </div>
 
-          {/* Keypad */}
           <div className="bg-muted/30 rounded-3xl p-2">
             <Keypad value={amount} onValueChange={(val) => {
               if (val.startsWith("0") && val.length > 1 && !val.startsWith("0.")) {
@@ -496,7 +942,6 @@ function CreateExpenseDialog({
               />
             </div>
 
-            {/* Receipt Confirmation Dialog */}
             {showReceiptConfirm && extractedData && (
               <Card className="border-primary/30 bg-primary/5" data-testid="card-receipt-confirm">
                 <CardContent className="p-4 space-y-4">
@@ -559,7 +1004,6 @@ function CreateExpenseDialog({
               type="button"
               className="w-full h-14 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20" 
               onClick={(e) => {
-                console.log("[Expense] Button clicked, amount:", amount, "canSubmit:", canSubmit);
                 e.preventDefault();
                 e.stopPropagation();
                 handleSubmit();
