@@ -113,6 +113,10 @@ export async function registerRoutes(
       language: z.enum(["en", "fr"]).optional(),
       currency: z.string().optional(),
       categories: z.array(z.string().min(1).max(30)).max(20).optional(),
+      dailyReminderTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
+      dailyReminderEnabled: z.boolean().optional(),
+      weeklyReminderEnabled: z.boolean().optional(),
+      monthlyReminderEnabled: z.boolean().optional(),
     });
     
     const updates = updateSchema.parse(req.body);
@@ -377,6 +381,45 @@ If any field cannot be determined, use null. Be precise with the total amount. R
   });
 
   // === FAMILY ROUTES ===
+
+  app.patch("/api/family/members/:id/role", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    
+    // Only parents can change roles
+    if (user.role !== 'parent') {
+      return res.status(403).json({ message: "Only admins can change member roles" });
+    }
+    
+    if (!user.familyId) {
+      return res.status(400).json({ message: "You must be in a family" });
+    }
+    
+    const memberId = parseInt(req.params.id);
+    const { role } = z.object({ role: z.enum(["parent", "child"]) }).parse(req.body);
+    
+    // Can't change own role
+    if (memberId === user.id) {
+      return res.status(400).json({ message: "You cannot change your own role" });
+    }
+    
+    // Verify the target member is in the same family
+    const member = await storage.getUser(memberId);
+    if (!member || member.familyId !== user.familyId) {
+      return res.status(404).json({ message: "Member not found in your family" });
+    }
+    
+    // Check max 2 parents if promoting
+    if (role === 'parent') {
+      const familyMembers = await storage.getFamilyMembers(user.familyId);
+      const parentCount = familyMembers.filter(m => m.role === 'parent').length;
+      if (parentCount >= 2) {
+        return res.status(400).json({ message: "Maximum of 2 admins per family" });
+      }
+    }
+    
+    const updated = await storage.updateUser(memberId, { role });
+    res.json({ id: updated.id, name: updated.name, role: updated.role });
+  });
 
   app.get(api.family.get.path, requireAuth, async (req, res) => {
     const user = req.user as any;

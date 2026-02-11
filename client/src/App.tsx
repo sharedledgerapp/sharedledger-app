@@ -19,9 +19,24 @@ import SpendingReflectionsPage from "@/pages/SpendingReflectionsPage";
 import ReportsPage from "@/pages/ReportsPage";
 import MessagesPage from "@/pages/MessagesPage";
 import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
+import { startNotificationScheduler, stopNotificationScheduler } from "@/lib/notifications";
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      const prefs = {
+        dailyReminderEnabled: (user as any).dailyReminderEnabled ?? true,
+        dailyReminderTime: (user as any).dailyReminderTime || "19:00",
+        weeklyReminderEnabled: (user as any).weeklyReminderEnabled ?? true,
+        monthlyReminderEnabled: (user as any).monthlyReminderEnabled ?? true,
+      };
+      startNotificationScheduler(prefs);
+    }
+    return () => stopNotificationScheduler();
+  }, [user]);
 
   if (isLoading) {
     return (

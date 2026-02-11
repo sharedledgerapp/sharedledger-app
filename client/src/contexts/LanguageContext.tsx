@@ -37,7 +37,12 @@ type TranslationKey =
   | "messages" | "savedNotes" | "typeMessage" | "send" | "noMessages" | "startConversation"
   | "addNote" | "noteTitlePlaceholder" | "noteContentPlaceholder" | "noNotes" | "addFirstNote"
   | "deleteNote" | "markComplete" | "markIncomplete" | "noteDeleted" | "messageSent" | "noteSaved"
-  | "shoppingList" | "by" | "noGoals";
+  | "shoppingList" | "by" | "noGoals"
+  | "notifications" | "dailyReminder" | "dailyReminderDescription" | "reminderTime"
+  | "weeklyReminder" | "weeklyReminderDescription" | "monthlyReminder" | "monthlyReminderDescription"
+  | "notificationsEnabled" | "notificationsDisabled" | "enableNotifications"
+  | "notificationPermissionDenied" | "makeAdmin" | "removeAdmin" | "adminPromoted"
+  | "adminDemoted" | "maxAdminsReached" | "confirmMakeAdmin" | "confirmRemoveAdmin" | "reminderUpdated";
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -176,6 +181,26 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     shoppingList: "Shopping List",
     by: "by",
     noGoals: "No shared goals yet",
+    notifications: "Notifications",
+    dailyReminder: "Daily Expense Reminder",
+    dailyReminderDescription: "Get reminded to log your expenses",
+    reminderTime: "Reminder Time",
+    weeklyReminder: "Weekly Summary",
+    weeklyReminderDescription: "Review your weekly spending every Sunday",
+    monthlyReminder: "Monthly Summary",
+    monthlyReminderDescription: "Review your monthly spending at month end",
+    notificationsEnabled: "Notifications enabled",
+    notificationsDisabled: "Notifications disabled",
+    enableNotifications: "Enable Notifications",
+    notificationPermissionDenied: "Notification permission denied. Please enable in browser settings.",
+    makeAdmin: "Make Admin",
+    removeAdmin: "Remove Admin",
+    adminPromoted: "Member promoted to admin",
+    adminDemoted: "Admin role removed",
+    maxAdminsReached: "Maximum of 2 admins per family",
+    confirmMakeAdmin: "Make this member an admin? They will have the same permissions as you.",
+    confirmRemoveAdmin: "Remove admin role from this member?",
+    reminderUpdated: "Reminder settings updated",
   },
   fr: {
     home: "Accueil",
@@ -313,6 +338,26 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     shoppingList: "Liste de courses",
     by: "par",
     noGoals: "Pas encore d'objectifs partagés",
+    notifications: "Notifications",
+    dailyReminder: "Rappel quotidien des dépenses",
+    dailyReminderDescription: "Recevez un rappel pour enregistrer vos dépenses",
+    reminderTime: "Heure du rappel",
+    weeklyReminder: "Résumé hebdomadaire",
+    weeklyReminderDescription: "Consultez vos dépenses hebdomadaires chaque dimanche",
+    monthlyReminder: "Résumé mensuel",
+    monthlyReminderDescription: "Consultez vos dépenses mensuelles en fin de mois",
+    notificationsEnabled: "Notifications activées",
+    notificationsDisabled: "Notifications désactivées",
+    enableNotifications: "Activer les notifications",
+    notificationPermissionDenied: "Permission de notification refusée. Veuillez activer dans les paramètres du navigateur.",
+    makeAdmin: "Nommer administrateur",
+    removeAdmin: "Retirer administrateur",
+    adminPromoted: "Membre promu administrateur",
+    adminDemoted: "Rôle d'administrateur retiré",
+    maxAdminsReached: "Maximum de 2 administrateurs par famille",
+    confirmMakeAdmin: "Nommer ce membre administrateur ? Il aura les mêmes permissions que vous.",
+    confirmRemoveAdmin: "Retirer le rôle d'administrateur de ce membre ?",
+    reminderUpdated: "Paramètres de rappel mis à jour",
   },
 };
 

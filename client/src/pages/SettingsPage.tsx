@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, User, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical } from "lucide-react";
+import { LogOut, User, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, Clock } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Link, useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -33,6 +34,14 @@ export default function SettingsPage() {
   const [categories, setCategories] = useState<string[]>(userCategories || DEFAULT_CATEGORIES);
   const [newCategory, setNewCategory] = useState("");
   const [editingCategory, setEditingCategory] = useState<{ index: number; value: string } | null>(null);
+  
+  const [dailyReminderEnabled, setDailyReminderEnabled] = useState((user as any)?.dailyReminderEnabled ?? true);
+  const [dailyReminderTime, setDailyReminderTime] = useState((user as any)?.dailyReminderTime || "19:00");
+  const [weeklyReminderEnabled, setWeeklyReminderEnabled] = useState((user as any)?.weeklyReminderEnabled ?? true);
+  const [monthlyReminderEnabled, setMonthlyReminderEnabled] = useState((user as any)?.monthlyReminderEnabled ?? true);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
+    typeof Notification !== "undefined" ? Notification.permission : "default"
+  );
 
   const deleteAccountMutation = useMutation({
     mutationFn: async () => {
@@ -98,6 +107,69 @@ export default function SettingsPage() {
       });
     },
   });
+
+  const updateNotificationMutation = useMutation({
+    mutationFn: async (data: { dailyReminderTime?: string; dailyReminderEnabled?: boolean; weeklyReminderEnabled?: boolean; monthlyReminderEnabled?: boolean }) => {
+      const res = await apiRequest("PATCH", "/api/user/profile", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      toast({
+        title: t("reminderUpdated"),
+        description: t("changesSaved"),
+      });
+    },
+    onError: () => {
+      toast({
+        title: t("error"),
+        description: t("failedToUpdate"),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const requestNotificationPermission = async () => {
+    if (typeof Notification === "undefined") return;
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+    if (permission === "denied") {
+      toast({
+        title: t("error"),
+        description: t("notificationPermissionDenied"),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleDaily = (enabled: boolean) => {
+    setDailyReminderEnabled(enabled);
+    if (enabled && notificationPermission === "default") {
+      requestNotificationPermission();
+    }
+    updateNotificationMutation.mutate({ dailyReminderEnabled: enabled });
+  };
+
+  const handleDailyTimeChange = (time: string) => {
+    setDailyReminderTime(time);
+    updateNotificationMutation.mutate({ dailyReminderTime: time });
+  };
+
+  const handleToggleWeekly = (enabled: boolean) => {
+    setWeeklyReminderEnabled(enabled);
+    if (enabled && notificationPermission === "default") {
+      requestNotificationPermission();
+    }
+    updateNotificationMutation.mutate({ weeklyReminderEnabled: enabled });
+  };
+
+  const handleToggleMonthly = (enabled: boolean) => {
+    setMonthlyReminderEnabled(enabled);
+    if (enabled && notificationPermission === "default") {
+      requestNotificationPermission();
+    }
+    updateNotificationMutation.mutate({ monthlyReminderEnabled: enabled });
+  };
 
   const handleAddCategory = () => {
     const trimmed = newCategory.trim();
@@ -363,6 +435,83 @@ export default function SettingsPage() {
             >
               {t("resetToDefault") || "Reset to Default"}
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Bell className="w-5 h-5 text-primary" />
+            {t("notifications")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {notificationPermission === "denied" && (
+            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-lg">
+              {t("notificationPermissionDenied")}
+            </div>
+          )}
+          {notificationPermission === "default" && (
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={requestNotificationPermission}
+              data-testid="button-enable-notifications"
+            >
+              <Bell className="w-4 h-4" />
+              {t("enableNotifications")}
+            </Button>
+          )}
+
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1">
+              <p className="font-medium text-sm">{t("dailyReminder")}</p>
+              <p className="text-xs text-muted-foreground">{t("dailyReminderDescription")}</p>
+            </div>
+            <Switch
+              checked={dailyReminderEnabled}
+              onCheckedChange={handleToggleDaily}
+              data-testid="switch-daily-reminder"
+            />
+          </div>
+
+          {dailyReminderEnabled && (
+            <div className="flex items-center gap-3 pl-1">
+              <Clock className="w-4 h-4 text-muted-foreground" />
+              <Label className="text-sm text-muted-foreground">{t("reminderTime")}</Label>
+              <Input
+                type="time"
+                value={dailyReminderTime}
+                onChange={(e) => handleDailyTimeChange(e.target.value)}
+                className="w-auto"
+                data-testid="input-reminder-time"
+              />
+            </div>
+          )}
+
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1">
+              <p className="font-medium text-sm">{t("weeklyReminder")}</p>
+              <p className="text-xs text-muted-foreground">{t("weeklyReminderDescription")}</p>
+            </div>
+            <Switch
+              checked={weeklyReminderEnabled}
+              onCheckedChange={handleToggleWeekly}
+              data-testid="switch-weekly-reminder"
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1">
+              <p className="font-medium text-sm">{t("monthlyReminder")}</p>
+              <p className="text-xs text-muted-foreground">{t("monthlyReminderDescription")}</p>
+            </div>
+            <Switch
+              checked={monthlyReminderEnabled}
+              onCheckedChange={handleToggleMonthly}
+              data-testid="switch-monthly-reminder"
+            />
           </div>
         </CardContent>
       </Card>

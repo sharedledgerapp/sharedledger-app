@@ -166,4 +166,12 @@ self.addEventListener('message', (event) => {
     console.log('[SW] Received skip waiting message, activating new version');
     self.skipWaiting();
   }
+  if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
+    self.registration.showNotification(event.data.title, {
+      body: event.data.body,
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/icon-192x192.png',
+      tag: event.data.title,
+    });
+  }
 });

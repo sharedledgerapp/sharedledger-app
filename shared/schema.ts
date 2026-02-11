@@ -25,6 +25,10 @@ export const users = pgTable("users", {
   language: text("language", { enum: ["en", "fr"] }).default("en").notNull(),
   currency: text("currency").default("EUR").notNull(),
   categories: text("categories").array(),
+  dailyReminderTime: text("daily_reminder_time").default("19:00").notNull(),
+  dailyReminderEnabled: boolean("daily_reminder_enabled").default(true).notNull(),
+  weeklyReminderEnabled: boolean("weekly_reminder_enabled").default(true).notNull(),
+  monthlyReminderEnabled: boolean("monthly_reminder_enabled").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
