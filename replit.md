@@ -82,7 +82,7 @@ The `shared/` directory contains code used by both frontend and backend:
 - New `recurring_expenses` database table for fixed/recurring costs
 - Categories: Subscriptions, Utilities, Taxes, Insurance, Other
 - Frequencies: Monthly, Quarterly, Yearly
-- Home page toggle between "Everyday Expenses" and "Recurring Expenses" views
+- Expenses page toggle between "Everyday Expenses" and "Recurring Expenses" views
 - **Recurring view features**:
   - Expenses grouped by category with subtotals (normalized to monthly amounts)
   - Grand total of all active recurring expenses (monthly equivalent)
