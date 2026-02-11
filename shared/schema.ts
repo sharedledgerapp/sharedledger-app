@@ -104,6 +104,19 @@ export const notes = pgTable("notes", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const recurringExpenses = pgTable("recurring_expenses", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  familyId: integer("family_id").references(() => families.id),
+  name: text("name").notNull(),
+  amount: numeric("amount").notNull(),
+  category: text("category", { enum: ["Subscriptions", "Utilities", "Taxes", "Insurance", "Other"] }).notNull(),
+  frequency: text("frequency", { enum: ["monthly", "quarterly", "yearly"] }).default("monthly").notNull(),
+  note: text("note"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const messageReadStatus = pgTable("message_read_status", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
@@ -196,6 +209,17 @@ export const notesRelations = relations(notes, ({ one }) => ({
   }),
 }));
 
+export const recurringExpensesRelations = relations(recurringExpenses, ({ one }) => ({
+  user: one(users, {
+    fields: [recurringExpenses.userId],
+    references: [users.id],
+  }),
+  family: one(families, {
+    fields: [recurringExpenses.familyId],
+    references: [families.id],
+  }),
+}));
+
 // === ZOD SCHEMAS ===
 
 export const insertFamilySchema = createInsertSchema(families).omit({ id: true, createdAt: true });
@@ -207,6 +231,7 @@ export const insertGoalApprovalSchema = createInsertSchema(goalApprovals).omit({
 export const insertAllowanceSchema = createInsertSchema(allowances).omit({ id: true, updatedAt: true });
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
 export const insertNoteSchema = createInsertSchema(notes).omit({ id: true, createdAt: true, isCompleted: true });
+export const insertRecurringExpenseSchema = createInsertSchema(recurringExpenses).omit({ id: true, createdAt: true });
 
 // === TYPES ===
 
@@ -220,6 +245,7 @@ export type Allowance = typeof allowances.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type Note = typeof notes.$inferSelect;
 export type MessageReadStatus = typeof messageReadStatus.$inferSelect;
+export type RecurringExpense = typeof recurringExpenses.$inferSelect;
 
 export type InsertFamily = z.infer<typeof insertFamilySchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -230,6 +256,7 @@ export type InsertGoalApproval = z.infer<typeof insertGoalApprovalSchema>;
 export type InsertAllowance = z.infer<typeof insertAllowanceSchema>;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type InsertNote = z.infer<typeof insertNoteSchema>;
+export type InsertRecurringExpense = z.infer<typeof insertRecurringExpenseSchema>;
 
 // Request types
 export type CreateExpenseRequest = InsertExpense;

@@ -559,6 +559,64 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     res.json(updated);
   });
 
+  // === RECURRING EXPENSES ROUTES ===
+
+  app.get("/api/recurring-expenses", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const expenses = await storage.getRecurringExpenses(user.id);
+    res.json(expenses);
+  });
+
+  app.post("/api/recurring-expenses", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const schema = z.object({
+      name: z.string().min(1).max(100),
+      amount: z.string().or(z.number()).transform(v => String(v)),
+      category: z.enum(["Subscriptions", "Utilities", "Taxes", "Insurance", "Other"]),
+      frequency: z.enum(["monthly", "quarterly", "yearly"]).default("monthly"),
+      note: z.string().max(500).optional().nullable(),
+      isActive: z.boolean().default(true),
+    });
+    const data = schema.parse(req.body);
+    const expense = await storage.createRecurringExpense({
+      ...data,
+      userId: user.id,
+      familyId: user.familyId,
+    });
+    res.status(201).json(expense);
+  });
+
+  app.patch("/api/recurring-expenses/:id", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const id = parseInt(req.params.id);
+    const existing = await storage.getRecurringExpense(id);
+    if (!existing || existing.userId !== user.id) {
+      return res.status(404).json({ message: "Recurring expense not found" });
+    }
+    const schema = z.object({
+      name: z.string().min(1).max(100).optional(),
+      amount: z.string().or(z.number()).transform(v => String(v)).optional(),
+      category: z.enum(["Subscriptions", "Utilities", "Taxes", "Insurance", "Other"]).optional(),
+      frequency: z.enum(["monthly", "quarterly", "yearly"]).optional(),
+      note: z.string().max(500).optional().nullable(),
+      isActive: z.boolean().optional(),
+    });
+    const updates = schema.parse(req.body);
+    const updated = await storage.updateRecurringExpense(id, updates);
+    res.json(updated);
+  });
+
+  app.delete("/api/recurring-expenses/:id", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const id = parseInt(req.params.id);
+    const existing = await storage.getRecurringExpense(id);
+    if (!existing || existing.userId !== user.id) {
+      return res.status(404).json({ message: "Recurring expense not found" });
+    }
+    await storage.deleteRecurringExpense(id);
+    res.status(200).json({ message: "Deleted" });
+  });
+
   // === GOALS ROUTES ===
 
   app.get(api.goals.list.path, requireAuth, async (req, res) => {

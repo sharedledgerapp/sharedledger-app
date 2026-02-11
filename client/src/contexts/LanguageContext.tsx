@@ -42,7 +42,13 @@ type TranslationKey =
   | "weeklyReminder" | "weeklyReminderDescription" | "monthlyReminder" | "monthlyReminderDescription"
   | "notificationsEnabled" | "notificationsDisabled" | "enableNotifications"
   | "notificationPermissionDenied" | "makeAdmin" | "removeAdmin" | "adminPromoted"
-  | "adminDemoted" | "maxAdminsReached" | "confirmMakeAdmin" | "confirmRemoveAdmin" | "reminderUpdated";
+  | "adminDemoted" | "maxAdminsReached" | "confirmMakeAdmin" | "confirmRemoveAdmin" | "reminderUpdated"
+  | "everydayExpenses" | "recurringExpenses" | "recurring" | "addRecurring" | "editRecurring"
+  | "recurringName" | "recurringAmount" | "recurringCategory" | "recurringFrequency"
+  | "recurringNote" | "noRecurringExpenses" | "addFirstRecurring" | "totalRecurring"
+  | "subscriptions" | "utilities" | "taxes" | "insurance" | "other"
+  | "monthly" | "quarterly" | "yearly" | "perMonth" | "perQuarter" | "perYear"
+  | "recurringAdded" | "recurringUpdated" | "recurringDeleted" | "activeLabel" | "pausedLabel";
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -201,6 +207,35 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     confirmMakeAdmin: "Make this member an admin? They will have the same permissions as you.",
     confirmRemoveAdmin: "Remove admin role from this member?",
     reminderUpdated: "Reminder settings updated",
+    everydayExpenses: "Everyday Expenses",
+    recurringExpenses: "Recurring Expenses",
+    recurring: "Recurring",
+    addRecurring: "Add Recurring Expense",
+    editRecurring: "Edit Recurring Expense",
+    recurringName: "Name",
+    recurringAmount: "Amount",
+    recurringCategory: "Group",
+    recurringFrequency: "Frequency",
+    recurringNote: "Note (optional)",
+    noRecurringExpenses: "No recurring expenses yet",
+    addFirstRecurring: "Track subscriptions, utilities, taxes and other fixed costs",
+    totalRecurring: "Total Recurring",
+    subscriptions: "Subscriptions",
+    utilities: "Utilities",
+    taxes: "Taxes",
+    insurance: "Insurance",
+    other: "Other",
+    monthly: "Monthly",
+    quarterly: "Quarterly",
+    yearly: "Yearly",
+    perMonth: "/month",
+    perQuarter: "/quarter",
+    perYear: "/year",
+    recurringAdded: "Recurring expense added",
+    recurringUpdated: "Recurring expense updated",
+    recurringDeleted: "Recurring expense deleted",
+    activeLabel: "Active",
+    pausedLabel: "Paused",
   },
   fr: {
     home: "Accueil",
@@ -358,6 +393,35 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     confirmMakeAdmin: "Nommer ce membre administrateur ? Il aura les mêmes permissions que vous.",
     confirmRemoveAdmin: "Retirer le rôle d'administrateur de ce membre ?",
     reminderUpdated: "Paramètres de rappel mis à jour",
+    everydayExpenses: "Dépenses courantes",
+    recurringExpenses: "Dépenses récurrentes",
+    recurring: "Récurrent",
+    addRecurring: "Ajouter une dépense récurrente",
+    editRecurring: "Modifier la dépense récurrente",
+    recurringName: "Nom",
+    recurringAmount: "Montant",
+    recurringCategory: "Groupe",
+    recurringFrequency: "Fréquence",
+    recurringNote: "Note (optionnel)",
+    noRecurringExpenses: "Aucune dépense récurrente",
+    addFirstRecurring: "Suivez les abonnements, factures, impôts et autres coûts fixes",
+    totalRecurring: "Total récurrent",
+    subscriptions: "Abonnements",
+    utilities: "Services publics",
+    taxes: "Impôts",
+    insurance: "Assurance",
+    other: "Autre",
+    monthly: "Mensuel",
+    quarterly: "Trimestriel",
+    yearly: "Annuel",
+    perMonth: "/mois",
+    perQuarter: "/trimestre",
+    perYear: "/an",
+    recurringAdded: "Dépense récurrente ajoutée",
+    recurringUpdated: "Dépense récurrente mise à jour",
+    recurringDeleted: "Dépense récurrente supprimée",
+    activeLabel: "Actif",
+    pausedLabel: "En pause",
   },
 };
 

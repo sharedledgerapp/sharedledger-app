@@ -2,13 +2,14 @@
 import { db } from "./db";
 import { 
   users, families, expenses, goals, allowances, expenseSplits, goalApprovals,
-  messages, notes, messageReadStatus,
+  messages, notes, messageReadStatus, recurringExpenses,
   type User, type InsertUser, type Family, type InsertFamily,
   type Expense, type InsertExpense, type Goal, type InsertGoal,
   type GoalApproval, type InsertGoalApproval,
   type Allowance, type InsertAllowance, type ExpenseSplit, type InsertExpenseSplit,
   type UpdateGoalRequest, type UpdateAllowanceRequest,
-  type Message, type InsertMessage, type Note, type InsertNote, type MessageReadStatus
+  type Message, type InsertMessage, type Note, type InsertNote, type MessageReadStatus,
+  type RecurringExpense, type InsertRecurringExpense
 } from "@shared/schema";
 import { eq, and, desc, or, ne, gte, lte } from "drizzle-orm";
 import session from "express-session";
@@ -70,6 +71,13 @@ export interface IStorage {
   updateNote(id: number, updates: Partial<Pick<Note, 'title' | 'content' | 'isCompleted'>>): Promise<Note>;
   deleteNote(id: number): Promise<void>;
 
+  // Recurring Expenses
+  createRecurringExpense(expense: InsertRecurringExpense): Promise<RecurringExpense>;
+  getRecurringExpenses(userId: number): Promise<RecurringExpense[]>;
+  getRecurringExpense(id: number): Promise<RecurringExpense | undefined>;
+  updateRecurringExpense(id: number, updates: Partial<InsertRecurringExpense>): Promise<RecurringExpense>;
+  deleteRecurringExpense(id: number): Promise<void>;
+
   sessionStore: session.Store;
 }
 
@@ -128,10 +136,11 @@ export class DatabaseStorage implements IStorage {
     // Delete user's allowances
     await db.delete(allowances).where(eq(allowances.childId, id));
     
-    // Delete user's messages and notes
+    // Delete user's messages, notes, and recurring expenses
     await db.delete(messages).where(eq(messages.userId, id));
     await db.delete(notes).where(eq(notes.userId, id));
     await db.delete(messageReadStatus).where(eq(messageReadStatus.userId, id));
+    await db.delete(recurringExpenses).where(eq(recurringExpenses.userId, id));
     
     // Finally delete the user
     await db.delete(users).where(eq(users.id, id));
@@ -484,6 +493,32 @@ export class DatabaseStorage implements IStorage {
 
   async deleteNote(id: number): Promise<void> {
     await db.delete(notes).where(eq(notes.id, id));
+  }
+
+  // Recurring Expenses
+  async createRecurringExpense(expense: InsertRecurringExpense): Promise<RecurringExpense> {
+    const [created] = await db.insert(recurringExpenses).values(expense).returning();
+    return created;
+  }
+
+  async getRecurringExpenses(userId: number): Promise<RecurringExpense[]> {
+    return db.select().from(recurringExpenses)
+      .where(eq(recurringExpenses.userId, userId))
+      .orderBy(desc(recurringExpenses.createdAt));
+  }
+
+  async getRecurringExpense(id: number): Promise<RecurringExpense | undefined> {
+    const [expense] = await db.select().from(recurringExpenses).where(eq(recurringExpenses.id, id));
+    return expense;
+  }
+
+  async updateRecurringExpense(id: number, updates: Partial<InsertRecurringExpense>): Promise<RecurringExpense> {
+    const [updated] = await db.update(recurringExpenses).set(updates).where(eq(recurringExpenses.id, id)).returning();
+    return updated;
+  }
+
+  async deleteRecurringExpense(id: number): Promise<void> {
+    await db.delete(recurringExpenses).where(eq(recurringExpenses.id, id));
   }
 }
 

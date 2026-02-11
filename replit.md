@@ -42,6 +42,7 @@ Preferred communication style: Simple, everyday language.
 - `allowances` - Parent-set recurring allowances for children
 - `messages` - Family group chat messages
 - `notes` - Shared family notes (shopping lists, reminders)
+- `recurring_expenses` - Fixed/recurring costs (subscriptions, utilities, taxes, insurance)
 - `message_read_status` - Per-user unread message tracking
 
 ### Shared Code Pattern
@@ -76,6 +77,34 @@ The `shared/` directory contains code used by both frontend and backend:
 - `@replit/vite-plugin-cartographer` and `@replit/vite-plugin-dev-banner` for Replit development experience
 
 ## Recent Changes (February 2026)
+
+### Recurring Expenses Tracking
+- New `recurring_expenses` database table for fixed/recurring costs
+- Categories: Subscriptions, Utilities, Taxes, Insurance, Other
+- Frequencies: Monthly, Quarterly, Yearly
+- Home page toggle between "Everyday Expenses" and "Recurring Expenses" views
+- **Recurring view features**:
+  - Expenses grouped by category with subtotals (normalized to monthly amounts)
+  - Grand total of all active recurring expenses (monthly equivalent)
+  - Add/edit/delete recurring expense dialog with form validation
+  - Pause/resume functionality (isActive toggle)
+  - Paused items shown in separate section with reduced opacity
+- API endpoints: GET/POST `/api/recurring-expenses`, PATCH/DELETE `/api/recurring-expenses/:id`
+- Ownership-scoped: users can only manage their own recurring expenses
+- Cascade deletion: user account deletion removes recurring expenses
+- Full EN/FR translation support
+
+### Notification Reminders
+- User notification preferences (daily, weekly, monthly reminders) stored in database
+- Daily reminder with configurable time (default 7pm)
+- Browser Notification API integration with service worker
+- Notification scheduler checks every minute, uses localStorage to prevent duplicates
+- Settings UI with Switch toggles and time picker
+
+### Dual Admin Management
+- Maximum 2 parents (admins) per family
+- Promote/demote UI on Family page with confirmation dialog
+- PATCH `/api/family/members/:id/role` endpoint with security checks
 
 ### Internal Messaging & Notes System
 - Family group chat accessible via message icon in header (next to profile avatar)
