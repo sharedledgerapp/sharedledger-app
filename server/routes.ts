@@ -113,6 +113,7 @@ export async function registerRoutes(
       language: z.enum(["en", "fr"]).optional(),
       currency: z.string().optional(),
       categories: z.array(z.string().min(1).max(30)).max(20).optional(),
+      recurringCategories: z.array(z.string().min(1).max(30)).max(20).optional(),
       dailyReminderTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
       dailyReminderEnabled: z.boolean().optional(),
       weeklyReminderEnabled: z.boolean().optional(),
@@ -572,7 +573,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const schema = z.object({
       name: z.string().min(1).max(100),
       amount: z.string().or(z.number()).transform(v => String(v)),
-      category: z.enum(["Subscriptions", "Utilities", "Taxes", "Insurance", "Other"]),
+      category: z.string().min(1).max(50),
       frequency: z.enum(["monthly", "quarterly", "yearly"]).default("monthly"),
       note: z.string().max(500).optional().nullable(),
       isActive: z.boolean().default(true),
@@ -596,7 +597,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const schema = z.object({
       name: z.string().min(1).max(100).optional(),
       amount: z.string().or(z.number()).transform(v => String(v)).optional(),
-      category: z.enum(["Subscriptions", "Utilities", "Taxes", "Insurance", "Other"]).optional(),
+      category: z.string().min(1).max(50).optional(),
       frequency: z.enum(["monthly", "quarterly", "yearly"]).optional(),
       note: z.string().max(500).optional().nullable(),
       isActive: z.boolean().optional(),

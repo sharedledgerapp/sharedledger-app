@@ -48,7 +48,9 @@ type TranslationKey =
   | "recurringNote" | "noRecurringExpenses" | "addFirstRecurring" | "totalRecurring"
   | "subscriptions" | "utilities" | "taxes" | "insurance" | "other"
   | "monthly" | "quarterly" | "yearly" | "perMonth" | "perQuarter" | "perYear"
-  | "recurringAdded" | "recurringUpdated" | "recurringDeleted" | "activeLabel" | "pausedLabel";
+  | "recurringAdded" | "recurringUpdated" | "recurringDeleted" | "activeLabel" | "pausedLabel"
+  | "recurringCategoriesTitle" | "recurringCategoriesDescription" | "recurringCategoriesUpdated"
+  | "newRecurringCategoryPlaceholder" | "customizeRecurringCategoriesHint";
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -236,6 +238,11 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     recurringDeleted: "Recurring expense deleted",
     activeLabel: "Active",
     pausedLabel: "Paused",
+    recurringCategoriesTitle: "Recurring Expense Groups",
+    recurringCategoriesDescription: "Customize the groups for organizing your recurring expenses. Click a group to edit its name.",
+    recurringCategoriesUpdated: "Recurring Groups Updated",
+    newRecurringCategoryPlaceholder: "Add new group...",
+    customizeRecurringCategoriesHint: "Customize groups in Settings",
   },
   fr: {
     home: "Accueil",
@@ -422,6 +429,11 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     recurringDeleted: "Dépense récurrente supprimée",
     activeLabel: "Actif",
     pausedLabel: "En pause",
+    recurringCategoriesTitle: "Groupes de dépenses récurrentes",
+    recurringCategoriesDescription: "Personnalisez les groupes pour organiser vos dépenses récurrentes. Cliquez sur un groupe pour modifier son nom.",
+    recurringCategoriesUpdated: "Groupes récurrents mis à jour",
+    newRecurringCategoryPlaceholder: "Ajouter un nouveau groupe...",
+    customizeRecurringCategoriesHint: "Personnaliser les groupes dans Paramètres",
   },
 };
 

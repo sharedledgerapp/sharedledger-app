@@ -18,16 +18,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useDeleteExpense } from "@/hooks/use-data";
 import { getCurrencySymbol, CURRENCIES } from "@/lib/currency";
-import { DEFAULT_CATEGORIES } from "@/pages/SettingsPage";
+import { DEFAULT_CATEGORIES, DEFAULT_RECURRING_CATEGORIES } from "@/pages/SettingsPage";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import type { RecurringExpense } from "@shared/schema";
 
-const RECURRING_CATEGORIES = ["Subscriptions", "Utilities", "Taxes", "Insurance", "Other"] as const;
 const FREQUENCIES = ["monthly", "quarterly", "yearly"] as const;
-
-type RecurringCategory = typeof RECURRING_CATEGORIES[number];
 
 function getCategoryIcon(category: string) {
   const icons: Record<string, any> = {
@@ -71,13 +68,16 @@ export default function ExpensesPage() {
   
   const currencySymbol = getCurrencySymbol(user?.currency);
 
+  const userRecurringCategories = (user as any)?.recurringCategories as string[] | null;
+  const RECURRING_CATEGORIES = userRecurringCategories || DEFAULT_RECURRING_CATEGORIES;
+
   const [view, setView] = useState<"everyday" | "recurring">("everyday");
   const [showRecurringDialog, setShowRecurringDialog] = useState(false);
   const [editingRecurring, setEditingRecurring] = useState<RecurringExpense | null>(null);
   const [recurringForm, setRecurringForm] = useState({
     name: "",
     amount: "",
-    category: "Subscriptions" as RecurringCategory,
+    category: RECURRING_CATEGORIES[0] || "Subscriptions",
     frequency: "monthly" as typeof FREQUENCIES[number],
     note: "",
   });
@@ -133,7 +133,7 @@ export default function ExpensesPage() {
   function resetRecurringForm() {
     setShowRecurringDialog(false);
     setEditingRecurring(null);
-    setRecurringForm({ name: "", amount: "", category: "Subscriptions", frequency: "monthly", note: "" });
+    setRecurringForm({ name: "", amount: "", category: RECURRING_CATEGORIES[0] || "Subscriptions", frequency: "monthly", note: "" });
   }
 
   function openEditRecurringDialog(expense: RecurringExpense) {
@@ -141,7 +141,7 @@ export default function ExpensesPage() {
     setRecurringForm({
       name: expense.name,
       amount: String(expense.amount),
-      category: expense.category as RecurringCategory,
+      category: expense.category,
       frequency: expense.frequency as typeof FREQUENCIES[number],
       note: expense.note || "",
     });
@@ -167,14 +167,14 @@ export default function ExpensesPage() {
   };
 
   const categoryLabel = (cat: string) => {
-    const labels: Record<string, string> = {
+    const builtInLabels: Record<string, string> = {
       Subscriptions: t("subscriptions"),
       Utilities: t("utilities"),
       Taxes: t("taxes"),
       Insurance: t("insurance"),
       Other: t("other"),
     };
-    return labels[cat] || cat;
+    return builtInLabels[cat] || cat;
   };
 
   const frequencyFullLabel = (freq: string) => {
@@ -187,7 +187,8 @@ export default function ExpensesPage() {
   };
 
   const activeRecurring = recurringExpenses?.filter(e => e.isActive) || [];
-  const groupedRecurring = RECURRING_CATEGORIES.reduce((acc, cat) => {
+  const allGroupNames = [...new Set([...RECURRING_CATEGORIES, ...activeRecurring.map(e => e.category)])];
+  const groupedRecurring = allGroupNames.reduce((acc, cat) => {
     const items = activeRecurring.filter(e => e.category === cat);
     if (items.length > 0) {
       acc.push({
@@ -519,7 +520,7 @@ export default function ExpensesPage() {
               <Label>{t("recurringCategory")}</Label>
               <Select
                 value={recurringForm.category}
-                onValueChange={(v) => setRecurringForm(f => ({ ...f, category: v as RecurringCategory }))}
+                onValueChange={(v) => setRecurringForm(f => ({ ...f, category: v }))}
               >
                 <SelectTrigger data-testid="select-recurring-category">
                   <SelectValue />
@@ -532,6 +533,9 @@ export default function ExpensesPage() {
                   ))}
                 </SelectContent>
               </Select>
+              <Link href="/settings" className="text-xs text-muted-foreground hover:underline mt-1 inline-block" data-testid="link-customize-recurring-groups">
+                {t("customizeRecurringCategoriesHint")}
+              </Link>
             </div>
             <div>
               <Label>{t("recurringFrequency")}</Label>

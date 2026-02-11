@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, User, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, Clock } from "lucide-react";
+import { LogOut, User, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, Clock, Repeat } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Link, useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { CURRENCIES } from "@/lib/currency";
 
 export const DEFAULT_CATEGORIES = ["Food", "Transport", "Entertainment", "Shopping", "Utilities", "Education", "Health", "Other"];
+export const DEFAULT_RECURRING_CATEGORIES = ["Subscriptions", "Utilities", "Taxes", "Insurance"];
 
 export default function SettingsPage() {
   const { user, logoutMutation } = useAuth();
@@ -34,6 +35,11 @@ export default function SettingsPage() {
   const [categories, setCategories] = useState<string[]>(userCategories || DEFAULT_CATEGORIES);
   const [newCategory, setNewCategory] = useState("");
   const [editingCategory, setEditingCategory] = useState<{ index: number; value: string } | null>(null);
+
+  const userRecurringCategories = (user as any)?.recurringCategories as string[] | null;
+  const [recurringCategories, setRecurringCategories] = useState<string[]>(userRecurringCategories || DEFAULT_RECURRING_CATEGORIES);
+  const [newRecurringCategory, setNewRecurringCategory] = useState("");
+  const [editingRecurringCategory, setEditingRecurringCategory] = useState<{ index: number; value: string } | null>(null);
   
   const [dailyReminderEnabled, setDailyReminderEnabled] = useState((user as any)?.dailyReminderEnabled ?? true);
   const [dailyReminderTime, setDailyReminderTime] = useState((user as any)?.dailyReminderTime || "19:00");
@@ -209,6 +215,67 @@ export default function SettingsPage() {
   const handleResetCategories = () => {
     setCategories(DEFAULT_CATEGORIES);
     updateCategoriesMutation.mutate(DEFAULT_CATEGORIES);
+  };
+
+  const updateRecurringCategoriesMutation = useMutation({
+    mutationFn: async (newCategories: string[]) => {
+      const res = await apiRequest("PATCH", "/api/user/profile", { recurringCategories: newCategories });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      toast({
+        title: t("recurringCategoriesUpdated"),
+        description: t("changesSaved"),
+      });
+    },
+    onError: () => {
+      toast({
+        title: t("error"),
+        description: t("failedToUpdate"),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleAddRecurringCategory = () => {
+    const trimmed = newRecurringCategory.trim();
+    if (trimmed && !recurringCategories.includes(trimmed) && recurringCategories.length < 20) {
+      const updated = [...recurringCategories, trimmed];
+      setRecurringCategories(updated);
+      setNewRecurringCategory("");
+      updateRecurringCategoriesMutation.mutate(updated);
+    }
+  };
+
+  const handleRemoveRecurringCategory = (index: number) => {
+    if (recurringCategories.length > 1) {
+      const updated = recurringCategories.filter((_, i) => i !== index);
+      setRecurringCategories(updated);
+      updateRecurringCategoriesMutation.mutate(updated);
+    }
+  };
+
+  const handleEditRecurringCategory = (index: number) => {
+    setEditingRecurringCategory({ index, value: recurringCategories[index] });
+  };
+
+  const handleSaveEditRecurringCategory = () => {
+    if (editingRecurringCategory) {
+      const trimmed = editingRecurringCategory.value.trim();
+      if (trimmed && !recurringCategories.some((c, i) => c === trimmed && i !== editingRecurringCategory.index)) {
+        const updated = [...recurringCategories];
+        updated[editingRecurringCategory.index] = trimmed;
+        setRecurringCategories(updated);
+        updateRecurringCategoriesMutation.mutate(updated);
+      }
+      setEditingRecurringCategory(null);
+    }
+  };
+
+  const handleResetRecurringCategories = () => {
+    setRecurringCategories(DEFAULT_RECURRING_CATEGORIES);
+    updateRecurringCategoriesMutation.mutate(DEFAULT_RECURRING_CATEGORIES);
   };
 
   const handleSaveProfile = () => {
@@ -434,6 +501,95 @@ export default function SettingsPage() {
               data-testid="button-reset-categories"
             >
               {t("resetToDefault") || "Reset to Default"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Repeat className="w-5 h-5 text-primary" />
+            {t("recurringCategoriesTitle")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            {t("recurringCategoriesDescription")}
+          </p>
+          
+          <div className="space-y-2">
+            {recurringCategories.map((category, index) => (
+              <div 
+                key={index} 
+                className="flex items-center gap-2 p-2 rounded-lg border bg-card"
+                data-testid={`recurring-category-item-${index}`}
+              >
+                <GripVertical className="w-4 h-4 text-muted-foreground" />
+                {editingRecurringCategory?.index === index ? (
+                  <Input
+                    value={editingRecurringCategory.value}
+                    onChange={(e) => setEditingRecurringCategory({ ...editingRecurringCategory, value: e.target.value })}
+                    onBlur={handleSaveEditRecurringCategory}
+                    onKeyDown={(e) => e.key === "Enter" && handleSaveEditRecurringCategory()}
+                    className="flex-1 h-8"
+                    autoFocus
+                    maxLength={30}
+                    data-testid={`input-edit-recurring-category-${index}`}
+                  />
+                ) : (
+                  <span 
+                    className="flex-1 cursor-pointer hover:text-primary transition-colors"
+                    onClick={() => handleEditRecurringCategory(index)}
+                    data-testid={`text-recurring-category-${index}`}
+                  >
+                    {category}
+                  </span>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handleRemoveRecurringCategory(index)}
+                  disabled={recurringCategories.length <= 1 || updateRecurringCategoriesMutation.isPending}
+                  data-testid={`button-remove-recurring-category-${index}`}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-2">
+            <Input
+              value={newRecurringCategory}
+              onChange={(e) => setNewRecurringCategory(e.target.value)}
+              placeholder={t("newRecurringCategoryPlaceholder")}
+              maxLength={30}
+              onKeyDown={(e) => e.key === "Enter" && handleAddRecurringCategory()}
+              data-testid="input-new-recurring-category"
+            />
+            <Button
+              onClick={handleAddRecurringCategory}
+              disabled={!newRecurringCategory.trim() || recurringCategories.length >= 20 || updateRecurringCategoriesMutation.isPending}
+              data-testid="button-add-recurring-category"
+            >
+              <Plus className="w-4 h-4" />
+            </Button>
+          </div>
+
+          <div className="flex justify-between items-center pt-2">
+            <span className="text-xs text-muted-foreground">
+              {recurringCategories.length}/20 {t("categories")}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleResetRecurringCategories}
+              disabled={updateRecurringCategoriesMutation.isPending}
+              data-testid="button-reset-recurring-categories"
+            >
+              {t("resetToDefault")}
             </Button>
           </div>
         </CardContent>

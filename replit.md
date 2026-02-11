@@ -80,7 +80,11 @@ The `shared/` directory contains code used by both frontend and backend:
 
 ### Recurring Expenses Tracking
 - New `recurring_expenses` database table for fixed/recurring costs
-- Categories: Subscriptions, Utilities, Taxes, Insurance, Other
+- **Customizable groups**: Users can create/edit/remove recurring expense groups in Settings (max 20, max 30 chars each)
+- Default groups: Subscriptions, Utilities, Taxes, Insurance (stored as `recurringCategories` text array on users table)
+- Category column is plain text (no enum constraint) to support custom group names
+- Legacy categories from existing expenses are preserved in grouping even if removed from user's list
+- "Customize groups in Settings" hint link in recurring expense dialog
 - Frequencies: Monthly, Quarterly, Yearly
 - Expenses page toggle between "Everyday Expenses" and "Recurring Expenses" views
 - **Recurring view features**:
