@@ -78,6 +78,28 @@ The `shared/` directory contains code used by both frontend and backend:
 
 ## Recent Changes (February 2026)
 
+### Personal Budget & Planning
+- New `budgets` and `budget_setup_prompts` database tables
+- **Budget management** via `/budget` route with full CRUD operations
+- Per-category budget cards with progress bars (color-coded: green/yellow/orange/red)
+- Weekly or monthly budget periods, calculated dynamically from `startDate`
+- Threshold-based notifications (configurable per budget): 50%, 60%, 80%, 100%
+  - Notifications fire once per period using localStorage deduplication
+  - Global budget threshold check runs every 5 minutes via App.tsx scheduler
+  - Also checked when visiting BudgetPage
+- Budget notes per category
+- Toggle notifications on/off per budget with customizable threshold selection
+- **Home Page integration**: Budget & Planning summary card replaces "Recent Activity"
+  - Shows total spent vs total budget with progress bar
+  - Links to full Budget page
+- **First-time setup prompt**: Dialog appears when user has no budgets
+  - Shows average spending per category (from historical expense data)
+  - Options: "Set Up Now", "Remind in 1 Week", "Remind in 1 Month"
+  - Reminder state persisted in `budget_setup_prompts` table
+- API endpoints: GET/POST `/api/budgets`, PATCH/DELETE `/api/budgets/:id`, GET `/api/budget-summary`, GET/POST `/api/budget-setup`, GET `/api/budget-averages`
+- Ownership-scoped: users can only manage their own budgets
+- Full EN/FR translation support (30+ keys)
+
 ### Recurring Expenses Tracking
 - New `recurring_expenses` database table for fixed/recurring costs
 - **Customizable groups**: Users can create/edit/remove recurring expense groups in Settings (max 20, max 30 chars each)

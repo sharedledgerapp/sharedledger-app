@@ -118,6 +118,30 @@ export const recurringExpenses = pgTable("recurring_expenses", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const budgets = pgTable("budgets", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  familyId: integer("family_id").references(() => families.id),
+  budgetScope: text("budget_scope", { enum: ["personal", "shared"] }).default("personal").notNull(),
+  category: text("category").notNull(),
+  amount: numeric("amount").notNull(),
+  periodType: text("period_type", { enum: ["weekly", "monthly"] }).default("monthly").notNull(),
+  startDate: timestamp("start_date").defaultNow().notNull(),
+  notificationsEnabled: boolean("notifications_enabled").default(false).notNull(),
+  thresholds: text("thresholds").array(),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const budgetSetupPrompts = pgTable("budget_setup_prompts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  status: text("status", { enum: ["pending", "dismissed", "remind_week", "remind_month", "completed"] }).default("pending").notNull(),
+  remindAt: timestamp("remind_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const messageReadStatus = pgTable("message_read_status", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
@@ -210,6 +234,24 @@ export const notesRelations = relations(notes, ({ one }) => ({
   }),
 }));
 
+export const budgetsRelations = relations(budgets, ({ one }) => ({
+  user: one(users, {
+    fields: [budgets.userId],
+    references: [users.id],
+  }),
+  family: one(families, {
+    fields: [budgets.familyId],
+    references: [families.id],
+  }),
+}));
+
+export const budgetSetupPromptsRelations = relations(budgetSetupPrompts, ({ one }) => ({
+  user: one(users, {
+    fields: [budgetSetupPrompts.userId],
+    references: [users.id],
+  }),
+}));
+
 export const recurringExpensesRelations = relations(recurringExpenses, ({ one }) => ({
   user: one(users, {
     fields: [recurringExpenses.userId],
@@ -233,6 +275,8 @@ export const insertAllowanceSchema = createInsertSchema(allowances).omit({ id: t
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
 export const insertNoteSchema = createInsertSchema(notes).omit({ id: true, createdAt: true, isCompleted: true });
 export const insertRecurringExpenseSchema = createInsertSchema(recurringExpenses).omit({ id: true, createdAt: true });
+export const insertBudgetSchema = createInsertSchema(budgets).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertBudgetSetupPromptSchema = createInsertSchema(budgetSetupPrompts).omit({ id: true, createdAt: true });
 
 // === TYPES ===
 
@@ -247,6 +291,8 @@ export type Message = typeof messages.$inferSelect;
 export type Note = typeof notes.$inferSelect;
 export type MessageReadStatus = typeof messageReadStatus.$inferSelect;
 export type RecurringExpense = typeof recurringExpenses.$inferSelect;
+export type Budget = typeof budgets.$inferSelect;
+export type BudgetSetupPrompt = typeof budgetSetupPrompts.$inferSelect;
 
 export type InsertFamily = z.infer<typeof insertFamilySchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -258,6 +304,8 @@ export type InsertAllowance = z.infer<typeof insertAllowanceSchema>;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type InsertNote = z.infer<typeof insertNoteSchema>;
 export type InsertRecurringExpense = z.infer<typeof insertRecurringExpenseSchema>;
+export type InsertBudget = z.infer<typeof insertBudgetSchema>;
+export type InsertBudgetSetupPrompt = z.infer<typeof insertBudgetSetupPromptSchema>;
 
 // Request types
 export type CreateExpenseRequest = InsertExpense;

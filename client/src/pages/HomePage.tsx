@@ -1,26 +1,31 @@
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useExpenses, useGoals } from "@/hooks/use-data";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Plus, Wallet, TrendingUp, Star, ArrowUpRight, ArrowDownRight, ChevronRight, Flag, Target, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package } from "lucide-react";
-import { Link } from "wouter";
+import { Plus, Wallet, TrendingUp, Star, ArrowUpRight, ArrowDownRight, ChevronRight, Flag, Target, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, PiggyBank, Clock } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, differenceInDays } from "date-fns";
 import { sortGoalsByPriority } from "@/lib/goals";
-import { getCurrencySymbol } from "@/lib/currency";
+import { getCurrencySymbol, formatAmount } from "@/lib/currency";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 
 const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa"];
 
 export default function HomePage() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const [, navigate] = useLocation();
   const { data: expenses, isLoading: expensesLoading } = useExpenses();
   const { data: goals, isLoading: goalsLoading } = useGoals();
   const currencySymbol = getCurrencySymbol(user?.currency);
+  const [showBudgetPrompt, setShowBudgetPrompt] = useState(false);
 
   const { data: spendingSummary } = useQuery<{
     currentMonthTotal: string;
@@ -30,6 +35,48 @@ export default function HomePage() {
   }>({
     queryKey: ["/api/spending/summary"],
   });
+
+  const { data: budgetSummary } = useQuery<{
+    budgets: any[];
+    totalBudget: number;
+    totalSpent: number;
+    totalRemaining: number;
+    totalPercentUsed: number;
+  }>({
+    queryKey: ["/api/budget-summary"],
+  });
+
+  const { data: budgetSetup } = useQuery<any>({
+    queryKey: ["/api/budget-setup"],
+  });
+
+  const { data: budgetAverages } = useQuery<{ averages: { category: string; monthlyAverage: number; weeklyAverage: number }[]; hasData: boolean }>({
+    queryKey: ["/api/budget-averages"],
+    enabled: showBudgetPrompt,
+  });
+
+  const setupMutation = useMutation({
+    mutationFn: async (status: string) => {
+      const res = await apiRequest("POST", "/api/budget-setup", { status });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/budget-setup"] });
+      setShowBudgetPrompt(false);
+    },
+  });
+
+  useEffect(() => {
+    if (budgetSummary && budgetSummary.budgets.length === 0 && budgetSetup !== undefined) {
+      const shouldPrompt = !budgetSetup ||
+        (budgetSetup.status === "remind_week" && budgetSetup.remindAt && new Date(budgetSetup.remindAt) <= new Date()) ||
+        (budgetSetup.status === "remind_month" && budgetSetup.remindAt && new Date(budgetSetup.remindAt) <= new Date());
+      if (shouldPrompt) {
+        const timer = setTimeout(() => setShowBudgetPrompt(true), 500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [budgetSummary, budgetSetup]);
 
   if (expensesLoading || goalsLoading) {
     return <DashboardSkeleton />;
@@ -60,7 +107,7 @@ export default function HomePage() {
           <p className="text-muted-foreground mt-1">{t("financialSnapshot")}</p>
         </div>
         <Link href="/expenses">
-          <Button size="icon" className="rounded-full h-12 w-12 shadow-lg shadow-primary/25 bg-primary hover:bg-primary/90">
+          <Button size="icon" className="rounded-full shadow-lg shadow-primary/25">
             <Plus className="w-6 h-6" />
           </Button>
         </Link>
@@ -204,33 +251,120 @@ export default function HomePage() {
       </section>
 
       <section>
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="font-display font-bold text-lg">{t("recentActivity")}</h3>
-          <Link href="/expenses" className="text-sm text-primary font-medium hover:underline">{t("viewAll")}</Link>
-        </div>
+        <Link href="/budget">
+          <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2 cursor-pointer hover:text-primary transition-colors group" data-testid="link-budget-planning">
+            <PiggyBank className="w-5 h-5 text-primary" />
+            {t("budgetPlanning")}
+            <ChevronRight className="w-4 h-4 ml-auto text-muted-foreground group-hover:text-primary transition-colors" />
+          </h3>
+        </Link>
 
-        <div className="space-y-3">
-          {expenses?.slice(0, 5).map((expense) => (
-            <div key={expense.id} className="bg-white dark:bg-card p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
-                  {getCategoryIconComponent(expense.category)}
+        <Link href="/budget">
+          <Card className="border-border/50 shadow-sm cursor-pointer hover:border-primary/50 transition-colors" data-testid="card-budget-summary-home">
+            <CardContent className="p-4">
+              {budgetSummary && budgetSummary.budgets.length > 0 ? (
+                <div className="space-y-3">
+                  <div className="flex justify-between items-baseline gap-2 flex-wrap">
+                    <div>
+                      <p className="text-xs text-muted-foreground">{t("spent")}</p>
+                      <p className="text-lg font-bold">{currencySymbol}{formatAmount(budgetSummary.totalSpent)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">{t("totalBudget")}</p>
+                      <p className="text-lg font-bold">{currencySymbol}{formatAmount(budgetSummary.totalBudget)}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                      <span>{t("remaining")}: {currencySymbol}{formatAmount(budgetSummary.totalRemaining)}</span>
+                      <span className={budgetSummary.totalPercentUsed > 100 ? "text-destructive font-semibold" : ""}>
+                        {budgetSummary.totalPercentUsed}% {t("percentUsed")}
+                      </span>
+                    </div>
+                    <div className="w-full bg-secondary rounded-full h-2.5 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          budgetSummary.totalPercentUsed >= 100 ? 'bg-destructive' :
+                          budgetSummary.totalPercentUsed >= 80 ? 'bg-orange-500' :
+                          budgetSummary.totalPercentUsed >= 60 ? 'bg-yellow-500' :
+                          'bg-primary'
+                        }`}
+                        style={{ width: `${Math.min(budgetSummary.totalPercentUsed, 100)}%` }}
+                        data-testid="progress-budget-home"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-semibold text-sm text-foreground">{expense.note || expense.category}</p>
-                  <p className="text-xs text-muted-foreground">{format(new Date(expense.date), "MMM d")}</p>
+              ) : (
+                <div className="text-center py-4">
+                  <PiggyBank className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">{t("noBudgets")}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t("setupFirstBudget")}</p>
                 </div>
-              </div>
-              <span className="font-bold text-foreground">-{currencySymbol}{Number(expense.amount).toFixed(2)}</span>
-            </div>
-          ))}
-          {!expenses?.length && (
-            <div className="text-center py-8 text-muted-foreground text-sm bg-muted/30 rounded-xl">
-              {t("noTransactions")}
-            </div>
-          )}
-        </div>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
       </section>
+
+      <Dialog open={showBudgetPrompt} onOpenChange={setShowBudgetPrompt}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PiggyBank className="w-5 h-5 text-primary" />
+              {t("planYourBudget")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">{t("budgetSetupMessage")}</p>
+
+            {budgetAverages?.hasData && budgetAverages.averages.length > 0 && (
+              <div className="bg-secondary/50 rounded-lg p-3 space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground">{t("averageSpending")}</p>
+                {budgetAverages.averages.slice(0, 5).map(avg => (
+                  <div key={avg.category} className="flex justify-between text-sm">
+                    <span>{avg.category}</span>
+                    <span className="text-muted-foreground">{currencySymbol}{formatAmount(avg.monthlyAverage)}/{t("monthly").toLowerCase()}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Button
+                className="w-full"
+                onClick={() => {
+                  setupMutation.mutate("completed");
+                  navigate("/budget");
+                }}
+                data-testid="button-setup-now"
+              >
+                {t("setupNow")}
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setupMutation.mutate("remind_week")}
+                disabled={setupMutation.isPending}
+                data-testid="button-remind-week"
+              >
+                <Clock className="w-4 h-4 mr-2" />
+                {t("remindWeek")}
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setupMutation.mutate("remind_month")}
+                disabled={setupMutation.isPending}
+                data-testid="button-remind-month"
+              >
+                <Clock className="w-4 h-4 mr-2" />
+                {t("remindMonth")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

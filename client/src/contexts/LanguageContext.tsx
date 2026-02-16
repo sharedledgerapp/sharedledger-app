@@ -50,7 +50,17 @@ type TranslationKey =
   | "monthly" | "quarterly" | "yearly" | "perMonth" | "perQuarter" | "perYear"
   | "recurringAdded" | "recurringUpdated" | "recurringDeleted" | "activeLabel" | "pausedLabel"
   | "recurringCategoriesTitle" | "recurringCategoriesDescription" | "recurringCategoriesUpdated"
-  | "newRecurringCategoryPlaceholder" | "customizeRecurringCategoriesHint";
+  | "newRecurringCategoryPlaceholder" | "customizeRecurringCategoriesHint"
+  | "budgetPlanning" | "planYourBudget" | "budgetSetupMessage"
+  | "setupNow" | "remindWeek" | "remindMonth"
+  | "totalBudget" | "totalRemaining" | "percentUsed" | "spent"
+  | "remaining" | "budgetAmount" | "periodType" | "weekly"
+  | "editBudget" | "addBudget" | "deleteBudget" | "noBudgets" | "setupFirstBudget"
+  | "budgetAdded" | "budgetUpdated" | "budgetDeleted"
+  | "thresholds" | "threshold50" | "threshold60" | "threshold80" | "threshold100"
+  | "budgetNote" | "budgetNotePlaceholder" | "averageSpending"
+  | "budgetOverview" | "categoryBudgets" | "noBudgetSet" | "addBudgetForCategory"
+  | "budgetExceeded" | "onBudget" | "overBudget" | "budgetWarning";
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -243,6 +253,44 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     recurringCategoriesUpdated: "Recurring Groups Updated",
     newRecurringCategoryPlaceholder: "Add new group...",
     customizeRecurringCategoriesHint: "Customize groups in Settings",
+    budgetPlanning: "Budget & Planning",
+    planYourBudget: "Plan Your Budget",
+    budgetSetupMessage: "Would you like to set up your budgets now, or after tracking your spending for a while?",
+    setupNow: "Set Up Now",
+    remindWeek: "Remind Me in One Week",
+    remindMonth: "Remind Me in One Month",
+    totalBudget: "Total Budget",
+    totalRemaining: "Total Remaining",
+    percentUsed: "used",
+    spent: "Spent",
+    remaining: "Remaining",
+    budgetAmount: "Budget Amount",
+    periodType: "Period",
+    weekly: "Weekly",
+    editBudget: "Edit Budget",
+    addBudget: "Add Budget",
+    deleteBudget: "Delete Budget",
+    noBudgets: "No budgets set up yet",
+    setupFirstBudget: "Set up your first budget",
+    budgetAdded: "Budget added",
+    budgetUpdated: "Budget updated",
+    budgetDeleted: "Budget deleted",
+    thresholds: "Alert Thresholds",
+    threshold50: "50% used",
+    threshold60: "60% used",
+    threshold80: "80% used",
+    threshold100: "100% used",
+    budgetNote: "Budget Note",
+    budgetNotePlaceholder: "Add a planning note...",
+    averageSpending: "Average Spending",
+    budgetOverview: "Budget Overview",
+    categoryBudgets: "Category Budgets",
+    noBudgetSet: "No budget set",
+    addBudgetForCategory: "Add budget",
+    budgetExceeded: "Budget exceeded",
+    onBudget: "On budget",
+    overBudget: "Over budget",
+    budgetWarning: "Budget warning",
   },
   fr: {
     home: "Accueil",
@@ -434,6 +482,44 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     recurringCategoriesUpdated: "Groupes récurrents mis à jour",
     newRecurringCategoryPlaceholder: "Ajouter un nouveau groupe...",
     customizeRecurringCategoriesHint: "Personnaliser les groupes dans Paramètres",
+    budgetPlanning: "Budget & Planification",
+    planYourBudget: "Planifiez votre budget",
+    budgetSetupMessage: "Souhaitez-vous configurer vos budgets maintenant ou après avoir suivi vos dépenses pendant un moment ?",
+    setupNow: "Configurer maintenant",
+    remindWeek: "Me rappeler dans une semaine",
+    remindMonth: "Me rappeler dans un mois",
+    totalBudget: "Budget total",
+    totalRemaining: "Restant total",
+    percentUsed: "utilisé",
+    spent: "Dépensé",
+    remaining: "Restant",
+    budgetAmount: "Montant du budget",
+    periodType: "Période",
+    weekly: "Hebdomadaire",
+    editBudget: "Modifier le budget",
+    addBudget: "Ajouter un budget",
+    deleteBudget: "Supprimer le budget",
+    noBudgets: "Aucun budget configuré",
+    setupFirstBudget: "Configurez votre premier budget",
+    budgetAdded: "Budget ajouté",
+    budgetUpdated: "Budget mis à jour",
+    budgetDeleted: "Budget supprimé",
+    thresholds: "Seuils d'alerte",
+    threshold50: "50% utilisé",
+    threshold60: "60% utilisé",
+    threshold80: "80% utilisé",
+    threshold100: "100% utilisé",
+    budgetNote: "Note de budget",
+    budgetNotePlaceholder: "Ajouter une note de planification...",
+    averageSpending: "Dépenses moyennes",
+    budgetOverview: "Aperçu du budget",
+    categoryBudgets: "Budgets par catégorie",
+    noBudgetSet: "Pas de budget défini",
+    addBudgetForCategory: "Ajouter un budget",
+    budgetExceeded: "Budget dépassé",
+    onBudget: "Dans le budget",
+    overBudget: "Hors budget",
+    budgetWarning: "Alerte budget",
   },
 };
 

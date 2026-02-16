@@ -104,6 +104,63 @@ export function checkAndSendNotifications(prefs: NotificationPrefs) {
   }
 }
 
+const BUDGET_THRESHOLD_KEY = "familyledger_budget_thresholds";
+
+function getBudgetThresholdsFired(): Record<string, string[]> {
+  try {
+    return JSON.parse(localStorage.getItem(BUDGET_THRESHOLD_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function setBudgetThresholdFired(budgetId: number, threshold: string, periodKey: string) {
+  const fired = getBudgetThresholdsFired();
+  const key = `${budgetId}_${periodKey}`;
+  if (!fired[key]) fired[key] = [];
+  if (!fired[key].includes(threshold)) fired[key].push(threshold);
+  localStorage.setItem(BUDGET_THRESHOLD_KEY, JSON.stringify(fired));
+}
+
+function wasBudgetThresholdFired(budgetId: number, threshold: string, periodKey: string): boolean {
+  const fired = getBudgetThresholdsFired();
+  const key = `${budgetId}_${periodKey}`;
+  return fired[key]?.includes(threshold) || false;
+}
+
+export type BudgetSummaryForNotification = {
+  id: number;
+  category: string;
+  amount: string;
+  percentUsed: number;
+  notificationsEnabled: boolean;
+  thresholds: string[] | null;
+  periodType: string;
+  periodStart: string;
+};
+
+export function checkBudgetThresholdNotifications(budgets: BudgetSummaryForNotification[]) {
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+
+  for (const budget of budgets) {
+    if (!budget.notificationsEnabled || !budget.thresholds || budget.thresholds.length === 0) continue;
+
+    const periodKey = `${budget.periodType}_${budget.periodStart}`;
+    const sortedThresholds = [...budget.thresholds].sort((a, b) => Number(a) - Number(b));
+
+    for (const threshold of sortedThresholds) {
+      const thresholdNum = Number(threshold);
+      if (budget.percentUsed >= thresholdNum && !wasBudgetThresholdFired(budget.id, threshold, periodKey)) {
+        const message = budget.percentUsed >= 100
+          ? `You've exceeded your ${budget.category} budget!`
+          : `You've used ${budget.percentUsed}% of your ${budget.category} budget.`;
+        showNotification("Budget Alert", message);
+        setBudgetThresholdFired(budget.id, threshold, periodKey);
+      }
+    }
+  }
+}
+
 let notificationInterval: ReturnType<typeof setInterval> | null = null;
 
 export function startNotificationScheduler(prefs: NotificationPrefs) {

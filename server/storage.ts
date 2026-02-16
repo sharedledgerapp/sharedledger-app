@@ -2,14 +2,15 @@
 import { db } from "./db";
 import { 
   users, families, expenses, goals, allowances, expenseSplits, goalApprovals,
-  messages, notes, messageReadStatus, recurringExpenses,
+  messages, notes, messageReadStatus, recurringExpenses, budgets, budgetSetupPrompts,
   type User, type InsertUser, type Family, type InsertFamily,
   type Expense, type InsertExpense, type Goal, type InsertGoal,
   type GoalApproval, type InsertGoalApproval,
   type Allowance, type InsertAllowance, type ExpenseSplit, type InsertExpenseSplit,
   type UpdateGoalRequest, type UpdateAllowanceRequest,
   type Message, type InsertMessage, type Note, type InsertNote, type MessageReadStatus,
-  type RecurringExpense, type InsertRecurringExpense
+  type RecurringExpense, type InsertRecurringExpense,
+  type Budget, type InsertBudget, type BudgetSetupPrompt, type InsertBudgetSetupPrompt
 } from "@shared/schema";
 import { eq, and, desc, or, ne, gte, lte } from "drizzle-orm";
 import session from "express-session";
@@ -78,6 +79,17 @@ export interface IStorage {
   updateRecurringExpense(id: number, updates: Partial<InsertRecurringExpense>): Promise<RecurringExpense>;
   deleteRecurringExpense(id: number): Promise<void>;
 
+  // Budgets
+  createBudget(budget: InsertBudget): Promise<Budget>;
+  getBudgets(userId: number): Promise<Budget[]>;
+  getBudget(id: number): Promise<Budget | undefined>;
+  updateBudget(id: number, updates: Partial<InsertBudget>): Promise<Budget>;
+  deleteBudget(id: number): Promise<void>;
+
+  // Budget Setup Prompts
+  getBudgetSetupPrompt(userId: number): Promise<BudgetSetupPrompt | undefined>;
+  upsertBudgetSetupPrompt(userId: number, status: "pending" | "dismissed" | "remind_week" | "remind_month" | "completed", remindAt?: Date): Promise<BudgetSetupPrompt>;
+
   sessionStore: session.Store;
 }
 
@@ -136,11 +148,13 @@ export class DatabaseStorage implements IStorage {
     // Delete user's allowances
     await db.delete(allowances).where(eq(allowances.childId, id));
     
-    // Delete user's messages, notes, and recurring expenses
+    // Delete user's messages, notes, recurring expenses, budgets, and setup prompts
     await db.delete(messages).where(eq(messages.userId, id));
     await db.delete(notes).where(eq(notes.userId, id));
     await db.delete(messageReadStatus).where(eq(messageReadStatus.userId, id));
     await db.delete(recurringExpenses).where(eq(recurringExpenses.userId, id));
+    await db.delete(budgets).where(eq(budgets.userId, id));
+    await db.delete(budgetSetupPrompts).where(eq(budgetSetupPrompts.userId, id));
     
     // Finally delete the user
     await db.delete(users).where(eq(users.id, id));
@@ -519,6 +533,54 @@ export class DatabaseStorage implements IStorage {
 
   async deleteRecurringExpense(id: number): Promise<void> {
     await db.delete(recurringExpenses).where(eq(recurringExpenses.id, id));
+  }
+
+  // Budgets
+  async createBudget(budget: InsertBudget): Promise<Budget> {
+    const [created] = await db.insert(budgets).values(budget).returning();
+    return created;
+  }
+
+  async getBudgets(userId: number): Promise<Budget[]> {
+    return db.select().from(budgets)
+      .where(eq(budgets.userId, userId))
+      .orderBy(budgets.category);
+  }
+
+  async getBudget(id: number): Promise<Budget | undefined> {
+    const [budget] = await db.select().from(budgets).where(eq(budgets.id, id));
+    return budget;
+  }
+
+  async updateBudget(id: number, updates: Partial<InsertBudget>): Promise<Budget> {
+    const [updated] = await db.update(budgets).set({ ...updates, updatedAt: new Date() }).where(eq(budgets.id, id)).returning();
+    return updated;
+  }
+
+  async deleteBudget(id: number): Promise<void> {
+    await db.delete(budgets).where(eq(budgets.id, id));
+  }
+
+  // Budget Setup Prompts
+  async getBudgetSetupPrompt(userId: number): Promise<BudgetSetupPrompt | undefined> {
+    const [prompt] = await db.select().from(budgetSetupPrompts)
+      .where(eq(budgetSetupPrompts.userId, userId));
+    return prompt;
+  }
+
+  async upsertBudgetSetupPrompt(userId: number, status: "pending" | "dismissed" | "remind_week" | "remind_month" | "completed", remindAt?: Date): Promise<BudgetSetupPrompt> {
+    const existing = await this.getBudgetSetupPrompt(userId);
+    if (existing) {
+      const [updated] = await db.update(budgetSetupPrompts)
+        .set({ status, remindAt: remindAt || null })
+        .where(eq(budgetSetupPrompts.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(budgetSetupPrompts)
+      .values({ userId, status, remindAt: remindAt || null })
+      .returning();
+    return created;
   }
 }
 

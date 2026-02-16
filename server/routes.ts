@@ -854,6 +854,174 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     res.status(204).send();
   });
 
+  // === BUDGET ROUTES ===
+
+  app.get("/api/budgets", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const userBudgets = await storage.getBudgets(user.id);
+    res.json(userBudgets);
+  });
+
+  app.post("/api/budgets", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const schema = z.object({
+      category: z.string().min(1).max(50),
+      amount: z.string().or(z.number()).transform(v => String(v)),
+      periodType: z.enum(["weekly", "monthly"]).default("monthly"),
+      startDate: z.string().optional().transform(v => v ? new Date(v) : new Date()),
+      notificationsEnabled: z.boolean().default(false),
+      thresholds: z.array(z.string()).optional().nullable(),
+      note: z.string().max(500).optional().nullable(),
+    });
+    const data = schema.parse(req.body);
+    const budget = await storage.createBudget({
+      ...data,
+      userId: user.id,
+      familyId: user.familyId,
+      budgetScope: "personal",
+    });
+    res.status(201).json(budget);
+  });
+
+  app.patch("/api/budgets/:id", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const id = parseInt(req.params.id);
+    const existing = await storage.getBudget(id);
+    if (!existing || existing.userId !== user.id) {
+      return res.status(404).json({ message: "Budget not found" });
+    }
+    const schema = z.object({
+      amount: z.string().or(z.number()).transform(v => String(v)).optional(),
+      periodType: z.enum(["weekly", "monthly"]).optional(),
+      startDate: z.string().optional().transform(v => v ? new Date(v) : undefined),
+      notificationsEnabled: z.boolean().optional(),
+      thresholds: z.array(z.string()).optional().nullable(),
+      note: z.string().max(500).optional().nullable(),
+    });
+    const updates = schema.parse(req.body);
+    const updated = await storage.updateBudget(id, updates);
+    res.json(updated);
+  });
+
+  app.delete("/api/budgets/:id", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const id = parseInt(req.params.id);
+    const existing = await storage.getBudget(id);
+    if (!existing || existing.userId !== user.id) {
+      return res.status(404).json({ message: "Budget not found" });
+    }
+    await storage.deleteBudget(id);
+    res.status(204).send();
+  });
+
+  app.get("/api/budget-summary", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const userBudgets = await storage.getBudgets(user.id);
+    const allExpenses = await storage.getExpenses(user.id);
+
+    const now = new Date();
+    const summaries = userBudgets.map(budget => {
+      const startDate = new Date(budget.startDate);
+      let periodStart: Date;
+      let periodEnd: Date;
+
+      if (budget.periodType === "weekly") {
+        const daysSinceStart = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        const currentPeriodOffset = daysSinceStart % 7;
+        periodStart = new Date(now);
+        periodStart.setDate(now.getDate() - currentPeriodOffset);
+        periodStart.setHours(0, 0, 0, 0);
+        periodEnd = new Date(periodStart);
+        periodEnd.setDate(periodStart.getDate() + 7);
+      } else {
+        periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      }
+
+      const categoryExpenses = allExpenses.filter(e => {
+        const expDate = new Date(e.date);
+        return e.category === budget.category && expDate >= periodStart && expDate < periodEnd;
+      });
+      const spent = categoryExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
+      const budgetAmount = Number(budget.amount);
+      const remaining = budgetAmount - spent;
+      const percentUsed = budgetAmount > 0 ? Math.round((spent / budgetAmount) * 100) : 0;
+
+      return {
+        ...budget,
+        spent,
+        remaining,
+        percentUsed,
+        periodStart: periodStart.toISOString(),
+        periodEnd: periodEnd.toISOString(),
+      };
+    });
+
+    const totalBudget = summaries.reduce((sum, s) => sum + Number(s.amount), 0);
+    const totalSpent = summaries.reduce((sum, s) => sum + s.spent, 0);
+
+    res.json({
+      budgets: summaries,
+      totalBudget,
+      totalSpent,
+      totalRemaining: totalBudget - totalSpent,
+      totalPercentUsed: totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0,
+    });
+  });
+
+  app.get("/api/budget-setup", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const prompt = await storage.getBudgetSetupPrompt(user.id);
+    res.json(prompt || null);
+  });
+
+  app.post("/api/budget-setup", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const schema = z.object({
+      status: z.enum(["pending", "dismissed", "remind_week", "remind_month", "completed"]),
+    });
+    const { status } = schema.parse(req.body);
+
+    let remindAt: Date | undefined;
+    if (status === "remind_week") {
+      remindAt = new Date();
+      remindAt.setDate(remindAt.getDate() + 7);
+    } else if (status === "remind_month") {
+      remindAt = new Date();
+      remindAt.setMonth(remindAt.getMonth() + 1);
+    }
+
+    const prompt = await storage.upsertBudgetSetupPrompt(user.id, status, remindAt);
+    res.json(prompt);
+  });
+
+  app.get("/api/budget-averages", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const allExpenses = await storage.getExpenses(user.id);
+
+    if (allExpenses.length === 0) {
+      return res.json({ averages: [], hasData: false });
+    }
+
+    const dates = allExpenses.map(e => new Date(e.date).getTime());
+    const oldest = new Date(Math.min(...dates));
+    const now = new Date();
+    const monthsSpan = Math.max(1, (now.getFullYear() - oldest.getFullYear()) * 12 + (now.getMonth() - oldest.getMonth()) + 1);
+
+    const categoryTotals: Record<string, number> = {};
+    for (const expense of allExpenses) {
+      categoryTotals[expense.category] = (categoryTotals[expense.category] || 0) + Number(expense.amount);
+    }
+
+    const averages = Object.entries(categoryTotals).map(([category, total]) => ({
+      category,
+      monthlyAverage: Math.round((total / monthsSpan) * 100) / 100,
+      weeklyAverage: Math.round((total / (monthsSpan * 4.33)) * 100) / 100,
+    }));
+
+    res.json({ averages, hasData: true });
+  });
+
   // === UPLOAD ROUTE ===
   app.post(api.upload.create.path, requireAuth, upload.single('file'), (req, res) => {
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });

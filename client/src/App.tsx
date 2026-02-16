@@ -18,9 +18,10 @@ import SettingsPage from "@/pages/SettingsPage";
 import SpendingReflectionsPage from "@/pages/SpendingReflectionsPage";
 import ReportsPage from "@/pages/ReportsPage";
 import MessagesPage from "@/pages/MessagesPage";
+import BudgetPage from "@/pages/BudgetPage";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
-import { startNotificationScheduler, stopNotificationScheduler } from "@/lib/notifications";
+import { startNotificationScheduler, stopNotificationScheduler, checkBudgetThresholdNotifications } from "@/lib/notifications";
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
@@ -36,6 +37,36 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
       startNotificationScheduler(prefs);
     }
     return () => stopNotificationScheduler();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const checkBudgets = async () => {
+      try {
+        const data = await queryClient.fetchQuery({
+          queryKey: ["/api/budget-summary"],
+          staleTime: 4 * 60 * 1000,
+        });
+        const summary = data as any;
+        if (summary?.budgets?.length > 0) {
+          checkBudgetThresholdNotifications(
+            summary.budgets.map((b: any) => ({
+              id: b.id,
+              category: b.category,
+              amount: b.amount,
+              percentUsed: b.percentUsed,
+              notificationsEnabled: b.notificationsEnabled,
+              thresholds: b.thresholds,
+              periodType: b.periodType,
+              periodStart: b.periodStart,
+            }))
+          );
+        }
+      } catch {}
+    };
+    checkBudgets();
+    const interval = setInterval(checkBudgets, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, [user]);
 
   if (isLoading) {
@@ -102,6 +133,9 @@ function Router() {
       </Route>
       <Route path="/messages">
         {() => <ProtectedRoute component={MessagesPage} />}
+      </Route>
+      <Route path="/budget">
+        {() => <ProtectedRoute component={BudgetPage} />}
       </Route>
 
       <Route component={NotFound} />
