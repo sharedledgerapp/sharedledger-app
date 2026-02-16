@@ -1,0 +1,173 @@
+Refactor the Home Screen and Spending Breakdown to:
+
+Focus only on Personal spending
+
+Add daily visibility
+
+Add weekly & monthly spike charts
+
+Maintain clean separation from Shared/Family dashboard
+
+Use calendar-consistent logic (Sunday–Saturday week, calendar month)
+
+This phase applies only to individual user data.
+
+1️⃣ Personal Total Spent Card
+
+Replace the combined spending card.
+
+Display:
+
+Main Amount (Large)
+
+Total Personal Spending (Current Calendar Month)
+
+Secondary Indicator (Right Side or Top Corner)
+
+“Today: €X”
+
+Based on spending since midnight (device local time)
+
+Trend Indicator (Keep Existing)
+
+% change compared to previous calendar month
+
+Arrow + percentage
+
+Logic Rules:
+
+Today resets at midnight (local device time)
+
+Week runs Sunday → Saturday
+
+Month = calendar month
+
+Exclude shared/family expenses entirely
+
+2️⃣ Spending Breakdown (Keep + Expand)
+
+Keep existing:
+
+Monthly pie chart (category distribution)
+
+Category totals list
+
+Click category → show expense list
+
+No changes to current drill-down behavior.
+
+3️⃣ Add “Spending Activity” Section (Inside Breakdown Screen)
+
+Add a new section below the pie chart.
+
+Toggle:
+
+Weekly View
+
+Monthly View
+
+Weekly View (Sunday–Saturday)
+
+7 bars (Sun → Sat)
+
+Each bar = total personal spending for that day
+
+Based on current calendar week
+
+Tap bar → show total spent that day (tooltip or small overlay)
+
+No full drill-down yet (Phase 2 feature)
+
+Monthly View (Option A – Locked)
+
+Group by week within the current calendar month.
+
+If a month starts mid-week:
+
+Week 1 shows only the days within that month.
+
+Do NOT include days from previous month.
+
+Each bar represents spending for:
+
+Week 1
+
+Week 2
+
+Week 3
+
+Week 4
+
+Week 5 (if applicable)
+
+Example:
+If month starts Wednesday:
+
+Week 1 = Wed–Sat only
+
+Week 2 = Sun–Sat
+
+Continue accordingly
+
+4️⃣ Data & Filtering Rules
+
+All calculations must:
+
+Filter by expense_type = personal
+
+Respect:
+
+Sunday–Saturday week definition
+
+Calendar month definition
+
+Midnight local reset
+
+Exclude shared/family expenses entirely
+
+5️⃣ Architecture Safeguard for Future Scaling
+
+Ensure expense records contain:
+
+user_id
+
+expense_type (personal | shared)
+
+amount
+
+category_id
+
+timestamp
+
+All queries for this dashboard must explicitly filter:
+expense_type = personal
+
+This preserves future scalability for:
+
+Couples
+
+Roommates
+
+Family units
+
+🎯 Resulting UX Structure
+
+Home Screen:
+
+Personal Total Card (Month + Today + Trend)
+
+Spending Breakdown (Pie + Category List)
+
+Spending Breakdown Screen:
+
+Pie Chart
+
+Category List
+
+Spending Activity (Weekly/Monthly spike charts)
+
+Shared Dashboard:
+
+Completely separate
+
+No mixing with personal dashboard
