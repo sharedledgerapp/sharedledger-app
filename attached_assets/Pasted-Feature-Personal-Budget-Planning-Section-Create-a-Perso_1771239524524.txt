@@ -1,0 +1,183 @@
+Feature: Personal Budget & Planning Section
+
+Create a Personal Budget & Planning section that allows users to plan and monitor budgets for each spending category they have created.
+
+This is Phase 1 and should apply only to personal budgets (not shared/family budgets yet). However, structure the logic so it can later expand to shared budgets.
+
+1️⃣ Home Screen Placement
+
+Replace the “Recent Expenses” section.
+
+Position the Budget & Planning card below the Spending Breakdown.
+
+The design style should match the Spending Breakdown card.
+
+When clicked, it opens a dedicated “Budget & Planning” screen.
+
+2️⃣ First-Time Budget Setup Prompt
+
+When the app is first opened, show a popup:
+
+Title: Plan Your Budget
+Message:
+“Would you like to set up your budgets now, or after tracking your spending for a while?”
+
+Options:
+
+Set Up Now
+
+Remind Me in One Week
+
+Remind Me in One Month
+
+If the user chooses a reminder:
+
+Trigger a popup at the selected time.
+
+Show their average spending per category to guide them.
+
+Do NOT auto-create budgets — only suggest averages.
+
+3️⃣ Budget Period Options
+
+Allow users to choose:
+
+Weekly budgets
+
+Monthly budgets
+
+Each category budget should store:
+
+Budget amount
+
+Budget type (weekly or monthly)
+
+Start date
+
+No rollover logic. Each period resets independently.
+
+4️⃣ Budget & Planning Screen Layout
+Top Section: Total Budget Overview
+
+Display:
+
+Total budget across all categories
+
+Total spent (current period)
+
+Remaining amount
+
+Percentage used
+
+This gives users clarity on overall allocation.
+
+Category Section
+
+For each category:
+
+Display:
+
+Category name
+
+Budget amount
+
+Amount spent (current period)
+
+Remaining amount
+
+Percentage used
+
+Visual progress bar
+
+Allow user to:
+
+Edit budget amount
+
+Switch between weekly/monthly
+
+Enable notifications
+
+Add short notes
+
+5️⃣ Push Notification Settings
+
+For each category, allow users to:
+
+Toggle notifications ON/OFF
+
+Select warning thresholds:
+
+50%
+
+60%
+
+80%
+
+100%
+
+Trigger notification example:
+“You’ve used 80% of your Food budget.”
+
+Notification logic should:
+
+Only trigger once per threshold per period.
+
+Reset when a new period begins.
+
+6️⃣ Notes Section (Per Category)
+
+Below each category budget:
+
+Allow users to:
+
+Add short planning notes
+
+Record adjustment reasons
+
+Set targets (e.g., “Reduce eating out”)
+
+Notes should be editable and saved per budget period.
+
+7️⃣ Budget Calculation Logic
+
+Use existing expense data.
+
+Calculate spending based on:
+
+Selected budget period (weekly/monthly)
+
+Budget start date
+
+No rollover.
+
+No bank integration assumptions.
+
+If no expenses exist for a category:
+
+Show 0% used.
+
+8️⃣ Data Structure Considerations (Important for Future Scaling)
+
+Even though this is Personal-only:
+
+Structure data in a way that can later support:
+
+Shared budgets
+
+Family budgets
+
+Couple budgets
+
+Roommate budgets
+
+Consider separating:
+
+user_id
+
+budget_type (personal/shared future)
+
+period_type
+
+threshold_settings
+
+notes
