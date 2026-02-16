@@ -2,13 +2,14 @@ import { useState } from "react";
 import { useExpenses } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { ChevronLeft, ChevronRight, Calendar, TrendingDown, ArrowLeft, Users, Wallet, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { ChevronLeft, ChevronRight, Calendar, TrendingDown, ArrowLeft, Users, Wallet, BarChart3, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths, addMonths, subWeeks, addWeeks, isWithinInterval } from "date-fns";
-import { getCurrencySymbol } from "@/lib/currency";
+import { getCurrencySymbol, formatAmount } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 
 const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#a78bfa", "#fb7185", "#4ade80"];
@@ -27,6 +28,20 @@ export default function ReportsPage() {
   
   const currencySymbol = getCurrencySymbol(user?.currency);
 
+  const [activityView, setActivityView] = useState<"weekly" | "monthly">("weekly");
+
+  const { data: activityData } = useQuery<{
+    view: string;
+    periodLabel: string;
+    data: { label: string; total: number; date?: string; weekStart?: string; weekEnd?: string }[];
+  }>({
+    queryKey: ["/api/spending/activity", activityView],
+    queryFn: async () => {
+      const res = await fetch(`/api/spending/activity?view=${activityView}`, { credentials: "include" });
+      return res.json();
+    },
+  });
+
   const getPeriodRange = () => {
     if (periodType === "month") {
       return {
@@ -35,18 +50,20 @@ export default function ReportsPage() {
       };
     } else {
       return {
-        start: startOfWeek(currentDate, { weekStartsOn: 1 }),
-        end: endOfWeek(currentDate, { weekStartsOn: 1 }),
+        start: startOfWeek(currentDate, { weekStartsOn: 0 }),
+        end: endOfWeek(currentDate, { weekStartsOn: 0 }),
       };
     }
   };
 
   const { start, end } = getPeriodRange();
 
-  const filteredExpenses = expenses?.filter((expense) => {
+  const personalExpenses = expenses?.filter(e => e.paymentSource === "personal") || [];
+
+  const filteredExpenses = personalExpenses.filter((expense) => {
     const expenseDate = new Date(expense.date);
     return isWithinInterval(expenseDate, { start, end });
-  }) || [];
+  });
 
   const categoryExpenses = selectedCategory 
     ? filteredExpenses.filter(e => e.category === selectedCategory)
@@ -187,67 +204,144 @@ export default function ReportsPage() {
               </CardContent>
             </Card>
           ) : (
-            <>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">{t("spendingBreakdown")}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-48">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={categoryData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={40}
-                          outerRadius={70}
-                          paddingAngle={2}
-                          dataKey="value"
-                        >
-                          {categoryData.map((_, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          formatter={(value: number) => [`${currencySymbol}${value.toFixed(2)}`, ""]}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  
-                  <div className="space-y-2 mt-4">
-                    {categoryData.map((cat, index) => (
-                      <button
-                        key={cat.name}
-                        onClick={() => handleCategoryClick(cat.name)}
-                        className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer"
-                        data-testid={`button-category-${cat.name.toLowerCase()}`}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">{t("spendingBreakdown")}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={categoryData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={40}
+                        outerRadius={70}
+                        paddingAngle={2}
+                        dataKey="value"
                       >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                          />
-                          <span className="text-primary">{getCategoryIcon(cat.name)}</span>
-                          <span className="font-medium">{cat.name}</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {cat.count}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold">
-                            {currencySymbol}{cat.value.toFixed(2)}
-                          </span>
-                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </>
+                        {categoryData.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: number) => [`${currencySymbol}${value.toFixed(2)}`, ""]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                
+                <div className="space-y-2 mt-4">
+                  {categoryData.map((cat, index) => (
+                    <button
+                      key={cat.name}
+                      onClick={() => handleCategoryClick(cat.name)}
+                      className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer"
+                      data-testid={`button-category-${cat.name.toLowerCase()}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                        />
+                        <span className="text-primary">{getCategoryIcon(cat.name)}</span>
+                        <span className="font-medium">{cat.name}</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {cat.count}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold">
+                          {currencySymbol}{cat.value.toFixed(2)}
+                        </span>
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           )}
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-primary" />
+                {t("spendingActivity")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2 mb-4">
+                <Button
+                  variant={activityView === "weekly" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setActivityView("weekly")}
+                  className="flex-1"
+                  data-testid="button-activity-weekly"
+                >
+                  {t("weeklyView")}
+                </Button>
+                <Button
+                  variant={activityView === "monthly" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setActivityView("monthly")}
+                  className="flex-1"
+                  data-testid="button-activity-monthly"
+                >
+                  {t("monthlyView")}
+                </Button>
+              </div>
+
+              {activityData?.data && activityData.data.length > 0 ? (
+                <div className="h-52" data-testid="chart-spending-activity">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={activityData.data} barCategoryGap="20%">
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={45}
+                        tickFormatter={(v) => `${currencySymbol}${v}`}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          borderRadius: '8px',
+                          border: '1px solid hsl(var(--border))',
+                          backgroundColor: 'hsl(var(--card))',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        }}
+                        formatter={(value: number) => [`${currencySymbol}${formatAmount(value)}`, t("spent")]}
+                        labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
+                      />
+                      <Bar
+                        dataKey="total"
+                        fill="hsl(var(--primary))"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-32 flex items-center justify-center text-sm text-muted-foreground">
+                  {t("noData")}
+                </div>
+              )}
+
+              {activityData?.periodLabel && (
+                <p className="text-xs text-muted-foreground text-center mt-2" data-testid="text-activity-period">
+                  {activityData.periodLabel}
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </>
       ) : (
         <>

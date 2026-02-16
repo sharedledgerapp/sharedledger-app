@@ -60,7 +60,10 @@ type TranslationKey =
   | "thresholds" | "threshold50" | "threshold60" | "threshold80" | "threshold100"
   | "budgetNote" | "budgetNotePlaceholder" | "averageSpending"
   | "budgetOverview" | "categoryBudgets" | "noBudgetSet" | "addBudgetForCategory"
-  | "budgetExceeded" | "onBudget" | "overBudget" | "budgetWarning";
+  | "budgetExceeded" | "onBudget" | "overBudget" | "budgetWarning"
+  | "personalSpending" | "today" | "vsLastMonth"
+  | "spendingActivity" | "weeklyView" | "monthlyView"
+  | "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat";
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -291,6 +294,19 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     onBudget: "On budget",
     overBudget: "Over budget",
     budgetWarning: "Budget warning",
+    personalSpending: "Personal Spending",
+    today: "Today",
+    vsLastMonth: "vs last month",
+    spendingActivity: "Spending Activity",
+    weeklyView: "Weekly",
+    monthlyView: "Monthly",
+    sun: "Sun",
+    mon: "Mon",
+    tue: "Tue",
+    wed: "Wed",
+    thu: "Thu",
+    fri: "Fri",
+    sat: "Sat",
   },
   fr: {
     home: "Accueil",
@@ -520,6 +536,19 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     onBudget: "Dans le budget",
     overBudget: "Hors budget",
     budgetWarning: "Alerte budget",
+    personalSpending: "Dépenses personnelles",
+    today: "Aujourd'hui",
+    vsLastMonth: "vs mois dernier",
+    spendingActivity: "Activité de dépenses",
+    weeklyView: "Semaine",
+    monthlyView: "Mois",
+    sun: "Dim",
+    mon: "Lun",
+    tue: "Mar",
+    wed: "Mer",
+    thu: "Jeu",
+    fri: "Ven",
+    sat: "Sam",
   },
 };
 

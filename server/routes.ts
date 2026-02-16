@@ -232,13 +232,20 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
 
     const allExpenses = await storage.getExpenses(user.id);
+    const personalExpenses = allExpenses.filter(e => e.paymentSource === "personal");
 
-    const currentMonthTotal = allExpenses
+    const currentMonthTotal = personalExpenses
       .filter(e => new Date(e.date) >= currentMonthStart && new Date(e.date) <= currentMonthEnd)
       .reduce((sum, e) => sum + Number(e.amount), 0);
 
-    const prevMonthTotal = allExpenses
+    const prevMonthTotal = personalExpenses
       .filter(e => new Date(e.date) >= prevMonthStart && new Date(e.date) <= prevMonthEnd)
+      .reduce((sum, e) => sum + Number(e.amount), 0);
+
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const todayTotal = personalExpenses
+      .filter(e => new Date(e.date) >= todayStart && new Date(e.date) <= todayEnd)
       .reduce((sum, e) => sum + Number(e.amount), 0);
 
     let percentageChange = 0;
@@ -249,9 +256,104 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     res.json({
       currentMonthTotal: currentMonthTotal.toFixed(2),
       prevMonthTotal: prevMonthTotal.toFixed(2),
+      todayTotal: todayTotal.toFixed(2),
       percentageChange: percentageChange.toFixed(1),
       trend: currentMonthTotal >= prevMonthTotal ? "up" : "down",
     });
+  });
+
+  // Spending activity for bar charts (weekly daily totals, monthly weekly totals)
+  app.get("/api/spending/activity", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const { view = "weekly" } = req.query as { view?: "weekly" | "monthly" };
+    const now = new Date();
+
+    const allExpenses = await storage.getExpenses(user.id);
+    const personalExpenses = allExpenses.filter(e => e.paymentSource === "personal");
+
+    if (view === "weekly") {
+      // Current week: Sunday to Saturday
+      const dayOfWeek = now.getDay(); // 0=Sunday
+      const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
+      weekStart.setHours(0, 0, 0, 0);
+
+      const days = [];
+      for (let i = 0; i < 7; i++) {
+        const dayStart = new Date(weekStart);
+        dayStart.setDate(weekStart.getDate() + i);
+        const dayEnd = new Date(dayStart);
+        dayEnd.setHours(23, 59, 59, 999);
+
+        const dayTotal = personalExpenses
+          .filter(e => {
+            const d = new Date(e.date);
+            return d >= dayStart && d <= dayEnd;
+          })
+          .reduce((sum, e) => sum + Number(e.amount), 0);
+
+        days.push({
+          label: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][i],
+          date: dayStart.toISOString().split("T")[0],
+          total: Number(dayTotal.toFixed(2)),
+        });
+      }
+
+      res.json({
+        view: "weekly",
+        periodLabel: `${days[0].date} – ${days[6].date}`,
+        data: days,
+      });
+    } else {
+      // Monthly view: group by calendar weeks within the month
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      const totalDaysInMonth = monthEnd.getDate();
+
+      const weeks: { label: string; weekStart: string; weekEnd: string; total: number }[] = [];
+      let weekNum = 1;
+      let currentDay = new Date(monthStart);
+
+      while (currentDay <= monthEnd) {
+        const wkStart = new Date(currentDay);
+        // Find end of this week (Saturday) or end of month
+        let wkEnd: Date;
+        const daysUntilSat = 6 - currentDay.getDay(); // days until Saturday
+        const potentialEnd = new Date(currentDay);
+        potentialEnd.setDate(currentDay.getDate() + daysUntilSat);
+
+        if (potentialEnd > monthEnd) {
+          wkEnd = new Date(monthEnd);
+        } else {
+          wkEnd = potentialEnd;
+        }
+        wkEnd.setHours(23, 59, 59, 999);
+
+        const weekTotal = personalExpenses
+          .filter(e => {
+            const d = new Date(e.date);
+            return d >= wkStart && d <= wkEnd;
+          })
+          .reduce((sum, e) => sum + Number(e.amount), 0);
+
+        weeks.push({
+          label: `W${weekNum}`,
+          weekStart: wkStart.toISOString().split("T")[0],
+          weekEnd: wkEnd.toISOString().split("T")[0],
+          total: Number(weekTotal.toFixed(2)),
+        });
+
+        weekNum++;
+        currentDay = new Date(wkEnd);
+        currentDay.setDate(currentDay.getDate() + 1);
+        currentDay.setHours(0, 0, 0, 0);
+      }
+
+      res.json({
+        view: "monthly",
+        periodLabel: `${now.toLocaleString("en", { month: "long" })} ${now.getFullYear()}`,
+        data: weeks,
+      });
+    }
   });
 
   app.get("/api/family/dashboard", requireAuth, async (req, res) => {

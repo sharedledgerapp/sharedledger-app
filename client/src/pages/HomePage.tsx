@@ -30,6 +30,7 @@ export default function HomePage() {
   const { data: spendingSummary } = useQuery<{
     currentMonthTotal: string;
     prevMonthTotal: string;
+    todayTotal: string;
     percentageChange: string;
     trend: "up" | "down";
   }>({
@@ -83,11 +84,13 @@ export default function HomePage() {
   }
 
   const monthlyTotal = spendingSummary ? Number(spendingSummary.currentMonthTotal) : 0;
+  const todayTotal = spendingSummary ? Number(spendingSummary.todayTotal) : 0;
   const percentageChange = spendingSummary ? Math.abs(Number(spendingSummary.percentageChange)) : 0;
   const trend = spendingSummary?.trend || "up";
   const prevMonthTotal = spendingSummary ? Number(spendingSummary.prevMonthTotal) : 0;
 
-  const categoryData = expenses?.reduce((acc, curr) => {
+  const personalExpenses = expenses?.filter(e => e.paymentSource === "personal") || [];
+  const categoryData = personalExpenses.reduce((acc, curr) => {
     const existing = acc.find(i => i.name === curr.category);
     if (existing) {
       existing.value += Number(curr.amount);
@@ -95,7 +98,7 @@ export default function HomePage() {
       acc.push({ name: curr.category, value: Number(curr.amount) });
     }
     return acc;
-  }, [] as { name: string; value: number }[]) || [];
+  }, [] as { name: string; value: number }[]);
 
   return (
     <div className="space-y-6 pb-20">
@@ -116,12 +119,20 @@ export default function HomePage() {
       <div className="grid grid-cols-2 gap-4">
         <Card className="col-span-2 bg-gradient-to-br from-primary to-primary/80 border-none text-white shadow-xl shadow-primary/20">
           <CardContent className="p-6">
-            <div className="flex items-center gap-2 text-white/80 mb-1">
-              <Wallet className="w-4 h-4" />
-              <span className="text-sm font-medium">{t("totalSpent")}</span>
-            </div>
-            <div className="text-4xl font-display font-bold" data-testid="text-monthly-total">
-              {currencySymbol}{monthlyTotal.toFixed(2)}
+            <div className="flex justify-between items-start gap-2">
+              <div>
+                <div className="flex items-center gap-2 text-white/80 mb-1">
+                  <Wallet className="w-4 h-4" />
+                  <span className="text-sm font-medium">{t("personalSpending")}</span>
+                </div>
+                <div className="text-4xl font-display font-bold" data-testid="text-monthly-total">
+                  {currencySymbol}{monthlyTotal.toFixed(2)}
+                </div>
+              </div>
+              <div className="text-right bg-white/15 rounded-lg px-3 py-2 backdrop-blur-sm" data-testid="badge-today-total">
+                <div className="text-[10px] uppercase tracking-wider text-white/70">{t("today")}</div>
+                <div className="text-base font-bold">{currencySymbol}{todayTotal.toFixed(2)}</div>
+              </div>
             </div>
             <div className="mt-4 flex gap-3 text-xs font-medium text-white/90">
               {prevMonthTotal > 0 ? (
@@ -131,7 +142,7 @@ export default function HomePage() {
                   ) : (
                     <ArrowDownRight className="w-3 h-3" />
                   )}
-                  {trend === "up" ? "+" : "-"}{percentageChange.toFixed(0)}% {t("thisMonth")}
+                  {trend === "up" ? "+" : "-"}{percentageChange.toFixed(0)}% {t("vsLastMonth")}
                 </div>
               ) : (
                 <div className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg backdrop-blur-sm">
