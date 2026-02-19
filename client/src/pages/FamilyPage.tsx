@@ -19,19 +19,6 @@ export default function FamilyPage() {
   const { t } = useLanguage();
   const [roleDialog, setRoleDialog] = useState<{ memberId: number; memberName: string; action: "promote" | "demote" } | null>(null);
 
-  if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading family info...</div>;
-
-  const family = data?.family;
-  const members = data?.members || [];
-  const parentCount = members.filter(m => m.role === 'parent').length;
-
-  const copyCode = () => {
-    if (family?.code) {
-      navigator.clipboard.writeText(family.code);
-      toast({ title: "Copied!", description: "Invite code copied to clipboard" });
-    }
-  };
-
   const changeRoleMutation = useMutation({
     mutationFn: async ({ memberId, role }: { memberId: number; role: string }) => {
       const res = await apiRequest("PATCH", `/api/family/members/${memberId}/role`, { role });
@@ -64,6 +51,19 @@ export default function FamilyPage() {
       role: roleDialog.action === "promote" ? "parent" : "child",
     });
     setRoleDialog(null);
+  };
+
+  if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading family info...</div>;
+
+  const family = data?.family;
+  const members = data?.members || [];
+  const parentCount = members.filter(m => m.role === 'parent').length;
+
+  const copyCode = () => {
+    if (family?.code) {
+      navigator.clipboard.writeText(family.code);
+      toast({ title: "Copied!", description: "Invite code copied to clipboard" });
+    }
   };
 
   return (
