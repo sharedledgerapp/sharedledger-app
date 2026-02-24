@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useExpenses, useCreateExpense, useUpdateExpense, useUpload, useFamily } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, ScanLine, Check, X, DollarSign, Trash2, Wallet, Repeat, CreditCard, Zap, Building, Shield, Package, Pause, Play, Settings } from "lucide-react";
+import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, ScanLine, Check, X, DollarSign, Trash2, Wallet, Repeat, CreditCard, Zap, Building, Shield, Package, Pause, Play, Settings, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Keypad } from "@/components/Keypad";
 import { format } from "date-fns";
@@ -70,6 +70,10 @@ export default function ExpensesPage() {
 
   const userRecurringCategories = (user as any)?.recurringCategories as string[] | null;
   const RECURRING_CATEGORIES = userRecurringCategories || DEFAULT_RECURRING_CATEGORIES;
+
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [view, setView] = useState<"everyday" | "recurring">("everyday");
   const [showRecurringDialog, setShowRecurringDialog] = useState(false);
@@ -203,23 +207,86 @@ export default function ExpensesPage() {
   const totalRecurringMonthly = groupedRecurring.reduce((sum, g) => sum + g.total, 0);
   const inactiveRecurring = recurringExpenses?.filter(e => !e.isActive) || [];
 
+  const filteredExpenses = useMemo(() => {
+    if (!expenses || !searchQuery.trim()) return expenses;
+    const q = searchQuery.toLowerCase().trim();
+    return expenses.filter((expense) => {
+      const note = (expense.note || "").toLowerCase();
+      const category = (expense.category || "").toLowerCase();
+      const amount = String(Number(expense.amount).toFixed(2));
+      return note.includes(q) || category.includes(q) || amount.includes(q);
+    });
+  }, [expenses, searchQuery]);
+
   return (
     <div className="space-y-6 pb-20">
-      <div className="flex justify-between items-center">
-        <h1 className="font-display font-bold text-3xl">{t("expenses")}</h1>
-        {view === "everyday" && (
-          <Button onClick={() => setIsCreateOpen(true)} className="rounded-full shadow-lg shadow-primary/25" data-testid="button-add-expense">
-            <Plus className="w-5 h-5 mr-2" /> Add New
-          </Button>
-        )}
-        {view === "recurring" && (
-          <Button
-            onClick={() => { resetRecurringForm(); setShowRecurringDialog(true); }}
-            className="rounded-full shadow-lg shadow-primary/25"
-            data-testid="button-add-recurring"
-          >
-            <Plus className="w-5 h-5 mr-2" /> {t("addRecurring")}
-          </Button>
+      <div className="flex justify-between items-center gap-2">
+        {searchOpen && view === "everyday" ? (
+          <div className="flex items-center gap-2 flex-1 animate-in slide-in-from-right-4 duration-200">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t("searchExpenses") || "Search expenses..."}
+                className="pl-9 pr-9 rounded-full"
+                data-testid="input-search-expenses"
+              />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7"
+                  data-testid="button-clear-search"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
+              data-testid="button-close-search"
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+        ) : (
+          <>
+            <h1 className="font-display font-bold text-3xl">{t("expenses")}</h1>
+            <div className="flex items-center gap-2">
+              {view === "everyday" && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setSearchOpen(true);
+                    setTimeout(() => searchInputRef.current?.focus(), 100);
+                  }}
+                  data-testid="button-open-search"
+                >
+                  <Search className="w-5 h-5" />
+                </Button>
+              )}
+              {view === "everyday" && (
+                <Button onClick={() => setIsCreateOpen(true)} className="rounded-full shadow-lg shadow-primary/25" data-testid="button-add-expense">
+                  <Plus className="w-5 h-5 mr-2" /> Add New
+                </Button>
+              )}
+              {view === "recurring" && (
+                <Button
+                  onClick={() => { resetRecurringForm(); setShowRecurringDialog(true); }}
+                  className="rounded-full shadow-lg shadow-primary/25"
+                  data-testid="button-add-recurring"
+                >
+                  <Plus className="w-5 h-5 mr-2" /> {t("addRecurring")}
+                </Button>
+              )}
+            </div>
+          </>
         )}
       </div>
 
@@ -258,7 +325,13 @@ export default function ExpensesPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {expenses?.map((expense) => (
+              {searchQuery && filteredExpenses?.length === 0 && (
+                <div className="text-center py-12 bg-muted/20 rounded-2xl border border-dashed border-muted" data-testid="text-no-search-results">
+                  <Search className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground" data-testid="text-no-results-message">{t("noSearchResults")} "{searchQuery}"</p>
+                </div>
+              )}
+              {filteredExpenses?.map((expense) => (
                 <div 
                   key={expense.id} 
                   className="bg-white dark:bg-card p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between group hover:border-primary/30 transition-colors"
@@ -312,7 +385,7 @@ export default function ExpensesPage() {
                   </div>
                 </div>
               ))}
-              {expenses?.length === 0 && (
+              {!searchQuery && filteredExpenses?.length === 0 && (
                 <div className="text-center py-20 bg-muted/20 rounded-2xl border-2 border-dashed border-muted">
                   <p className="text-muted-foreground">{t("noTransactions")}</p>
                   <Button variant="ghost" onClick={() => setIsCreateOpen(true)}>Add your first expense</Button>

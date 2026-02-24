@@ -63,7 +63,8 @@ type TranslationKey =
   | "budgetExceeded" | "onBudget" | "overBudget" | "budgetWarning"
   | "personalSpending" | "today" | "vsLastMonth"
   | "spendingActivity" | "weeklyView" | "monthlyView"
-  | "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat";
+  | "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat"
+  | "searchExpenses" | "noSearchResults";
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -307,6 +308,8 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     thu: "Thu",
     fri: "Fri",
     sat: "Sat",
+    searchExpenses: "Search expenses...",
+    noSearchResults: "No expenses matching",
   },
   fr: {
     home: "Accueil",
@@ -549,6 +552,8 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     thu: "Jeu",
     fri: "Ven",
     sat: "Sam",
+    searchExpenses: "Rechercher des dépenses...",
+    noSearchResults: "Aucune dépense correspondant à",
   },
 };
 
