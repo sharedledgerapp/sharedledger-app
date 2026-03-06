@@ -24,14 +24,21 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
+  const isProduction = app.get("env") === "production";
+
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "r3pl1t_s3cr3t_k3y",
     resave: false,
     saveUninitialized: false,
     store: storage.sessionStore,
+    cookie: {
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      secure: isProduction,
+      sameSite: "lax",
+    },
   };
 
-  if (app.get("env") === "production") {
+  if (isProduction) {
     app.set("trust proxy", 1);
   }
 
