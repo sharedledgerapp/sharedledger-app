@@ -47,13 +47,19 @@ export function useCreateExpense() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Failed to create expense");
+      if (!res.ok) {
+        const errorBody = await res.json().catch(() => null);
+        throw new Error(errorBody?.message || "Failed to create expense");
+      }
       return api.expenses.create.responses[201].parse(await res.json());
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.expenses.list.path] });
       queryClient.invalidateQueries({ queryKey: [api.family.get.path] });
       toast({ title: "Expense Added", description: "Your spending has been recorded." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to Save", description: error.message, variant: "destructive" });
     },
   });
 }
