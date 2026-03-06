@@ -19,6 +19,7 @@ import {
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, addWeeks, subMonths, subWeeks, differenceInDays } from "date-fns";
 import { getCurrencySymbol } from "@/lib/currency";
 import { Link } from "wouter";
+import { BalanceBoard } from "@/components/BalanceBoard";
 
 const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#a78bfa", "#fb923c", "#4ade80"];
 
@@ -42,6 +43,7 @@ interface FamilyDashboardData {
     expenseCount: number;
     memberCount: number;
     familyName: string;
+    groupType?: string;
   };
   memberSpending: MemberSpending[];
   categoryBreakdown: {
@@ -160,7 +162,7 @@ export default function FamilyDashboard() {
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-display font-bold text-foreground" data-testid="text-family-dashboard-title">
-            {t("familyDashboard")}
+            {t("groupDashboard")}
           </h1>
           <p className="text-muted-foreground mt-1" data-testid="text-family-name">{data?.summary.familyName}</p>
         </div>
@@ -458,7 +460,7 @@ export default function FamilyDashboard() {
             data-testid="button-view-goals"
           >
             <Target className="w-4 h-4" />
-            {t("familyGoals")}
+            {t("groupGoals")}
           </Button>
         </div>
 
@@ -562,6 +564,8 @@ export default function FamilyDashboard() {
         </div>
         )}
       </section>
+
+      <BalanceBoard />
 
       {viewingMember && (
         <MemberDetailsDialog

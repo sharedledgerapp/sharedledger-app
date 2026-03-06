@@ -16,8 +16,8 @@ export function BottomNav() {
     { href: "/", label: t("home"), icon: Home },
     { href: "/expenses", label: t("expenses"), icon: Wallet },
     { href: "/goals", label: t("goals"), icon: Trophy },
-    { href: "/family", label: t("family"), icon: Users },
-    { href: "/family-dashboard", label: t("shared"), icon: Shield },
+    { href: "/family", label: t("group"), icon: Users },
+    { href: "/family-dashboard", label: t("dashboard"), icon: Shield },
   ];
 
   return (
@@ -67,7 +67,7 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-background flex flex-col font-sans">
       {/* Mobile Top Bar */}
       <header className="fixed top-0 left-0 right-0 z-40 px-6 py-4 bg-background/80 backdrop-blur-md flex justify-between items-center border-b border-border/20 lg:hidden">
-        <h1 className="font-display font-bold text-xl text-primary tracking-tight">FamilyLedger</h1>
+        <h1 className="font-display font-bold text-xl text-primary tracking-tight">SharedLedger</h1>
         {user && (
           <div className="flex items-center gap-3">
             <Link href="/messages">
@@ -93,7 +93,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </header>
       {/* Desktop Sidebar (hidden on mobile) */}
       <div className="hidden lg:flex flex-col w-64 fixed inset-y-0 left-0 border-r border-border bg-card p-6">
-        <h1 className="font-display font-bold text-2xl text-primary mb-10">FamilyLedger</h1>
+        <h1 className="font-display font-bold text-2xl text-primary mb-10">SharedLedger</h1>
         <nav className="space-y-2 flex-1">
           <Link href="/" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
             <Home className="w-5 h-5" /> {t("home")}
@@ -105,10 +105,10 @@ export function Layout({ children }: { children: ReactNode }) {
             <Trophy className="w-5 h-5" /> {t("goals")}
           </Link>
           <Link href="/family" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
-            <Users className="w-5 h-5" /> {t("family")}
+            <Users className="w-5 h-5" /> {t("group")}
           </Link>
           <Link href="/family-dashboard" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
-            <Shield className="w-5 h-5" /> {t("shared")}
+            <Shield className="w-5 h-5" /> {t("dashboard")}
           </Link>
           <Link href="/reports" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors" data-testid="link-reports-desktop">
             <BarChart3 className="w-5 h-5" /> {t("reports")}

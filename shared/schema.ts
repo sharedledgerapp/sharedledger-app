@@ -9,16 +9,19 @@ import { z } from "zod";
 export const families = pgTable("families", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  code: text("code").notNull().unique(), // Invite code
+  code: text("code").notNull().unique(),
+  groupType: text("group_type", { enum: ["family", "roommates", "couple"] }).default("family").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const groups = families;
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(), // Email
+  username: text("username").notNull().unique(),
   password: text("password").notNull(),
   name: text("name").notNull(),
-  role: text("role", { enum: ["parent", "child"] }).notNull(),
+  role: text("role", { enum: ["parent", "child", "member"] }).notNull(),
   familyId: integer("family_id").references(() => families.id),
   shareTotalsConsent: boolean("share_totals_consent").default(true).notNull(),
   profileImageUrl: text("profile_image_url"),
@@ -37,13 +40,14 @@ export const expenses = pgTable("expenses", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
   familyId: integer("family_id").references(() => families.id),
-  amount: numeric("amount").notNull(), // Stored as string, handle as number in app
+  amount: numeric("amount").notNull(),
   category: text("category").notNull(),
   note: text("note"),
   receiptUrl: text("receipt_url"),
   visibility: text("visibility", { enum: ["private", "public"] }).default("private").notNull(),
-  splitType: text("split_type", { enum: ["none", "equal", "exact"] }).default("none").notNull(),
+  splitType: text("split_type", { enum: ["none", "equal", "exact", "percentage"] }).default("none").notNull(),
   paymentSource: text("payment_source", { enum: ["personal", "family"] }).default("personal").notNull(),
+  paidByUserId: integer("paid_by_user_id").references(() => users.id),
   date: timestamp("date").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -51,9 +55,19 @@ export const expenses = pgTable("expenses", {
 export const expenseSplits = pgTable("expense_splits", {
   id: serial("id").primaryKey(),
   expenseId: integer("expense_id").notNull().references(() => expenses.id),
-  userId: integer("user_id").notNull().references(() => users.id), // The person who owes
-  amount: numeric("amount").notNull(), // Their share
+  userId: integer("user_id").notNull().references(() => users.id),
+  amount: numeric("amount").notNull(),
   isPaid: boolean("is_paid").default(false).notNull(),
+});
+
+export const settlements = pgTable("settlements", {
+  id: serial("id").primaryKey(),
+  fromUserId: integer("from_user_id").notNull().references(() => users.id),
+  toUserId: integer("to_user_id").notNull().references(() => users.id),
+  groupId: integer("group_id").notNull().references(() => families.id),
+  amount: numeric("amount").notNull(),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const goals = pgTable("goals", {
@@ -154,6 +168,7 @@ export const messageReadStatus = pgTable("message_read_status", {
 export const familiesRelations = relations(families, ({ many }) => ({
   users: many(users),
   goals: many(goals),
+  settlements: many(settlements),
 }));
 
 export const usersRelations = relations(users, ({ one, many }) => ({
@@ -175,6 +190,11 @@ export const expensesRelations = relations(expenses, ({ one, many }) => ({
     fields: [expenses.userId],
     references: [users.id],
   }),
+  paidByUser: one(users, {
+    fields: [expenses.paidByUserId],
+    references: [users.id],
+    relationName: "paidByExpenses",
+  }),
   splits: many(expenseSplits),
 }));
 
@@ -186,6 +206,23 @@ export const expenseSplitsRelations = relations(expenseSplits, ({ one }) => ({
   user: one(users, {
     fields: [expenseSplits.userId],
     references: [users.id],
+  }),
+}));
+
+export const settlementsRelations = relations(settlements, ({ one }) => ({
+  fromUser: one(users, {
+    fields: [settlements.fromUserId],
+    references: [users.id],
+    relationName: "settlementsFrom",
+  }),
+  toUser: one(users, {
+    fields: [settlements.toUserId],
+    references: [users.id],
+    relationName: "settlementsTo",
+  }),
+  group: one(families, {
+    fields: [settlements.groupId],
+    references: [families.id],
   }),
 }));
 
@@ -266,9 +303,11 @@ export const recurringExpensesRelations = relations(recurringExpenses, ({ one })
 // === ZOD SCHEMAS ===
 
 export const insertFamilySchema = createInsertSchema(families).omit({ id: true, createdAt: true });
+export const insertGroupSchema = insertFamilySchema;
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true, createdAt: true });
 export const insertExpenseSplitSchema = createInsertSchema(expenseSplits).omit({ id: true });
+export const insertSettlementSchema = createInsertSchema(settlements).omit({ id: true, createdAt: true });
 export const insertGoalSchema = createInsertSchema(goals).omit({ id: true, createdAt: true, isApproved: true });
 export const insertGoalApprovalSchema = createInsertSchema(goalApprovals).omit({ id: true, createdAt: true });
 export const insertAllowanceSchema = createInsertSchema(allowances).omit({ id: true, updatedAt: true });
@@ -281,9 +320,11 @@ export const insertBudgetSetupPromptSchema = createInsertSchema(budgetSetupPromp
 // === TYPES ===
 
 export type Family = typeof families.$inferSelect;
+export type Group = Family;
 export type User = typeof users.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type ExpenseSplit = typeof expenseSplits.$inferSelect;
+export type Settlement = typeof settlements.$inferSelect;
 export type Goal = typeof goals.$inferSelect;
 export type GoalApproval = typeof goalApprovals.$inferSelect;
 export type Allowance = typeof allowances.$inferSelect;
@@ -295,9 +336,11 @@ export type Budget = typeof budgets.$inferSelect;
 export type BudgetSetupPrompt = typeof budgetSetupPrompts.$inferSelect;
 
 export type InsertFamily = z.infer<typeof insertFamilySchema>;
+export type InsertGroup = InsertFamily;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
 export type InsertExpenseSplit = z.infer<typeof insertExpenseSplitSchema>;
+export type InsertSettlement = z.infer<typeof insertSettlementSchema>;
 export type InsertGoal = z.infer<typeof insertGoalSchema>;
 export type InsertGoalApproval = z.infer<typeof insertGoalApprovalSchema>;
 export type InsertAllowance = z.infer<typeof insertAllowanceSchema>;
@@ -321,8 +364,11 @@ export const loginSchema = z.object({
 });
 
 export const registerSchema = insertUserSchema.extend({
-  familyCode: z.string().optional(), // For joining existing
-  familyName: z.string().optional(), // For creating new
+  familyCode: z.string().optional(),
+  familyName: z.string().optional(),
+  groupCode: z.string().optional(),
+  groupName: z.string().optional(),
+  groupType: z.enum(["family", "roommates", "couple"]).optional(),
 });
 
 export type LoginRequest = z.infer<typeof loginSchema>;

@@ -5,12 +5,14 @@ import {
   insertExpenseSchema, 
   insertGoalSchema, 
   insertAllowanceSchema,
+  insertSettlementSchema,
   users,
   expenses,
   goals,
   allowances,
   families,
   expenseSplits,
+  settlements,
   loginSchema,
   registerSchema
 } from './schema';
@@ -86,12 +88,25 @@ export const api = {
       },
     },
   },
+  group: {
+    get: {
+      method: 'GET' as const,
+      path: '/api/group',
+      responses: {
+        200: z.object({
+          group: z.custom<typeof families.$inferSelect>(),
+          members: z.array(z.custom<typeof users.$inferSelect>()),
+        }),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
   expenses: {
     list: {
       method: 'GET' as const,
       path: '/api/expenses',
       input: z.object({
-        userId: z.coerce.number().optional(), // Filter by user (if allowed)
+        userId: z.coerce.number().optional(),
         publicOnly: z.coerce.boolean().optional(),
       }).optional(),
       responses: {
@@ -190,11 +205,28 @@ export const api = {
       },
     },
   },
+  settlements: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/settlements',
+      responses: {
+        200: z.array(z.custom<typeof settlements.$inferSelect>()),
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/settlements',
+      input: insertSettlementSchema,
+      responses: {
+        201: z.custom<typeof settlements.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+  },
   upload: {
     create: {
       method: 'POST' as const,
       path: '/api/upload',
-      // input is FormData
       responses: {
         200: z.object({
           url: z.string(),

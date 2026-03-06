@@ -5,7 +5,7 @@ type NotificationPrefs = {
   monthlyReminderEnabled: boolean;
 };
 
-const STORAGE_KEY = "familyledger_last_notifications";
+const STORAGE_KEY = "sharedledger_last_notifications";
 
 function getLastNotifications(): Record<string, string> {
   try {
@@ -76,7 +76,7 @@ export function checkAndSendNotifications(prefs: NotificationPrefs) {
     if (currentHour === reminderHour && currentMinute >= reminderMinute && currentMinute < reminderMinute + 30) {
       showNotification(
         "Time to log expenses",
-        "Don't forget to record today's expenses in Family Ledger!"
+        "Don't forget to record today's expenses in SharedLedger!"
       );
       setLastNotification("daily");
     }
@@ -86,7 +86,7 @@ export function checkAndSendNotifications(prefs: NotificationPrefs) {
     if (now.getDay() === 0 && currentHour >= 10 && currentHour < 11) {
       showNotification(
         "Weekly Spending Review",
-        "Your weekly summary is ready. Check your spending breakdown in Family Ledger!"
+        "Your weekly summary is ready. Check your spending breakdown in SharedLedger!"
       );
       setLastNotification("weekly");
     }
@@ -97,14 +97,14 @@ export function checkAndSendNotifications(prefs: NotificationPrefs) {
     if (now.getDate() === lastDay && currentHour >= 10 && currentHour < 11) {
       showNotification(
         "Monthly Spending Review",
-        "Your monthly summary is ready. Review your spending in Family Ledger!"
+        "Your monthly summary is ready. Review your spending in SharedLedger!"
       );
       setLastNotification("monthly");
     }
   }
 }
 
-const BUDGET_THRESHOLD_KEY = "familyledger_budget_thresholds";
+const BUDGET_THRESHOLD_KEY = "sharedledger_budget_thresholds";
 
 function getBudgetThresholdsFired(): Record<string, string[]> {
   try {

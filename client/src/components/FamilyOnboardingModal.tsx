@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Shield, Eye, Lock, RefreshCw } from "lucide-react";
 
-const ONBOARDING_SEEN_KEY = "familyledger_onboarding_seen";
+const ONBOARDING_SEEN_KEY = "sharedledger_onboarding_seen";
 
 interface FamilyOnboardingModalProps {
   userId: number | undefined;
@@ -38,9 +38,9 @@ export function FamilyOnboardingModal({ userId }: FamilyOnboardingModalProps) {
           <div className="w-14 h-14 bg-primary/10 rounded-2xl mx-auto flex items-center justify-center mb-4">
             <Shield className="w-7 h-7 text-primary" />
           </div>
-          <DialogTitle className="text-2xl font-display">Welcome to Family Ledger</DialogTitle>
+          <DialogTitle className="text-2xl font-display">Welcome to SharedLedger</DialogTitle>
           <DialogDescription className="text-base">
-            Here's how privacy and sharing work in your family.
+            Here's how privacy and sharing work in your group.
           </DialogDescription>
         </DialogHeader>
 
@@ -62,9 +62,9 @@ export function FamilyOnboardingModal({ userId }: FamilyOnboardingModalProps) {
               <Eye className="w-5 h-5 text-foreground/70" />
             </div>
             <div>
-              <h4 className="font-semibold text-foreground">Family dashboard shows shared totals</h4>
+              <h4 className="font-semibold text-foreground">Group dashboard shows shared totals</h4>
               <p className="text-sm text-muted-foreground">
-                Only expenses you choose to share will appear in the family view.
+                Only expenses you choose to share will appear in the group view.
               </p>
             </div>
           </div>
@@ -76,7 +76,7 @@ export function FamilyOnboardingModal({ userId }: FamilyOnboardingModalProps) {
             <div>
               <h4 className="font-semibold text-foreground">Details are never shared without consent</h4>
               <p className="text-sm text-muted-foreground">
-                Expense details only appear when you explicitly share them with your family.
+                Expense details only appear when you explicitly share them with your group.
               </p>
             </div>
           </div>

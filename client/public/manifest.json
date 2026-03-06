@@ -1,7 +1,7 @@
 {
-  "name": "Family Ledger",
-  "short_name": "Family Ledger",
-  "description": "A private family finance and contribution tracking app",
+  "name": "SharedLedger",
+  "short_name": "SharedLedger",
+  "description": "A shared finance platform for families, roommates, and couples",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",

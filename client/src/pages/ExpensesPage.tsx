@@ -316,7 +316,7 @@ export default function ExpensesPage() {
       {view === "everyday" ? (
         <>
           <p className="text-sm font-medium text-muted-foreground" data-testid="text-privacy-note">
-            Only expenses you choose to share with your family will appear in the family dashboard.
+            Only expenses you choose to share with your group will appear in the group dashboard.
           </p>
 
           {isLoading ? (
@@ -690,6 +690,9 @@ function CreateExpenseDialog({
   const [note, setNote] = useState("");
   const [isPublic, setIsPublic] = useState(false);
   const [paymentSource, setPaymentSource] = useState<"personal" | "family">("personal");
+  const [splitType, setSplitType] = useState<"none" | "equal" | "exact" | "percentage">("none");
+  const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
+  const [customSplits, setCustomSplits] = useState<Record<number, string>>({});
   const [file, setFile] = useState<File | null>(null);
   const [showReceiptConfirm, setShowReceiptConfirm] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedReceiptData | null>(null);
@@ -783,12 +786,18 @@ function CreateExpenseDialog({
       setNote(editingExpense.note || "");
       setIsPublic(editingExpense.visibility === "public");
       setPaymentSource(editingExpense.paymentSource || "personal");
+      setSplitType(editingExpense.splitType || "none");
+      setSelectedMembers([]);
+      setCustomSplits({});
     } else {
       setAmount("0");
       setCategory(CATEGORIES[0]);
       setNote("");
       setIsPublic(false);
       setPaymentSource("personal");
+      setSplitType("none");
+      setSelectedMembers([]);
+      setCustomSplits({});
     }
   }, [editingExpense, open]);
 
@@ -806,15 +815,34 @@ function CreateExpenseDialog({
       }
     }
 
-    const expenseData = {
+    let splits: { userId: number; amount: string }[] | undefined;
+    if (paymentSource === "family" && splitType !== "none" && selectedMembers.length > 0) {
+      const total = Number(amount);
+      if (splitType === "equal") {
+        const share = (total / selectedMembers.length).toFixed(2);
+        splits = selectedMembers.map(uid => ({ userId: uid, amount: share }));
+      } else if (splitType === "exact") {
+        splits = selectedMembers.map(uid => ({ userId: uid, amount: customSplits[uid] || "0" }));
+      } else if (splitType === "percentage") {
+        splits = selectedMembers.map(uid => ({
+          userId: uid,
+          amount: ((total * Number(customSplits[uid] || 0)) / 100).toFixed(2),
+        }));
+      }
+    }
+
+    const expenseData: any = {
       userId: user.id,
       amount,
       category,
       note,
-      visibility: (isPublic ? "public" : "private") as "public" | "private",
+      visibility: (isPublic || paymentSource === "family" ? "public" : "private") as "public" | "private",
       paymentSource,
+      splitType: paymentSource === "family" ? splitType : "none",
+      paidByUserId: user.id,
       receiptUrl,
       date: editingExpense ? editingExpense.date : new Date().toISOString(),
+      ...(splits ? { splits } : {}),
     };
 
     if (editingExpense) {
@@ -899,7 +927,7 @@ function CreateExpenseDialog({
 
           {!user?.familyId && (
             <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-xl font-medium">
-              You must belong to a family to add expenses.
+              You must belong to a group to add expenses.
             </div>
           )}
           <div className="text-center py-4">
@@ -986,14 +1014,97 @@ function CreateExpenseDialog({
             <div className="space-y-2">
               <div className="flex items-center justify-between bg-muted/20 p-4 rounded-xl border border-border/50">
                 <div className="flex items-center gap-2">
-                  <Label htmlFor="public-mode" className="font-medium">Share with Family</Label>
+                  <Label htmlFor="public-mode" className="font-medium">Share with Group</Label>
                 </div>
-                <Switch id="public-mode" checked={isPublic} onCheckedChange={setIsPublic} data-testid="switch-share-family" />
+                <Switch id="public-mode" checked={isPublic || paymentSource === "family"} onCheckedChange={setIsPublic} disabled={paymentSource === "family"} data-testid="switch-share-family" />
               </div>
-              <p className="text-xs text-muted-foreground px-1">
-                Only expenses you choose to share with your family will appear in the family dashboard.
-              </p>
+              {paymentSource !== "family" && (
+                <p className="text-xs text-muted-foreground px-1">
+                  Only expenses you choose to share with your group will appear in the group dashboard.
+                </p>
+              )}
             </div>
+
+            {paymentSource === "family" && (
+              <div className="space-y-3 border border-primary/20 rounded-xl p-4 bg-primary/5" data-testid="section-split-options">
+                <Label className="text-sm font-semibold">{t("splitMethod")}</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["equal", "exact", "percentage"] as const).map((method) => (
+                    <button
+                      key={method}
+                      type="button"
+                      onClick={() => setSplitType(method)}
+                      className={cn(
+                        "py-2 px-2 rounded-xl border text-xs font-medium transition-all",
+                        splitType === method
+                          ? "bg-primary text-primary-foreground border-primary shadow-md"
+                          : "bg-background border-border hover:bg-muted"
+                      )}
+                      data-testid={`button-split-${method}`}
+                    >
+                      {method === "equal" ? t("splitEqual") : method === "exact" ? t("splitCustom") : t("splitPercentage")}
+                    </button>
+                  ))}
+                </div>
+
+                {splitType !== "none" && familyData?.members && (
+                  <div className="space-y-2">
+                    <Label className="text-xs">{t("splitBetween")}</Label>
+                    <div className="space-y-1.5">
+                      {(familyData.members as any[]).map((member: any) => {
+                        const isSelected = selectedMembers.includes(member.id);
+                        return (
+                          <div key={member.id} className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isSelected) {
+                                  setSelectedMembers(prev => prev.filter(id => id !== member.id));
+                                } else {
+                                  setSelectedMembers(prev => [...prev, member.id]);
+                                }
+                              }}
+                              className={cn(
+                                "flex items-center gap-2 flex-1 p-2 rounded-lg border text-xs font-medium transition-all text-left",
+                                isSelected ? "bg-primary/10 border-primary/30" : "bg-background border-border/50 hover:bg-muted"
+                              )}
+                              data-testid={`button-select-member-${member.id}`}
+                            >
+                              <div className={cn(
+                                "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold",
+                                isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                              )}>
+                                {member.name?.[0]?.toUpperCase()}
+                              </div>
+                              <span>{member.name}</span>
+                              {member.id === user?.id && <span className="text-muted-foreground">(you)</span>}
+                            </button>
+                            {isSelected && splitType !== "equal" && (
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                placeholder={splitType === "percentage" ? "%" : "0.00"}
+                                value={customSplits[member.id] || ""}
+                                onChange={(e) => setCustomSplits(prev => ({ ...prev, [member.id]: e.target.value }))}
+                                className="w-20 h-8 text-xs font-mono"
+                                data-testid={`input-split-amount-${member.id}`}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {splitType === "equal" && selectedMembers.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Each person pays: <span className="font-bold">{getCurrencySymbolLocal()}{(Number(amount) / selectedMembers.length).toFixed(2)}</span>
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             
             <div className="flex items-center gap-2">
               <Button 

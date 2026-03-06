@@ -3,14 +3,14 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Users, Lock, Share2, Heart, ChevronRight, ChevronLeft } from "lucide-react";
 
-const ONBOARDING_COMPLETE_KEY = "familyledger_onboarding_complete";
+const ONBOARDING_COMPLETE_KEY = "sharedledger_onboarding_complete";
 
 const screens = [
   {
     icon: Users,
-    title: "Welcome to Family Ledger",
-    subtitle: "A shared family tool for understanding money",
-    description: "Built for learning and participation, not control.",
+    title: "Welcome to SharedLedger",
+    subtitle: "Track finances together with any group",
+    description: "For families, roommates, couples, and more.",
     color: "from-primary to-primary/80",
   },
   {
@@ -23,14 +23,14 @@ const screens = [
   {
     icon: Share2,
     title: "Shared, With Choice",
-    subtitle: "Families can see shared totals together",
+    subtitle: "Groups can see shared totals together",
     description: "Sharing is always optional and based on your consent.",
     color: "from-emerald-500 to-emerald-600",
   },
   {
     icon: Heart,
     title: "Built on Trust",
-    subtitle: "Conversation and flexibility come first",
+    subtitle: "Split expenses fairly, settle debts easily",
     description: "No scores, no pressure, no forced visibility.",
     color: "from-rose-500 to-rose-600",
   },

@@ -1,7 +1,7 @@
-# Family Ledger
+# SharedLedger
 
 ## Overview
-Family Ledger is a mobile-first, invite-only web application designed for families to track finances, focusing on expense logging, personal savings goals, and role-based access for parents and children. It promotes personal autonomy, consent-based data sharing, and financial awareness within households. The project aims to provide a clear overview of family spending without focusing on strict budgeting.
+SharedLedger is a mobile-first, invite-only web application for shared finance management. It supports multiple group types — families, roommates, and couples — with expense splitting, debt tracking, balance boards, and settlement features. The platform promotes personal autonomy, consent-based data sharing, and financial awareness within any shared-living arrangement.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -30,18 +30,45 @@ Preferred communication style: Simple, everyday language.
 - **Schema**: Defined in `shared/schema.ts` with Zod schemas.
 
 ### Core Features
-- **Expense Tracking**: Log expenses with receipt uploads, `paymentSource` (personal/family), and customizable categories.
-- **Goals**: Personal savings goals.
-- **Family Management**: Invite-only groups, parent/child roles, dual admin management.
-- **Reporting**: Personal spending dashboards, family dashboard for aggregated shared expenses (privacy-focused), and customizable recurring expense tracking.
-- **Budgeting**: Per-category budgets with progress tracking and notifications.
+- **Group System**: Supports family, roommates, and couple group types with invite codes (FAM-/GRP-/CPL- prefixes). One group per user.
+- **Expense Tracking**: Log expenses with receipt OCR scanning, `paymentSource` (personal/group), customizable categories, and split methods (equal/custom/percentage).
+- **Expense Splitting**: When creating shared expenses, users can split costs equally, by custom amounts, or by percentage among selected group members.
+- **Balance Board**: Tracks net balances for each group member based on shared expenses and settlements. Shows who owes whom.
+- **Settlements**: Record debt settlements between group members to clear balances.
+- **Goals**: Personal and shared savings goals with approval workflows.
+- **Group Management**: Invite-only groups, role management (parent/child for families, member for roommates/couples), dual admin support, leave group option.
+- **Group Dashboard**: Aggregated shared spending view, category breakdown, balance board, recent shared expenses — all privacy-focused (no personal data leakage).
+- **Reporting**: Personal spending dashboards, spending activity charts (weekly/monthly), customizable recurring expense tracking.
+- **Budgeting**: Per-category budgets with progress tracking, threshold alerts, and notifications.
 - **Communication**: Internal messaging system and shared notes.
 - **Notifications**: Customizable user notification reminders (daily, weekly, monthly) using Browser Notification API.
 - **Multilingual Support**: English and French.
 - **PWA**: Progressive Web App capabilities for offline use and installability.
 
+### Registration & Onboarding
+- Registration supports two modes: "Create Group" (pick type + name) and "Join Group" (enter invite code).
+- Group types: Family, Roommates, Couple — each generates different invite code prefixes.
+- Onboarding screens introduce the app's privacy model and group concept.
+
+### Privacy Model
+- Personal expenses, budgets, savings goals, and reports are private to each user.
+- Only shared/public expenses appear in the Group Dashboard.
+- Balance calculations only use shared expenses and settlements.
+- Sharing is consent-based — users choose which expenses to share.
+
 ### Shared Code
 The `shared/` directory contains common code for both frontend and backend, including database schema definitions (`schema.ts`) and API contract definitions (`routes.ts`).
+
+### Key Files
+- `shared/schema.ts` — Database tables (families, users, expenses, expenseSplits, settlements, goals, etc.) with Zod schemas
+- `shared/routes.ts` — API contract definitions with typed endpoints
+- `server/storage.ts` — Storage interface and implementation (CRUD, balance calculations)
+- `server/routes.ts` — Express route handlers
+- `client/src/contexts/LanguageContext.tsx` — Translation system (EN/FR)
+- `client/src/components/BalanceBoard.tsx` — Balance board and settlement UI
+- `client/src/pages/FamilyDashboard.tsx` — Group Dashboard page
+- `client/src/pages/FamilyPage.tsx` — Group management page
+- `client/src/pages/ExpensesPage.tsx` — Expense tracking with split UI
 
 ## External Dependencies
 - **Database**: PostgreSQL (via `DATABASE_URL`)

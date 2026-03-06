@@ -12,7 +12,6 @@ import passport from "passport";
 import { db } from "./db";
 import { GoogleGenAI } from "@google/genai";
 
-// Middleware to check if user is authenticated
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (req.isAuthenticated()) {
     return next();
@@ -20,10 +19,9 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
   res.status(401).json({ message: "Unauthorized" });
 }
 
-// Upload setup (Memory storage for prototype, could use disk or S3)
 const upload = multer({ 
     storage: multer.memoryStorage(),
-    limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+    limits: { fileSize: 5 * 1024 * 1024 }
 });
 
 export async function registerRoutes(
@@ -36,9 +34,8 @@ export async function registerRoutes(
 
   app.post(api.auth.register.path, async (req, res, next) => {
     try {
-      const { familyCode, familyName, ...userData } = api.auth.register.input.parse(req.body);
+      const { familyCode, familyName, groupCode, groupName, groupType, ...userData } = api.auth.register.input.parse(req.body);
 
-      // Check if username exists
       const existingUser = await storage.getUserByUsername(userData.username);
       if (existingUser) {
         return res.status(400).json({ message: "Username already exists" });
@@ -47,29 +44,41 @@ export async function registerRoutes(
       let familyId: number;
       let role = userData.role;
 
-      if (familyCode) {
-        // Joining existing family
-        const family = await storage.getFamilyByCode(familyCode);
+      const inviteCode = groupCode || familyCode;
+      const newGroupName = groupName || familyName;
+      const newGroupType = groupType || "family";
+
+      if (inviteCode) {
+        const family = await storage.getFamilyByCode(inviteCode);
         if (!family) {
-          return res.status(400).json({ message: "Invalid family invite code. Please check with your parent or try again." });
+          return res.status(400).json({ message: "Invalid invite code. Please check and try again." });
         }
         familyId = family.id;
-      } else if (familyName) {
-        // Creating new family
-        if (role !== 'parent') {
+        if (family.groupType === "family") {
+          role = "child";
+        } else {
+          role = "member";
+        }
+      } else if (newGroupName) {
+        if (newGroupType === "family" && role !== 'parent' && role !== 'member') {
              return res.status(400).json({ message: "Only parents can create new family groups." });
         }
-        const code = `FAM-${Math.floor(1000 + Math.random() * 9000)}`; // Human readable code
-        const family = await storage.createFamily({ name: familyName, code });
+        const prefix = newGroupType === "family" ? "FAM" : newGroupType === "roommates" ? "GRP" : "CPL";
+        const code = `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
+        const family = await storage.createFamily({ name: newGroupName, code, groupType: newGroupType });
         familyId = family.id;
+        if (newGroupType !== "family") {
+          role = "member";
+        }
       } else {
-        return res.status(400).json({ message: "Please provide a family invite code or enter a new family name to get started." });
+        return res.status(400).json({ message: "Please provide an invite code or enter a new group name to get started." });
       }
 
       const hashedPassword = await hashPassword(userData.password);
       const user = await storage.createUser({
         ...userData,
         password: hashedPassword,
+        role,
         familyId
       });
 
@@ -142,6 +151,16 @@ export async function registerRoutes(
     }
   });
 
+  // === LEAVE GROUP ===
+  app.post("/api/group/leave", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    if (!user.familyId) {
+      return res.status(400).json({ message: "You are not in a group" });
+    }
+    await storage.updateUser(user.id, { familyId: null as any });
+    res.json({ message: "You have left the group" });
+  });
+
   // === RECEIPT OCR ROUTE ===
   
   const ai = new GoogleGenAI({
@@ -192,10 +211,8 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
       const text = response.text || "";
       
-      // Parse the JSON response
       let extractedData;
       try {
-        // Clean up response if it has markdown code blocks
         const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         extractedData = JSON.parse(cleanedText);
       } catch (parseError) {
@@ -206,7 +223,6 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         });
       }
 
-      // Also return the image as data URI for preview
       const imageUrl = `data:${mimeType};base64,${b64}`;
 
       res.json({
@@ -219,7 +235,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
   });
 
-  // === FAMILY DASHBOARD ROUTE ===
+  // === SPENDING SUMMARY ROUTES ===
 
   app.get("/api/spending/summary", requireAuth, async (req, res) => {
     const user = req.user as any;
@@ -262,7 +278,6 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     });
   });
 
-  // Spending activity for bar charts (weekly daily totals, monthly weekly totals)
   app.get("/api/spending/activity", requireAuth, async (req, res) => {
     const user = req.user as any;
     const { view = "weekly" } = req.query as { view?: "weekly" | "monthly" };
@@ -272,8 +287,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const personalExpenses = allExpenses.filter(e => e.paymentSource === "personal");
 
     if (view === "weekly") {
-      // Current week: Sunday to Saturday
-      const dayOfWeek = now.getDay(); // 0=Sunday
+      const dayOfWeek = now.getDay();
       const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
       weekStart.setHours(0, 0, 0, 0);
 
@@ -304,10 +318,8 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         data: days,
       });
     } else {
-      // Monthly view: group by calendar weeks within the month
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-      const totalDaysInMonth = monthEnd.getDate();
 
       const weeks: { label: string; weekStart: string; weekEnd: string; total: number }[] = [];
       let weekNum = 1;
@@ -315,9 +327,8 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
       while (currentDay <= monthEnd) {
         const wkStart = new Date(currentDay);
-        // Find end of this week (Saturday) or end of month
         let wkEnd: Date;
-        const daysUntilSat = 6 - currentDay.getDay(); // days until Saturday
+        const daysUntilSat = 6 - currentDay.getDay();
         const potentialEnd = new Date(currentDay);
         potentialEnd.setDate(currentDay.getDate() + daysUntilSat);
 
@@ -356,9 +367,11 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
   });
 
+  // === GROUP DASHBOARD ROUTE ===
+
   app.get("/api/family/dashboard", requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(404).json({ message: "No family" });
+    if (!user.familyId) return res.status(404).json({ message: "No group" });
 
     const { period = "month", startDate, endDate } = req.query as {
       period?: "month" | "week";
@@ -388,14 +401,11 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       }
     }
 
-    // Get shared expenses for the period
     const sharedExpenses = await storage.getSharedExpenses(user.familyId, start, end);
 
-    // Calculate aggregations
     const totalSpent = sharedExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
     const expenseCount = sharedExpenses.length;
 
-    // Category breakdown
     const categoryBreakdown = sharedExpenses.reduce((acc, e) => {
       const existing = acc.find((c: any) => c.category === e.category);
       if (existing) {
@@ -407,7 +417,6 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       return acc;
     }, [] as { category: string; amount: number; count: number }[]);
 
-    // Money source split
     const familyMoney = sharedExpenses
       .filter(e => e.paymentSource === "family")
       .reduce((sum, e) => sum + Number(e.amount), 0);
@@ -415,15 +424,12 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       .filter(e => e.paymentSource === "personal")
       .reduce((sum, e) => sum + Number(e.amount), 0);
 
-    // Get family info
     const family = await storage.getFamily(user.familyId);
     const members = await storage.getFamilyMembers(user.familyId);
 
-    // Per-member shared spending totals (only public expenses, name + total only)
     const memberSpending = members.map(member => {
       const memberExpenses = sharedExpenses.filter(e => e.userId === member.id);
       const memberTotal = memberExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
-      const isPrivate = memberExpenses.length === 0 && member.id !== user.id;
       return {
         id: member.id,
         name: member.name,
@@ -434,10 +440,8 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       };
     });
 
-    // Get shared goals (visibility = family or shared, isApproved = true for family goals)
     const sharedGoals = await storage.getSharedGoals(user.familyId);
 
-    // Recent shared expenses (last 10)
     const recentExpenses = sharedExpenses.slice(0, 10).map(e => ({
       id: e.id,
       amount: e.amount,
@@ -446,6 +450,8 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       date: e.date,
       paymentSource: e.paymentSource,
     }));
+
+    const balances = await storage.getGroupBalances(user.familyId);
 
     res.json({
       period: {
@@ -458,6 +464,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         expenseCount,
         memberCount: members.length,
         familyName: family?.name,
+        groupType: family?.groupType,
       },
       memberSpending,
       categoryBreakdown: categoryBreakdown.map(c => ({
@@ -480,43 +487,52 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         deadline: g.deadline,
       })),
       recentExpenses,
+      balances,
     });
   });
 
-  // === FAMILY ROUTES ===
+  // === GROUP ROUTES ===
+
+  app.get("/api/group/balances", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    if (!user.familyId) return res.status(404).json({ message: "No group" });
+    const balances = await storage.getGroupBalances(user.familyId);
+    res.json(balances);
+  });
 
   app.patch("/api/family/members/:id/role", requireAuth, async (req, res) => {
     const user = req.user as any;
     
-    // Only parents can change roles
     if (user.role !== 'parent') {
       return res.status(403).json({ message: "Only admins can change member roles" });
     }
     
     if (!user.familyId) {
-      return res.status(400).json({ message: "You must be in a family" });
+      return res.status(400).json({ message: "You must be in a group" });
     }
     
     const memberId = parseInt(req.params.id);
-    const { role } = z.object({ role: z.enum(["parent", "child"]) }).parse(req.body);
+    const { role } = z.object({ role: z.enum(["parent", "child", "member"]) }).parse(req.body);
     
-    // Can't change own role
     if (memberId === user.id) {
       return res.status(400).json({ message: "You cannot change your own role" });
     }
     
-    // Verify the target member is in the same family
     const member = await storage.getUser(memberId);
     if (!member || member.familyId !== user.familyId) {
-      return res.status(404).json({ message: "Member not found in your family" });
+      return res.status(404).json({ message: "Member not found in your group" });
+    }
+
+    const family = await storage.getFamily(user.familyId);
+    if (family && family.groupType !== "family" && (role === "parent" || role === "child")) {
+      return res.status(400).json({ message: "Parent/child roles are only available for family groups" });
     }
     
-    // Check max 2 parents if promoting
     if (role === 'parent') {
       const familyMembers = await storage.getFamilyMembers(user.familyId);
       const parentCount = familyMembers.filter(m => m.role === 'parent').length;
       if (parentCount >= 2) {
-        return res.status(400).json({ message: "Maximum of 2 admins per family" });
+        return res.status(400).json({ message: "Maximum of 2 admins per group" });
       }
     }
     
@@ -524,14 +540,13 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     res.json({ id: updated.id, name: updated.name, role: updated.role });
   });
 
-  app.get(api.family.get.path, requireAuth, async (req, res) => {
+  const familyGetHandler = async (req: Request, res: Response) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(404).json({ message: "No family" });
+    if (!user.familyId) return res.status(404).json({ message: "No group" });
 
     const family = await storage.getFamily(user.familyId);
     const members = await storage.getFamilyMembers(user.familyId);
     
-    // Calculate totals for each member for the current month
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
@@ -548,10 +563,6 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       }
 
       const memberExpenses = await storage.getExpenses(member.id, user.familyId);
-      // Aggregated total only includes public expenses when viewed by others, 
-      // but here we are calculating the dashboard total which should reflect 
-      // consent-based aggregated spending.
-      // The user wants "details marked shared with family" to be the only ones listed.
       const monthlyTotal = memberExpenses
         .filter(e => new Date(e.date) >= startOfMonth && e.visibility === "public")
         .reduce((sum, e) => sum + Number(e.amount), 0);
@@ -566,6 +577,44 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }));
     
     res.json({ family, members: memberSummaries });
+  };
+
+  app.get(api.family.get.path, requireAuth, familyGetHandler);
+  app.get(api.group.get.path, requireAuth, familyGetHandler);
+
+  // === SETTLEMENT ROUTES ===
+
+  app.get("/api/settlements", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    if (!user.familyId) return res.status(400).json({ message: "Not in a group" });
+    const groupSettlements = await storage.getSettlements(user.familyId);
+    res.json(groupSettlements);
+  });
+
+  app.post("/api/settlements", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    if (!user.familyId) return res.status(400).json({ message: "Not in a group" });
+    
+    const schema = z.object({
+      toUserId: z.number(),
+      amount: z.string().or(z.number()).transform(v => String(v)),
+      note: z.string().optional().nullable(),
+    });
+    const data = schema.parse(req.body);
+
+    const toUser = await storage.getUser(data.toUserId);
+    if (!toUser || toUser.familyId !== user.familyId) {
+      return res.status(400).json({ message: "User not in your group" });
+    }
+
+    const settlement = await storage.createSettlement({
+      fromUserId: user.id,
+      toUserId: data.toUserId,
+      groupId: user.familyId,
+      amount: data.amount,
+      note: data.note || null,
+    });
+    res.status(201).json(settlement);
   });
 
   // === EXPENSES ROUTES ===
@@ -575,7 +624,6 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const query = api.expenses.list.input?.parse(req.query);
     const targetUserId = query?.userId || user.id;
     
-    // If requesting another user's expenses, they must be in the same family and we only show public ones
     if (targetUserId !== user.id) {
       const targetUser = await storage.getUser(targetUserId);
       if (!targetUser || targetUser.familyId !== user.familyId) {
@@ -583,7 +631,6 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       }
       
       const userExpenses = await storage.getExpenses(targetUserId, user.familyId);
-      // Ensure only public expenses are returned for other users
       return res.json(userExpenses.filter(e => e.visibility === "public"));
     }
 
@@ -596,18 +643,32 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         const user = req.user as any;
         const body = req.body;
         
-        // Transform ISO string date back to Date object for Zod/Drizzle
         if (typeof body.date === 'string') {
           body.date = new Date(body.date);
         }
 
         const { splits, ...expenseInput } = api.expenses.create.input.parse(body);
         
-        // Ensure userId matches current user and familyId is set
+        if (splits && splits.length > 0 && expenseInput.amount) {
+          const totalAmount = parseFloat(String(expenseInput.amount));
+          if (expenseInput.splitType === 'percentage') {
+            const totalPct = splits.reduce((sum: number, s: any) => sum + (s.percentage || 0), 0);
+            if (Math.abs(totalPct - 100) > 0.01) {
+              return res.status(400).json({ message: "Split percentages must add up to 100%" });
+            }
+          } else if (expenseInput.splitType === 'custom') {
+            const totalSplit = splits.reduce((sum: number, s: any) => sum + parseFloat(String(s.amount || 0)), 0);
+            if (Math.abs(totalSplit - totalAmount) > 0.01) {
+              return res.status(400).json({ message: "Split amounts must add up to the total expense amount" });
+            }
+          }
+        }
+
         const expense = await storage.createExpense({
           ...expenseInput,
           userId: user.id,
-          familyId: user.familyId
+          familyId: user.familyId,
+          paidByUserId: expenseInput.paidByUserId || user.id,
         }, splits);
         res.status(201).json(expense);
     } catch (err) {
@@ -645,6 +706,22 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       }
 
       const { splits, ...expenseUpdates } = api.expenses.update.input.parse(body);
+      
+      if (splits && splits.length > 0 && expenseUpdates.amount) {
+        const totalAmount = parseFloat(String(expenseUpdates.amount));
+        if (expenseUpdates.splitType === 'percentage') {
+          const totalPct = splits.reduce((sum: number, s: any) => sum + (s.percentage || 0), 0);
+          if (Math.abs(totalPct - 100) > 0.01) {
+            return res.status(400).json({ message: "Split percentages must add up to 100%" });
+          }
+        } else if (expenseUpdates.splitType === 'custom') {
+          const totalSplit = splits.reduce((sum: number, s: any) => sum + parseFloat(String(s.amount || 0)), 0);
+          if (Math.abs(totalSplit - totalAmount) > 0.01) {
+            return res.status(400).json({ message: "Split amounts must add up to the total expense amount" });
+          }
+        }
+      }
+
       const updated = await storage.updateExpense(id, expenseUpdates, splits);
       res.json(updated);
     } catch (err) {
@@ -728,10 +805,9 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     res.json(goals);
   });
 
-  // Get shared goals for the family dashboard
   app.get("/api/goals/shared", requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(404).json({ message: "No family" });
+    if (!user.familyId) return res.status(404).json({ message: "No group" });
     
     const sharedGoals = await storage.getSharedGoals(user.familyId);
     res.json(sharedGoals);
@@ -745,14 +821,12 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
     const input = api.goals.create.input.parse(body);
     
-    // Create the goal
     let goal = await storage.createGoal({
         ...input,
         userId: user.id,
         familyId: user.familyId
     });
     
-    // Auto-approve family goals when created by a parent
     if (input.visibility === 'family' && user.role === 'parent') {
       await storage.createGoalApproval(goal.id, user.id);
       goal = await storage.approveGoal(goal.id);
@@ -768,7 +842,6 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     
     if (!goal) return res.status(404).json({ message: "Goal not found" });
     
-    // Only the owner or a parent in the same family can edit
     const canEdit = goal.userId === user.id || 
       (user.role === 'parent' && goal.familyId === user.familyId);
     if (!canEdit) return res.status(403).json({ message: "Forbidden" });
@@ -789,7 +862,6 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     
     if (!goal) return res.status(404).json({ message: "Goal not found" });
     
-    // Only the owner or a parent in the same family can delete
     const canDelete = goal.userId === user.id || 
       (user.role === 'parent' && goal.familyId === user.familyId);
     if (!canDelete) return res.status(403).json({ message: "Forbidden" });
@@ -808,7 +880,6 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     if (goal.familyId !== user.familyId) return res.status(403).json({ message: "Forbidden" });
     if (goal.visibility !== 'family') return res.status(400).json({ message: "Only family goals require approval" });
     
-    // Check if user already approved
     const approvals = await storage.getGoalApprovals(goalId);
     const alreadyApproved = approvals.some(a => a.userId === user.id);
     
@@ -816,10 +887,8 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       return res.status(400).json({ message: "You have already approved this goal" });
     }
     
-    // Create approval
     const approval = await storage.createGoalApproval(goalId, user.id);
     
-    // If this is a parent approving, auto-approve the goal
     if (user.role === 'parent') {
       const updatedGoal = await storage.approveGoal(goalId);
       return res.json({ approval, goal: updatedGoal });
@@ -852,10 +921,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.get(api.allowances.list.path, requireAuth, async (req, res) => {
     const user = req.user as any;
-    // Visible to all? Or just parents and the child?
-    // Spec: "Allowance is visible to the child"
     const allowances = await storage.getAllowances(user.familyId);
-    // Filter?
     if (user.role === 'child') {
         const mine = allowances.filter(a => a.childId === user.id);
         return res.json(mine);
@@ -876,7 +942,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.get('/api/messages', requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(400).json({ message: "Not in a family" });
+    if (!user.familyId) return res.status(400).json({ message: "Not in a group" });
     const msgs = await storage.getMessages(user.familyId);
     await storage.markMessagesRead(user.id, user.familyId);
     res.json(msgs);
@@ -884,7 +950,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.post('/api/messages', requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(400).json({ message: "Not in a family" });
+    if (!user.familyId) return res.status(400).json({ message: "Not in a group" });
     const { content } = req.body;
     if (!content || typeof content !== 'string' || content.trim().length === 0) {
       return res.status(400).json({ message: "Message content is required" });
@@ -908,14 +974,14 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.get('/api/notes', requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(400).json({ message: "Not in a family" });
+    if (!user.familyId) return res.status(400).json({ message: "Not in a group" });
     const notesList = await storage.getNotes(user.familyId);
     res.json(notesList);
   });
 
   app.post('/api/notes', requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(400).json({ message: "Not in a family" });
+    if (!user.familyId) return res.status(400).json({ message: "Not in a group" });
     const { title, content } = req.body;
     if (!title || typeof title !== 'string' || title.trim().length === 0) {
       return res.status(400).json({ message: "Note title is required" });
@@ -931,7 +997,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.patch('/api/notes/:id', requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(400).json({ message: "Not in a family" });
+    if (!user.familyId) return res.status(400).json({ message: "Not in a group" });
     const noteId = parseInt(req.params.id);
     const note = await storage.getNote(noteId);
     if (!note) return res.status(404).json({ message: "Note not found" });
@@ -947,7 +1013,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.delete('/api/notes/:id', requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(400).json({ message: "Not in a family" });
+    if (!user.familyId) return res.status(400).json({ message: "Not in a group" });
     const noteId = parseInt(req.params.id);
     const note = await storage.getNote(noteId);
     if (!note) return res.status(404).json({ message: "Note not found" });
@@ -1128,15 +1194,6 @@ If any field cannot be determined, use null. Be precise with the total amount. R
   app.post(api.upload.create.path, requireAuth, upload.single('file'), (req, res) => {
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
     
-    // In a real app, upload to S3/Blob storage. 
-    // Here we'll just base64 encode it back (not efficient but works for prototype)
-    // OR serve it via an endpoint.
-    // Let's use a data URI for simplicity in prototype, or pretend we have a URL.
-    
-    // Better: return a fake URL and rely on client local preview, 
-    // OR actually store it in a public folder? We can't write to client/public easily at runtime.
-    
-    // For this prototype, let's return a data URI.
     const b64 = Buffer.from(req.file.buffer).toString('base64');
     const mime = req.file.mimetype;
     const url = `data:${mime};base64,${b64}`;
@@ -1144,6 +1201,5 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     res.json({ url });
   });
 
-  // No seed data. App starts blank.
   return httpServer;
 }

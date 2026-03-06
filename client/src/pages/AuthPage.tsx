@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { loginSchema, registerSchema } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -37,14 +38,14 @@ export default function AuthPage() {
           <div className="w-16 h-16 bg-gradient-to-tr from-primary to-accent rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-primary/20 rotate-[-6deg]">
             <Users className="w-8 h-8 text-white" />
           </div>
-          <h1 className="font-display font-bold text-4xl tracking-tight text-foreground">FamilyLedger</h1>
-          <p className="text-muted-foreground">Manage your family finances together.</p>
+          <h1 className="font-display font-bold text-4xl tracking-tight text-foreground">SharedLedger</h1>
+          <p className="text-muted-foreground">Manage shared finances together.</p>
         </div>
 
         <Tabs defaultValue="login" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-4 h-12 p-1 bg-muted/50 rounded-xl">
             <TabsTrigger value="login" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Sign In</TabsTrigger>
-            <TabsTrigger value="register" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Join Family</TabsTrigger>
+            <TabsTrigger value="register" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Join Group</TabsTrigger>
           </TabsList>
           
           <TabsContent value="login" className="animate-in slide-in-from-bottom-2 duration-300">
@@ -135,8 +136,8 @@ function LoginForm() {
 
 function RegisterForm() {
   const { registerMutation } = useAuth();
-  const [role, setRole] = useState<"parent" | "child">("parent");
-  const [joinStep, setJoinCodeValid] = useState(false);
+  const [mode, setMode] = useState<"create" | "join">("create");
+  const [groupType, setGroupType] = useState<"family" | "roommates" | "couple">("family");
   const [showPassword, setShowPassword] = useState(false);
   
   const form = useForm<z.infer<typeof registerSchema>>({
@@ -148,59 +149,67 @@ function RegisterForm() {
       role: "parent",
       familyName: "",
       familyCode: "",
+      groupName: "",
+      groupCode: "",
+      groupType: "family",
     },
   });
 
   const onSubmit = (data: z.infer<typeof registerSchema>) => {
-    // Explicitly set role based on state
-    data.role = role;
-    
-    // Safety check for familyCode
-    if (role === "child" && !data.familyCode) {
-      form.setError("familyCode", { message: "Family invite code is required for teens/young adults" });
-      return;
+    if (mode === "join") {
+      if (!data.groupCode && !data.familyCode) {
+        form.setError("groupCode", { message: "Invite code is required to join a group" });
+        return;
+      }
+      data.role = "member";
+    } else {
+      data.groupType = groupType;
+      data.role = groupType === "family" ? "parent" : "member";
+      if (!data.groupName && !data.familyName) {
+        form.setError("groupName", { message: "Group name is required" });
+        return;
+      }
     }
-
     registerMutation.mutate(data);
+  };
+
+  const groupTypePlaceholders: Record<string, string> = {
+    family: "The Smith Family",
+    roommates: "Apartment 4B",
+    couple: "Our Finances",
   };
 
   return (
     <Card className="border-border/50 shadow-xl shadow-black/5">
       <CardHeader>
         <CardTitle>Create Account</CardTitle>
-        <CardDescription>Start managing your family finances</CardDescription>
+        <CardDescription>Start managing shared finances</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex gap-2 mb-6">
           <button
             type="button"
-            onClick={() => { 
-              setRole("parent"); 
-              form.setValue("role", "parent");
-              form.clearErrors();
-            }}
+            onClick={() => { setMode("create"); form.clearErrors(); }}
             className={`flex-1 py-3 px-4 rounded-xl border text-sm font-medium transition-all ${
-              role === "parent" 
+              mode === "create" 
                 ? "bg-primary text-primary-foreground border-primary shadow-md" 
                 : "bg-background border-border hover:bg-muted"
             }`}
+            data-testid="button-mode-create"
           >
-            I'm a Parent
+            Create Group
           </button>
           <button
             type="button"
-            onClick={() => { 
-              setRole("child"); 
-              form.setValue("role", "child");
-              form.clearErrors();
-            }}
+            onClick={() => { setMode("join"); form.clearErrors(); }}
             className={`flex-1 py-3 px-4 rounded-xl border text-sm font-medium transition-all ${
-              role === "child" 
+              mode === "join" 
                 ? "bg-accent text-accent-foreground border-accent shadow-md" 
                 : "bg-background border-border hover:bg-muted"
             }`}
+            data-testid="button-mode-join"
           >
-            I'm a Teen / Young Adult
+            Join Group
           </button>
         </div>
 
@@ -214,7 +223,7 @@ function RegisterForm() {
                   <FormItem>
                     <FormLabel>Full Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="John Doe" {...field} className="h-11 rounded-xl" />
+                      <Input placeholder="John Doe" {...field} className="h-11 rounded-xl" data-testid="input-name" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -227,7 +236,7 @@ function RegisterForm() {
                   <FormItem>
                     <FormLabel>Username</FormLabel>
                     <FormControl>
-                      <Input placeholder="johndoe" {...field} className="h-11 rounded-xl" />
+                      <Input placeholder="johndoe" {...field} className="h-11 rounded-xl" data-testid="input-username" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -248,6 +257,7 @@ function RegisterForm() {
                         placeholder="••••••••" 
                         {...field} 
                         className="h-11 rounded-xl pr-12" 
+                        data-testid="input-password"
                       />
                       <button
                         type="button"
@@ -265,38 +275,70 @@ function RegisterForm() {
               )}
             />
 
-            <div className={role === "parent" ? "block" : "hidden"}>
-              <FormField
-                control={form.control}
-                name="familyName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>New Family Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="The Smith Family" {...field} className="h-11 rounded-xl" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            {mode === "create" && (
+              <>
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Group Type</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["family", "roommates", "couple"] as const).map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => {
+                          setGroupType(type);
+                          form.setValue("groupType", type);
+                        }}
+                        className={`py-2.5 px-3 rounded-xl border text-xs font-medium transition-all capitalize ${
+                          groupType === type
+                            ? "bg-primary text-primary-foreground border-primary shadow-md"
+                            : "bg-background border-border hover:bg-muted"
+                        }`}
+                        data-testid={`button-group-type-${type}`}
+                      >
+                        {type === "roommates" ? "Roommates" : type === "couple" ? "Couple" : "Family"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-            <div className={role === "child" ? "block" : "hidden"}>
+                <FormField
+                  control={form.control}
+                  name="groupName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Group Name</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder={groupTypePlaceholders[groupType]} 
+                          {...field} 
+                          className="h-11 rounded-xl" 
+                          data-testid="input-group-name"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
+
+            {mode === "join" && (
               <FormField
                 control={form.control}
-                name="familyCode"
+                name="groupCode"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Family Invite Code</FormLabel>
+                    <FormLabel>Invite Code</FormLabel>
                     <FormControl>
                       <Input 
-                        placeholder="FAM-1234" 
+                        placeholder="GRP-1234" 
                         {...field} 
                         className="h-11 rounded-xl font-mono" 
                         autoComplete="off"
+                        data-testid="input-invite-code"
                         onChange={(e) => {
                           field.onChange(e);
-                          form.clearErrors("familyCode");
+                          form.clearErrors("groupCode");
                         }}
                       />
                     </FormControl>
@@ -304,12 +346,13 @@ function RegisterForm() {
                   </FormItem>
                 )}
               />
-            </div>
+            )}
 
             <Button 
               type="submit" 
-              className={`w-full h-12 rounded-xl text-md font-semibold mt-4 shadow-lg ${role === 'child' ? 'bg-accent hover:bg-accent/90 shadow-accent/25' : 'bg-primary hover:bg-primary/90 shadow-primary/25'}`}
+              className="w-full h-12 rounded-xl text-md font-semibold mt-4 shadow-lg bg-primary hover:bg-primary/90 shadow-primary/25"
               disabled={registerMutation.isPending}
+              data-testid="button-register-submit"
             >
               {registerMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (
                 <span className="flex items-center">Get Started <ArrowRight className="ml-2 w-4 h-4" /></span>

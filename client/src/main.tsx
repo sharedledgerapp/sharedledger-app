@@ -19,7 +19,7 @@ if ('serviceWorker' in navigator) {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
               console.log('[PWA] New version available');
-              if (confirm('A new version of Family Ledger is available. Reload to update?')) {
+              if (confirm('A new version of SharedLedger is available. Reload to update?')) {
                 newWorker.postMessage({ type: 'SKIP_WAITING' });
               }
             }

@@ -3,6 +3,7 @@ import { db } from "./db";
 import { 
   users, families, expenses, goals, allowances, expenseSplits, goalApprovals,
   messages, notes, messageReadStatus, recurringExpenses, budgets, budgetSetupPrompts,
+  settlements,
   type User, type InsertUser, type Family, type InsertFamily,
   type Expense, type InsertExpense, type Goal, type InsertGoal,
   type GoalApproval, type InsertGoalApproval,
@@ -10,9 +11,10 @@ import {
   type UpdateGoalRequest, type UpdateAllowanceRequest,
   type Message, type InsertMessage, type Note, type InsertNote, type MessageReadStatus,
   type RecurringExpense, type InsertRecurringExpense,
-  type Budget, type InsertBudget, type BudgetSetupPrompt, type InsertBudgetSetupPrompt
+  type Budget, type InsertBudget, type BudgetSetupPrompt, type InsertBudgetSetupPrompt,
+  type Settlement, type InsertSettlement
 } from "@shared/schema";
-import { eq, and, desc, or, ne, gte, lte } from "drizzle-orm";
+import { eq, and, desc, or, ne, gte, lte, sql } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -24,10 +26,10 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser & { familyId?: number }): Promise<User>;
-  updateUser(id: number, updates: Partial<Pick<User, 'name' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled'>>): Promise<User>;
+  updateUser(id: number, updates: Partial<Pick<User, 'name' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'familyId'>>): Promise<User>;
   deleteUser(id: number): Promise<void>;
   
-  // Family
+  // Group (formerly Family)
   createFamily(family: InsertFamily): Promise<Family>;
   getFamily(id: number): Promise<Family | undefined>;
   getFamilyByCode(code: string): Promise<Family | undefined>;
@@ -41,10 +43,15 @@ export interface IStorage {
   deleteExpense(id: number): Promise<void>;
   getExpense(id: number): Promise<(Expense & { splits: ExpenseSplit[] }) | undefined>;
 
+  // Settlements
+  createSettlement(settlement: InsertSettlement): Promise<Settlement>;
+  getSettlements(groupId: number): Promise<(Settlement & { fromUserName: string; toUserName: string })[]>;
+  getGroupBalances(groupId: number): Promise<{ userId: number; userName: string; balance: number }[]>;
+
   // Goals
   createGoal(goal: InsertGoal): Promise<Goal>;
-  getGoals(userId: number, familyId: number): Promise<Goal[]>; // Get personal and family goals
-  getSharedGoals(familyId: number): Promise<(Goal & { creatorName: string; approvalCount: number })[]>; // Get shared/family goals for dashboard
+  getGoals(userId: number, familyId: number): Promise<Goal[]>;
+  getSharedGoals(familyId: number): Promise<(Goal & { creatorName: string; approvalCount: number })[]>;
   updateGoal(id: number, updates: UpdateGoalRequest): Promise<Goal>;
   deleteGoal(id: number): Promise<void>;
   getGoal(id: number): Promise<Goal | undefined>;
@@ -119,36 +126,31 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUser(id: number, updates: Partial<Pick<User, 'name' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled'>>): Promise<User> {
+  async updateUser(id: number, updates: Partial<Pick<User, 'name' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'familyId'>>): Promise<User> {
     const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
     return user;
   }
 
   async deleteUser(id: number): Promise<void> {
-    // Delete user's expense splits first
     await db.delete(expenseSplits).where(eq(expenseSplits.userId, id));
     
-    // Delete user's expenses and their splits
     const userExpenses = await db.select({ id: expenses.id }).from(expenses).where(eq(expenses.userId, id));
     for (const expense of userExpenses) {
       await db.delete(expenseSplits).where(eq(expenseSplits.expenseId, expense.id));
     }
     await db.delete(expenses).where(eq(expenses.userId, id));
     
-    // Delete user's goal approvals
     await db.delete(goalApprovals).where(eq(goalApprovals.userId, id));
     
-    // Delete user's goals and their approvals
     const userGoals = await db.select({ id: goals.id }).from(goals).where(eq(goals.userId, id));
     for (const goal of userGoals) {
       await db.delete(goalApprovals).where(eq(goalApprovals.goalId, goal.id));
     }
     await db.delete(goals).where(eq(goals.userId, id));
     
-    // Delete user's allowances
     await db.delete(allowances).where(eq(allowances.childId, id));
     
-    // Delete user's messages, notes, recurring expenses, budgets, and setup prompts
+    await db.delete(settlements).where(or(eq(settlements.fromUserId, id), eq(settlements.toUserId, id)));
     await db.delete(messages).where(eq(messages.userId, id));
     await db.delete(notes).where(eq(notes.userId, id));
     await db.delete(messageReadStatus).where(eq(messageReadStatus.userId, id));
@@ -156,11 +158,10 @@ export class DatabaseStorage implements IStorage {
     await db.delete(budgets).where(eq(budgets.userId, id));
     await db.delete(budgetSetupPrompts).where(eq(budgetSetupPrompts.userId, id));
     
-    // Finally delete the user
     await db.delete(users).where(eq(users.id, id));
   }
 
-  // Family
+  // Group (formerly Family)
   async createFamily(insertFamily: InsertFamily): Promise<Family> {
     const [family] = await db.insert(families).values(insertFamily).returning();
     return family;
@@ -287,6 +288,76 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  // Settlements
+  async createSettlement(insertSettlement: InsertSettlement): Promise<Settlement> {
+    const [settlement] = await db.insert(settlements).values(insertSettlement).returning();
+    return settlement;
+  }
+
+  async getSettlements(groupId: number): Promise<(Settlement & { fromUserName: string; toUserName: string })[]> {
+    const fromUsers = db.select({ id: users.id, name: users.name }).from(users).as('from_users');
+    const toUsers = db.select({ id: users.id, name: users.name }).from(users).as('to_users');
+    
+    const results = await db.select()
+      .from(settlements)
+      .where(eq(settlements.groupId, groupId))
+      .orderBy(desc(settlements.createdAt));
+
+    const enriched = await Promise.all(results.map(async (s) => {
+      const [fromUser] = await db.select({ name: users.name }).from(users).where(eq(users.id, s.fromUserId));
+      const [toUser] = await db.select({ name: users.name }).from(users).where(eq(users.id, s.toUserId));
+      return { ...s, fromUserName: fromUser?.name || 'Unknown', toUserName: toUser?.name || 'Unknown' };
+    }));
+
+    return enriched;
+  }
+
+  async getGroupBalances(groupId: number): Promise<{ userId: number; userName: string; balance: number }[]> {
+    const members = await this.getFamilyMembers(groupId);
+    
+    const sharedExpenses = await db.select()
+      .from(expenses)
+      .where(and(
+        eq(expenses.familyId, groupId),
+        eq(expenses.visibility, "public")
+      ));
+
+    const allSplits = await Promise.all(
+      sharedExpenses.map(async (e) => {
+        const splits = await db.select().from(expenseSplits).where(eq(expenseSplits.expenseId, e.id));
+        return { expense: e, splits };
+      })
+    );
+
+    const groupSettlements = await db.select()
+      .from(settlements)
+      .where(eq(settlements.groupId, groupId));
+
+    const balances: Record<number, number> = {};
+    members.forEach(m => { balances[m.id] = 0; });
+
+    for (const { expense, splits } of allSplits) {
+      const paidByUserId = expense.paidByUserId || expense.userId;
+      if (splits.length > 0) {
+        balances[paidByUserId] = (balances[paidByUserId] || 0) + Number(expense.amount);
+        for (const split of splits) {
+          balances[split.userId] = (balances[split.userId] || 0) - Number(split.amount);
+        }
+      }
+    }
+
+    for (const s of groupSettlements) {
+      balances[s.fromUserId] = (balances[s.fromUserId] || 0) + Number(s.amount);
+      balances[s.toUserId] = (balances[s.toUserId] || 0) - Number(s.amount);
+    }
+
+    return members.map(m => ({
+      userId: m.id,
+      userName: m.name,
+      balance: Math.round((balances[m.id] || 0) * 100) / 100,
+    }));
+  }
+
   // Goals
   async createGoal(insertGoal: InsertGoal): Promise<Goal> {
     const [goal] = await db.insert(goals).values(insertGoal).returning();
@@ -294,28 +365,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getGoals(userId: number, familyId: number): Promise<Goal[]> {
-    // Return:
-    // 1. User's own goals (any visibility)
-    // 2. Family goals (visibility = 'family', isApproved = true) from the same family
-    // 3. Shared goals (visibility = 'shared') from other family members
     const allGoals = await db.select().from(goals).where(eq(goals.familyId, familyId));
     
     return allGoals.filter(goal => {
-      // User's own goals - always visible
       if (goal.userId === userId) return true;
-      
-      // Family goals that are approved
       if (goal.visibility === 'family' && goal.isApproved) return true;
-      
-      // Goals shared with family by others
       if (goal.visibility === 'shared') return true;
-      
       return false;
     });
   }
 
   async getSharedGoals(familyId: number): Promise<(Goal & { creatorName: string; approvalCount: number })[]> {
-    // Get all shared and family goals for the family dashboard
     const sharedGoals = await db.select({
       goal: goals,
       creatorName: users.name,
@@ -332,7 +392,6 @@ export class DatabaseStorage implements IStorage {
       )
     );
 
-    // Get approval counts for each goal
     const goalsWithApprovals = await Promise.all(
       sharedGoals.map(async ({ goal, creatorName }) => {
         const approvals = await db.select().from(goalApprovals).where(eq(goalApprovals.goalId, goal.id));
@@ -344,7 +403,6 @@ export class DatabaseStorage implements IStorage {
       })
     );
 
-    // Sort: family goals first, then shared goals
     return goalsWithApprovals.sort((a, b) => {
       if (a.visibility === 'family' && b.visibility !== 'family') return -1;
       if (a.visibility !== 'family' && b.visibility === 'family') return 1;
@@ -358,7 +416,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteGoal(id: number): Promise<void> {
-    // Delete approvals first, then the goal
     await db.delete(goalApprovals).where(eq(goalApprovals.goalId, id));
     await db.delete(goals).where(eq(goals.id, id));
   }
@@ -394,7 +451,6 @@ export class DatabaseStorage implements IStorage {
 
   // Allowances
   async upsertAllowance(insertAllowance: InsertAllowance): Promise<Allowance> {
-    // Check if exists
     const [existing] = await db.select().from(allowances).where(eq(allowances.childId, insertAllowance.childId));
     if (existing) {
         const [updated] = await db.update(allowances)
@@ -408,8 +464,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllowances(familyId: number): Promise<Allowance[]> {
-    // Get allowances for all children in the family
-    // join users
     const results = await db.select({
         id: allowances.id,
         childId: allowances.childId,
