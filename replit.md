@@ -41,7 +41,7 @@ Preferred communication style: Simple, everyday language.
 - **Reporting**: Personal spending dashboards, spending activity charts (weekly/monthly), customizable recurring expense tracking.
 - **Budgeting**: Per-category budgets with progress tracking, threshold alerts, and notifications.
 - **Communication**: Internal messaging system and shared notes.
-- **Notifications**: Customizable user notification reminders (daily, weekly, monthly) using Browser Notification API.
+- **Push Notifications**: Server-side Web Push notifications (VAPID) for daily/weekly/monthly reminders and budget alerts, delivered even when the app is closed. Falls back to Browser Notification API when push is unavailable.
 - **Multilingual Support**: English and French.
 - **PWA**: Progressive Web App capabilities for offline use and installability.
 
@@ -69,6 +69,9 @@ The `shared/` directory contains common code for both frontend and backend, incl
 - `client/src/pages/FamilyDashboard.tsx` — Group Dashboard page
 - `client/src/pages/FamilyPage.tsx` — Group management page
 - `client/src/pages/ExpensesPage.tsx` — Expense tracking with split UI
+- `client/src/lib/notifications.ts` — Client-side notification scheduling + Web Push subscription
+- `server/push-scheduler.ts` — Server-side push notification scheduler (daily/weekly/monthly reminders, budget alerts)
+- `client/public/sw.js` — Service worker with push event handling, caching, offline support
 
 ## External Dependencies
 - **Database**: PostgreSQL (via `DATABASE_URL`)

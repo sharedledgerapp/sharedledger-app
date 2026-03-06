@@ -300,6 +300,22 @@ export const recurringExpensesRelations = relations(recurringExpenses, ({ one })
   }),
 }));
 
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const pushSubscriptionsRelations = relations(pushSubscriptions, ({ one }) => ({
+  user: one(users, {
+    fields: [pushSubscriptions.userId],
+    references: [users.id],
+  }),
+}));
+
 // === ZOD SCHEMAS ===
 
 export const insertFamilySchema = createInsertSchema(families).omit({ id: true, createdAt: true });
@@ -316,6 +332,7 @@ export const insertNoteSchema = createInsertSchema(notes).omit({ id: true, creat
 export const insertRecurringExpenseSchema = createInsertSchema(recurringExpenses).omit({ id: true, createdAt: true });
 export const insertBudgetSchema = createInsertSchema(budgets).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertBudgetSetupPromptSchema = createInsertSchema(budgetSetupPrompts).omit({ id: true, createdAt: true });
+export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({ id: true, createdAt: true });
 
 // === TYPES ===
 
@@ -334,6 +351,7 @@ export type MessageReadStatus = typeof messageReadStatus.$inferSelect;
 export type RecurringExpense = typeof recurringExpenses.$inferSelect;
 export type Budget = typeof budgets.$inferSelect;
 export type BudgetSetupPrompt = typeof budgetSetupPrompts.$inferSelect;
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 
 export type InsertFamily = z.infer<typeof insertFamilySchema>;
 export type InsertGroup = InsertFamily;
@@ -349,6 +367,7 @@ export type InsertNote = z.infer<typeof insertNoteSchema>;
 export type InsertRecurringExpense = z.infer<typeof insertRecurringExpenseSchema>;
 export type InsertBudget = z.infer<typeof insertBudgetSchema>;
 export type InsertBudgetSetupPrompt = z.infer<typeof insertBudgetSetupPromptSchema>;
+export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
 
 // Request types
 export type CreateExpenseRequest = InsertExpense;

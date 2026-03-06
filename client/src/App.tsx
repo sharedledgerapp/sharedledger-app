@@ -21,7 +21,7 @@ import MessagesPage from "@/pages/MessagesPage";
 import BudgetPage from "@/pages/BudgetPage";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
-import { startNotificationScheduler, stopNotificationScheduler, checkBudgetThresholdNotifications } from "@/lib/notifications";
+import { startNotificationScheduler, stopNotificationScheduler, checkBudgetThresholdNotifications, subscribeToPush } from "@/lib/notifications";
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
@@ -35,6 +35,7 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
         monthlyReminderEnabled: (user as any).monthlyReminderEnabled ?? true,
       };
       startNotificationScheduler(prefs);
+      subscribeToPush().catch(() => {});
     }
     return () => stopNotificationScheduler();
   }, [user]);

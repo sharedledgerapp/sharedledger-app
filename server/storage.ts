@@ -3,7 +3,7 @@ import { db } from "./db";
 import { 
   users, families, expenses, goals, allowances, expenseSplits, goalApprovals,
   messages, notes, messageReadStatus, recurringExpenses, budgets, budgetSetupPrompts,
-  settlements,
+  settlements, pushSubscriptions,
   type User, type InsertUser, type Family, type InsertFamily,
   type Expense, type InsertExpense, type Goal, type InsertGoal,
   type GoalApproval, type InsertGoalApproval,
@@ -96,6 +96,12 @@ export interface IStorage {
   // Budget Setup Prompts
   getBudgetSetupPrompt(userId: number): Promise<BudgetSetupPrompt | undefined>;
   upsertBudgetSetupPrompt(userId: number, status: "pending" | "dismissed" | "remind_week" | "remind_month" | "completed", remindAt?: Date): Promise<BudgetSetupPrompt>;
+
+  // Push Subscriptions
+  savePushSubscription(userId: number, subscription: { endpoint: string; p256dh: string; auth: string }): Promise<void>;
+  deletePushSubscription(userId: number, endpoint: string): Promise<void>;
+  getPushSubscriptionsForUser(userId: number): Promise<{ endpoint: string; p256dh: string; auth: string }[]>;
+  getAllPushSubscriptions(): Promise<{ userId: number; endpoint: string; p256dh: string; auth: string }[]>;
 
   sessionStore: session.Store;
 }
@@ -635,6 +641,45 @@ export class DatabaseStorage implements IStorage {
       .values({ userId, status, remindAt: remindAt || null })
       .returning();
     return created;
+  }
+
+  async savePushSubscription(userId: number, subscription: { endpoint: string; p256dh: string; auth: string }): Promise<void> {
+    const existing = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.endpoint, subscription.endpoint));
+    if (existing.length > 0) {
+      await db.update(pushSubscriptions)
+        .set({ userId, p256dh: subscription.p256dh, auth: subscription.auth })
+        .where(eq(pushSubscriptions.endpoint, subscription.endpoint));
+    } else {
+      await db.insert(pushSubscriptions).values({
+        userId,
+        endpoint: subscription.endpoint,
+        p256dh: subscription.p256dh,
+        auth: subscription.auth,
+      });
+    }
+  }
+
+  async deletePushSubscription(userId: number, endpoint: string): Promise<void> {
+    await db.delete(pushSubscriptions).where(
+      and(eq(pushSubscriptions.endpoint, endpoint), eq(pushSubscriptions.userId, userId))
+    );
+  }
+
+  async getPushSubscriptionsForUser(userId: number): Promise<{ endpoint: string; p256dh: string; auth: string }[]> {
+    return db.select({
+      endpoint: pushSubscriptions.endpoint,
+      p256dh: pushSubscriptions.p256dh,
+      auth: pushSubscriptions.auth,
+    }).from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
+  }
+
+  async getAllPushSubscriptions(): Promise<{ userId: number; endpoint: string; p256dh: string; auth: string }[]> {
+    return db.select({
+      userId: pushSubscriptions.userId,
+      endpoint: pushSubscriptions.endpoint,
+      p256dh: pushSubscriptions.p256dh,
+      auth: pushSubscriptions.auth,
+    }).from(pushSubscriptions);
   }
 }
 

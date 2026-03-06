@@ -179,3 +179,90 @@ export function stopNotificationScheduler() {
     notificationInterval = null;
   }
 }
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+export async function subscribeToPush(): Promise<boolean> {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    console.log('[Push] Push messaging is not supported');
+    return false;
+  }
+
+  try {
+    if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+      console.log('[Push] Notification permission not granted, skipping auto-subscribe');
+      return false;
+    }
+
+    const registration = await navigator.serviceWorker.ready;
+
+    const existing = await registration.pushManager.getSubscription();
+    if (existing) {
+      await sendSubscriptionToServer(existing);
+      return true;
+    }
+
+    const response = await fetch('/api/push/vapid-public-key');
+    if (!response.ok) {
+      console.error('[Push] Failed to get VAPID key');
+      return false;
+    }
+    const { publicKey } = await response.json();
+
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
+
+    await sendSubscriptionToServer(subscription);
+    return true;
+  } catch (err) {
+    console.error('[Push] Failed to subscribe:', err);
+    return false;
+  }
+}
+
+async function sendSubscriptionToServer(subscription: PushSubscription): Promise<void> {
+  const subJson = subscription.toJSON();
+  await fetch('/api/push/subscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      endpoint: subJson.endpoint,
+      keys: {
+        p256dh: subJson.keys?.p256dh,
+        auth: subJson.keys?.auth,
+      },
+    }),
+  });
+}
+
+export async function unsubscribeFromPush(): Promise<void> {
+  if (!('serviceWorker' in navigator)) return;
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    if (subscription) {
+      await fetch('/api/push/unsubscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ endpoint: subscription.endpoint }),
+      });
+      await subscription.unsubscribe();
+    }
+  } catch (err) {
+    console.error('[Push] Failed to unsubscribe:', err);
+  }
+}

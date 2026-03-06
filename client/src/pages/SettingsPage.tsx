@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { subscribeToPush, unsubscribeFromPush } from "@/lib/notifications";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -139,7 +140,9 @@ export default function SettingsPage() {
     if (typeof Notification === "undefined") return;
     const permission = await Notification.requestPermission();
     setNotificationPermission(permission);
-    if (permission === "denied") {
+    if (permission === "granted") {
+      await subscribeToPush();
+    } else if (permission === "denied") {
       toast({
         title: t("error"),
         description: t("notificationPermissionDenied"),

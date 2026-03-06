@@ -1,6 +1,6 @@
-const CACHE_VERSION = 'v2';
-const STATIC_CACHE = `family-ledger-static-${CACHE_VERSION}`;
-const DYNAMIC_CACHE = `family-ledger-dynamic-${CACHE_VERSION}`;
+const CACHE_VERSION = 'v3';
+const STATIC_CACHE = `sharedledger-static-${CACHE_VERSION}`;
+const DYNAMIC_CACHE = `sharedledger-dynamic-${CACHE_VERSION}`;
 
 const PRECACHE_ASSETS = [
   '/',
@@ -34,7 +34,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames
           .filter((name) => {
-            return name.startsWith('family-ledger-') && 
+            return (name.startsWith('family-ledger-') || name.startsWith('sharedledger-')) && 
                    name !== STATIC_CACHE && 
                    name !== DYNAMIC_CACHE;
           })
@@ -78,6 +78,51 @@ self.addEventListener('fetch', (event) => {
   } else {
     event.respondWith(cacheFirst(event.request));
   }
+});
+
+self.addEventListener('push', (event) => {
+  let data = { title: 'SharedLedger', body: 'You have a new notification' };
+  
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data.body = event.data.text();
+    }
+  }
+
+  const options = {
+    body: data.body,
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    tag: data.tag || 'sharedledger-notification',
+    data: {
+      url: data.url || '/',
+    },
+    vibrate: [200, 100, 200],
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const urlToOpen = event.notification.data?.url || '/';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(urlToOpen);
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(urlToOpen);
+    })
+  );
 });
 
 async function navigationHandler(request) {
@@ -169,8 +214,8 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
     self.registration.showNotification(event.data.title, {
       body: event.data.body,
-      icon: '/icons/icon-192x192.png',
-      badge: '/icons/icon-192x192.png',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
       tag: event.data.title,
     });
   }

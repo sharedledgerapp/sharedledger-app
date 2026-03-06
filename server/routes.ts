@@ -11,6 +11,7 @@ import multer from "multer";
 import passport from "passport";
 import { db } from "./db";
 import { GoogleGenAI } from "@google/genai";
+import { startPushScheduler } from "./push-scheduler";
 
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (req.isAuthenticated()) {
@@ -1200,6 +1201,40 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     
     res.json({ url });
   });
+
+  // === PUSH NOTIFICATION ROUTES ===
+  app.get("/api/push/vapid-public-key", (req, res) => {
+    const key = process.env.VAPID_PUBLIC_KEY;
+    if (!key) return res.status(500).json({ message: "VAPID not configured" });
+    res.json({ publicKey: key });
+  });
+
+  app.post("/api/push/subscribe", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const { endpoint, keys } = z.object({
+      endpoint: z.string().url(),
+      keys: z.object({
+        p256dh: z.string(),
+        auth: z.string(),
+      }),
+    }).parse(req.body);
+
+    await storage.savePushSubscription(user.id, {
+      endpoint,
+      p256dh: keys.p256dh,
+      auth: keys.auth,
+    });
+    res.json({ message: "Subscribed to push notifications" });
+  });
+
+  app.post("/api/push/unsubscribe", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const { endpoint } = z.object({ endpoint: z.string() }).parse(req.body);
+    await storage.deletePushSubscription(user.id, endpoint);
+    res.json({ message: "Unsubscribed from push notifications" });
+  });
+
+  startPushScheduler();
 
   return httpServer;
 }
