@@ -58,6 +58,7 @@ export function useCreateExpense() {
       queryClient.invalidateQueries({ queryKey: [api.family.get.path] });
       queryClient.invalidateQueries({ queryKey: ["/api/spending/summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/budget-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/family/dashboard"] });
       toast({ title: "Expense Added", description: "Your spending has been recorded." });
     },
     onError: (error: Error) => {
@@ -85,6 +86,7 @@ export function useUpdateExpense() {
       queryClient.invalidateQueries({ queryKey: [api.family.get.path] });
       queryClient.invalidateQueries({ queryKey: ["/api/spending/summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/budget-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/family/dashboard"] });
       toast({ title: "Expense Updated", description: "Your spending has been updated." });
     },
   });
@@ -104,6 +106,7 @@ export function useDeleteExpense() {
       queryClient.invalidateQueries({ queryKey: [api.family.get.path] });
       queryClient.invalidateQueries({ queryKey: ["/api/spending/summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/budget-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/family/dashboard"] });
       toast({ title: "Deleted", description: "Expense removed successfully." });
     },
   });
