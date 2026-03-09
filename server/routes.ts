@@ -128,6 +128,7 @@ export async function registerRoutes(
       dailyReminderEnabled: z.boolean().optional(),
       weeklyReminderEnabled: z.boolean().optional(),
       monthlyReminderEnabled: z.boolean().optional(),
+      budgetAlertsEnabled: z.boolean().optional(),
     });
     
     const updates = updateSchema.parse(req.body);

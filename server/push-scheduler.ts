@@ -34,6 +34,13 @@ function wasNotifiedThisMonth(userId: number, type: string): boolean {
   return lastDate.getMonth() === now.getMonth() && lastDate.getFullYear() === now.getFullYear();
 }
 
+function wasNotifiedSince(userId: number, type: string, since: Date): boolean {
+  const key = getNotificationKey(userId, type);
+  const last = lastNotified.get(key);
+  if (!last) return false;
+  return new Date(last) >= since;
+}
+
 function markNotified(userId: number, type: string) {
   const key = getNotificationKey(userId, type);
   lastNotified.set(key, new Date().toISOString());
@@ -52,7 +59,7 @@ async function sendPushToUser(userId: number, payload: { title: string; body: st
       );
     } catch (err: any) {
       if (err.statusCode === 404 || err.statusCode === 410) {
-        await storage.deletePushSubscription(sub.endpoint);
+        await storage.deletePushSubscription(userId, sub.endpoint);
       }
     }
   }
@@ -122,15 +129,27 @@ async function checkMonthlyReminders() {
   }
 }
 
+const ESCALATION_BANDS = [110, 125, 150, 200];
+
 async function checkBudgetAlerts() {
+  const allUsers = await db.select().from(users);
+  const userMap = new Map(allUsers.map(u => [u.id, u]));
+
   const allBudgets = await db.select().from(budgets);
 
   for (const budget of allBudgets) {
     if (!budget.notificationsEnabled) continue;
+
+    const user = userMap.get(budget.userId);
+    if (!user || user.budgetAlertsEnabled === false) continue;
+
     const thresholds = budget.thresholds as string[] | null;
     if (!thresholds || thresholds.length === 0) continue;
 
-    const periodStart = budget.periodStart ? new Date(budget.periodStart) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const periodStart = budget.periodStart
+      ? new Date(budget.periodStart)
+      : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
     let periodEnd: Date;
     if (budget.periodType === "weekly") {
       periodEnd = new Date(periodStart.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -138,34 +157,59 @@ async function checkBudgetAlerts() {
       periodEnd = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, periodStart.getDate());
     }
 
-    const userExpenses = await db.select({ total: sql<string>`COALESCE(SUM(amount), '0')` })
+    const userExpenses = await db
+      .select({ total: sql<string>`COALESCE(SUM(amount), '0')` })
       .from(expenses)
-      .where(and(
-        eq(expenses.userId, budget.userId),
-        eq(expenses.category, budget.category),
-        gte(expenses.date, periodStart),
-        lte(expenses.date, periodEnd),
-      ));
+      .where(
+        and(
+          eq(expenses.userId, budget.userId),
+          eq(expenses.category, budget.category),
+          gte(expenses.date, periodStart),
+          lte(expenses.date, periodEnd)
+        )
+      );
 
     const spent = parseFloat(userExpenses[0]?.total || "0");
     const budgetAmount = parseFloat(budget.amount);
     if (budgetAmount <= 0) continue;
     const percentUsed = Math.round((spent / budgetAmount) * 100);
 
+    const periodKey = periodStart.toISOString().slice(0, 10);
+
     for (const threshold of thresholds) {
       const thresholdNum = Number(threshold);
-      const budgetKey = `budget_${budget.id}_${threshold}_${periodStart.toISOString().slice(0, 10)}`;
-      if (percentUsed >= thresholdNum && !wasNotifiedToday(budget.userId, budgetKey)) {
-        const message = percentUsed >= 100
-          ? `You've exceeded your ${budget.category} budget!`
+      if (percentUsed < thresholdNum) continue;
+
+      const notifKey = `budget_${budget.id}_${thresholdNum}_${periodKey}`;
+      if (wasNotifiedSince(budget.userId, notifKey, periodStart)) continue;
+
+      const message =
+        percentUsed >= 100
+          ? `You've exceeded your ${budget.category} budget for this period!`
           : `You've used ${percentUsed}% of your ${budget.category} budget.`;
+
+      await sendPushToUser(budget.userId, {
+        title: "Budget Alert",
+        body: message,
+        tag: `budget-${budget.id}`,
+        url: "/budget",
+      });
+      markNotified(budget.userId, notifKey);
+    }
+
+    if (percentUsed >= 100) {
+      for (const band of ESCALATION_BANDS) {
+        if (percentUsed < band) continue;
+        const escalationKey = `budget_${budget.id}_escalation_${band}_${periodKey}`;
+        if (wasNotifiedSince(budget.userId, escalationKey, periodStart)) continue;
+
         await sendPushToUser(budget.userId, {
-          title: "Budget Alert",
-          body: message,
-          tag: `budget-${budget.id}`,
+          title: "Budget Exceeded",
+          body: `Your ${budget.category} spending is now at ${percentUsed}% of your budget. You may want to review your expenses.`,
+          tag: `budget-escalation-${budget.id}`,
           url: "/budget",
         });
-        markNotified(budget.userId, budgetKey);
+        markNotified(budget.userId, escalationKey);
       }
     }
   }

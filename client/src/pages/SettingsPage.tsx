@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, User, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, Clock, Repeat } from "lucide-react";
+import { LogOut, User, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Link, useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
@@ -46,6 +46,7 @@ export default function SettingsPage() {
   const [dailyReminderTime, setDailyReminderTime] = useState((user as any)?.dailyReminderTime || "19:00");
   const [weeklyReminderEnabled, setWeeklyReminderEnabled] = useState((user as any)?.weeklyReminderEnabled ?? true);
   const [monthlyReminderEnabled, setMonthlyReminderEnabled] = useState((user as any)?.monthlyReminderEnabled ?? true);
+  const [budgetAlertsEnabled, setBudgetAlertsEnabled] = useState((user as any)?.budgetAlertsEnabled ?? true);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
     typeof Notification !== "undefined" ? Notification.permission : "default"
   );
@@ -116,7 +117,7 @@ export default function SettingsPage() {
   });
 
   const updateNotificationMutation = useMutation({
-    mutationFn: async (data: { dailyReminderTime?: string; dailyReminderEnabled?: boolean; weeklyReminderEnabled?: boolean; monthlyReminderEnabled?: boolean }) => {
+    mutationFn: async (data: { dailyReminderTime?: string; dailyReminderEnabled?: boolean; weeklyReminderEnabled?: boolean; monthlyReminderEnabled?: boolean; budgetAlertsEnabled?: boolean }) => {
       const res = await apiRequest("PATCH", "/api/user/profile", data);
       return res.json();
     },
@@ -178,6 +179,11 @@ export default function SettingsPage() {
       requestNotificationPermission();
     }
     updateNotificationMutation.mutate({ monthlyReminderEnabled: enabled });
+  };
+
+  const handleToggleBudgetAlerts = (enabled: boolean) => {
+    setBudgetAlertsEnabled(enabled);
+    updateNotificationMutation.mutate({ budgetAlertsEnabled: enabled });
   };
 
   const handleAddCategory = () => {
@@ -671,6 +677,23 @@ export default function SettingsPage() {
               onCheckedChange={handleToggleMonthly}
               data-testid="switch-monthly-reminder"
             />
+          </div>
+
+          <div className="border-t border-border/50 pt-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 flex-1">
+                <BellOff className="w-4 h-4 text-muted-foreground shrink-0" />
+                <div>
+                  <p className="font-medium text-sm">{t("budgetAlerts")}</p>
+                  <p className="text-xs text-muted-foreground">{t("budgetAlertsDescription")}</p>
+                </div>
+              </div>
+              <Switch
+                checked={budgetAlertsEnabled}
+                onCheckedChange={handleToggleBudgetAlerts}
+                data-testid="switch-budget-alerts"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>

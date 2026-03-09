@@ -33,6 +33,7 @@ export const users = pgTable("users", {
   dailyReminderEnabled: boolean("daily_reminder_enabled").default(true).notNull(),
   weeklyReminderEnabled: boolean("weekly_reminder_enabled").default(true).notNull(),
   monthlyReminderEnabled: boolean("monthly_reminder_enabled").default(true).notNull(),
+  budgetAlertsEnabled: boolean("budget_alerts_enabled").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

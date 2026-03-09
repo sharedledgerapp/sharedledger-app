@@ -41,7 +41,7 @@ Preferred communication style: Simple, everyday language.
 - **Reporting**: Personal spending dashboards, spending activity charts (weekly/monthly), customizable recurring expense tracking.
 - **Budgeting**: Per-category budgets with progress tracking, threshold alerts, and notifications.
 - **Communication**: Internal messaging system and shared notes.
-- **Push Notifications**: Server-side Web Push notifications (VAPID) for daily/weekly/monthly reminders and budget alerts, delivered even when the app is closed. Falls back to Browser Notification API when push is unavailable.
+- **Push Notifications**: Server-side Web Push notifications (VAPID) for daily/weekly/monthly reminders and budget alerts, delivered even when the app is closed. Budget alerts fire once per threshold crossing per budget period, with escalation bands at 110%/125%/150%/200% for continued overspending. Users can mute budget alerts independently via Settings.
 - **Multilingual Support**: English and French.
 - **PWA**: Progressive Web App capabilities for offline use and installability.
 

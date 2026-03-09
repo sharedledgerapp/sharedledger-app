@@ -45,6 +45,7 @@ type TranslationKey =
   | "shoppingList" | "by" | "noGoals"
   | "notifications" | "dailyReminder" | "dailyReminderDescription" | "reminderTime"
   | "weeklyReminder" | "weeklyReminderDescription" | "monthlyReminder" | "monthlyReminderDescription"
+  | "budgetAlerts" | "budgetAlertsDescription"
   | "notificationsEnabled" | "notificationsDisabled" | "enableNotifications"
   | "notificationPermissionDenied" | "makeAdmin" | "removeAdmin" | "adminPromoted"
   | "adminDemoted" | "maxAdminsReached" | "confirmMakeAdmin" | "confirmRemoveAdmin" | "reminderUpdated"
@@ -246,6 +247,8 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     weeklyReminderDescription: "Review your weekly spending every Sunday",
     monthlyReminder: "Monthly Summary",
     monthlyReminderDescription: "Review your monthly spending at month end",
+    budgetAlerts: "Budget Alerts",
+    budgetAlertsDescription: "Get notified when you're close to or over a budget limit",
     notificationsEnabled: "Notifications enabled",
     notificationsDisabled: "Notifications disabled",
     enableNotifications: "Enable Notifications",
@@ -520,6 +523,8 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     weeklyReminderDescription: "Consultez vos dépenses hebdomadaires chaque dimanche",
     monthlyReminder: "Résumé mensuel",
     monthlyReminderDescription: "Consultez vos dépenses mensuelles en fin de mois",
+    budgetAlerts: "Alertes budgétaires",
+    budgetAlertsDescription: "Soyez notifié lorsque vous approchez ou dépassez une limite budgétaire",
     notificationsEnabled: "Notifications activées",
     notificationsDisabled: "Notifications désactivées",
     enableNotifications: "Activer les notifications",
