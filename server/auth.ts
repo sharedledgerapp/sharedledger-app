@@ -161,10 +161,16 @@ export function setupAuth(app: Express) {
         ) => {
           try {
             const appleId = idToken.sub;
-            const email = idToken.email;
+            const email = idToken.email || undefined;
             const firstName = profile?.name?.firstName || "";
             const lastName = profile?.name?.lastName || "";
-            const displayName = [firstName, lastName].filter(Boolean).join(" ") || email || "User";
+            const displayName = [firstName, lastName].filter(Boolean).join(" ") || email || "Apple User";
+
+            const existingUser = await storage.getUserByAppleId(appleId);
+            if (existingUser) {
+              return done(null, existingUser);
+            }
+
             const user = await findOrCreateOAuthUser("apple", appleId, email, displayName, null);
             return done(null, user);
           } catch (err) {
@@ -210,7 +216,7 @@ export function setupAuth(app: Express) {
     if (!process.env.APPLE_CLIENT_ID || !process.env.APPLE_TEAM_ID || !process.env.APPLE_KEY_ID || !process.env.APPLE_PRIVATE_KEY) {
       return res.status(501).json({ message: "Apple sign-in is not yet configured. Please provide Apple Developer credentials." });
     }
-    passport.authenticate("apple")(req, res, next);
+    passport.authenticate("apple", { scope: ["email", "name"] })(req, res, next);
   });
 
   app.post("/api/auth/apple/callback",
