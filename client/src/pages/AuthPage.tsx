@@ -21,16 +21,6 @@ import { api } from "@shared/routes";
 import type { Html5Qrcode } from "html5-qrcode";
 
 function OAuthButtons() {
-  const { toast } = useToast();
-
-  const handleAppleClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    toast({
-      title: "Coming Soon",
-      description: "Apple sign-in will be available soon. Please use Google or create an account.",
-    });
-  };
-
   return (
     <div className="space-y-3">
       <a
@@ -41,15 +31,14 @@ function OAuthButtons() {
         <SiGoogle className="w-5 h-5" style={{ color: "#4285F4" }} />
         Continue with Google
       </a>
-      <button
-        type="button"
-        onClick={handleAppleClick}
-        className="flex items-center justify-center gap-3 w-full h-12 rounded-xl border border-border bg-black hover:bg-gray-900 text-white font-medium transition-all shadow-sm opacity-60 cursor-not-allowed"
+      <a
+        href="/api/auth/apple"
+        className="flex items-center justify-center gap-3 w-full h-12 rounded-xl border border-border bg-black hover:bg-gray-900 text-white font-medium transition-all shadow-sm"
         data-testid="button-apple-signin"
       >
         <SiApple className="w-5 h-5" />
         Continue with Apple
-      </button>
+      </a>
       <div className="relative my-4">
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-border" />

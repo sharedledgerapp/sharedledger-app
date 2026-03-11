@@ -27,7 +27,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByGoogleId(googleId: string): Promise<User | undefined>;
   getUserByAppleId(appleId: string): Promise<User | undefined>;
-  createUser(user: InsertUser & { familyId?: number }): Promise<User>;
+  createUser(user: InsertUser & { familyId?: number; googleId?: string | null; appleId?: string | null }): Promise<User>;
   updateUser(id: number, updates: Partial<Pick<User, 'name' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId'>>): Promise<User>;
   deleteUser(id: number): Promise<void>;
   
@@ -139,7 +139,7 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async createUser(insertUser: InsertUser & { familyId?: number }): Promise<User> {
+  async createUser(insertUser: InsertUser & { familyId?: number; googleId?: string | null; appleId?: string | null }): Promise<User> {
     const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }

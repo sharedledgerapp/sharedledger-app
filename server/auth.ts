@@ -2,6 +2,7 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+import AppleStrategy from "@nicokaiser/passport-apple";
 import { Express } from "express";
 import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
@@ -24,6 +25,48 @@ async function comparePasswords(supplied: string, stored: string) {
   const hashedBuf = Buffer.from(hashed, "hex");
   const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
   return timingSafeEqual(hashedBuf, suppliedBuf);
+}
+
+async function findOrCreateOAuthUser(
+  provider: "google" | "apple",
+  providerId: string,
+  email: string | undefined,
+  displayName: string,
+  profileImageUrl: string | null
+): Promise<User> {
+  const lookupFn = provider === "google"
+    ? storage.getUserByGoogleId.bind(storage)
+    : storage.getUserByAppleId.bind(storage);
+
+  let user = await lookupFn(providerId);
+  if (user) return user;
+
+  if (email) {
+    user = await storage.getUserByUsername(email);
+    if (user) {
+      const providerField = provider === "google" ? "googleId" : "appleId";
+      const [updated] = await db
+        .update(users)
+        .set({ [providerField]: providerId })
+        .where(eq(users.id, user.id))
+        .returning();
+      return updated;
+    }
+  }
+
+  const username = email || `${provider}_${providerId}`;
+  const providerFields = provider === "google"
+    ? { googleId: providerId }
+    : { appleId: providerId };
+
+  return storage.createUser({
+    username,
+    password: null,
+    name: displayName,
+    role: "member",
+    profileImageUrl,
+    ...providerFields,
+  });
 }
 
 export function setupAuth(app: Express) {
@@ -66,7 +109,7 @@ export function setupAuth(app: Express) {
 
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     const replitDomain = process.env.REPLIT_DOMAINS?.split(",")[0];
-    const callbackURL = replitDomain
+    const googleCallbackURL = replitDomain
       ? `https://${replitDomain}/api/auth/google/callback`
       : `/api/auth/google/callback`;
 
@@ -75,42 +118,55 @@ export function setupAuth(app: Express) {
         {
           clientID: process.env.GOOGLE_CLIENT_ID,
           clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-          callbackURL,
+          callbackURL: googleCallbackURL,
           proxy: true,
         },
         async (_accessToken, _refreshToken, profile, done) => {
           try {
-            let user = await storage.getUserByGoogleId(profile.id);
-            if (user) {
-              return done(null, user);
-            }
-
             const email = profile.emails?.[0]?.value;
-            if (email) {
-              user = await storage.getUserByUsername(email);
-              if (user) {
-                const [updated] = await db
-                  .update(users)
-                  .set({ googleId: profile.id })
-                  .where(eq(users.id, user.id))
-                  .returning();
-                return done(null, updated);
-              }
-            }
-
             const displayName = profile.displayName || email || "User";
-            const username = email || `google_${profile.id}`;
+            const photo = profile.photos?.[0]?.value || null;
+            const user = await findOrCreateOAuthUser("google", profile.id, email, displayName, photo);
+            return done(null, user);
+          } catch (err) {
+            return done(err as Error);
+          }
+        }
+      )
+    );
+  }
 
-            const newUser = await storage.createUser({
-              username,
-              password: null as any,
-              name: displayName,
-              role: "member",
-              googleId: profile.id,
-              profileImageUrl: profile.photos?.[0]?.value || null,
-            } as any);
+  if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPLE_KEY_ID && process.env.APPLE_PRIVATE_KEY) {
+    const replitDomain = process.env.REPLIT_DOMAINS?.split(",")[0];
+    const appleCallbackURL = replitDomain
+      ? `https://${replitDomain}/api/auth/apple/callback`
+      : `/api/auth/apple/callback`;
 
-            return done(null, newUser);
+    passport.use(
+      new AppleStrategy(
+        {
+          clientID: process.env.APPLE_CLIENT_ID,
+          teamID: process.env.APPLE_TEAM_ID,
+          keyID: process.env.APPLE_KEY_ID,
+          privateKeyString: process.env.APPLE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+          callbackURL: appleCallbackURL,
+          passReqToCallback: false,
+        },
+        async (
+          _accessToken: string,
+          _refreshToken: string,
+          idToken: { sub: string; email?: string },
+          profile: { name?: { firstName?: string; lastName?: string } },
+          done: (err: Error | null, user?: User | false) => void
+        ) => {
+          try {
+            const appleId = idToken.sub;
+            const email = idToken.email;
+            const firstName = profile?.name?.firstName || "";
+            const lastName = profile?.name?.lastName || "";
+            const displayName = [firstName, lastName].filter(Boolean).join(" ") || email || "User";
+            const user = await findOrCreateOAuthUser("apple", appleId, email, displayName, null);
+            return done(null, user);
           } catch (err) {
             return done(err as Error);
           }
@@ -150,13 +206,26 @@ export function setupAuth(app: Express) {
     }
   );
 
-  app.get("/api/auth/apple", (_req, res) => {
-    return res.status(501).json({ message: "Apple sign-in is not yet configured. Please provide Apple Developer credentials." });
+  app.get("/api/auth/apple", (req, res, next) => {
+    if (!process.env.APPLE_CLIENT_ID || !process.env.APPLE_TEAM_ID || !process.env.APPLE_KEY_ID || !process.env.APPLE_PRIVATE_KEY) {
+      return res.status(501).json({ message: "Apple sign-in is not yet configured. Please provide Apple Developer credentials." });
+    }
+    passport.authenticate("apple")(req, res, next);
   });
 
-  app.post("/api/auth/apple/callback", (_req, res) => {
-    return res.status(501).json({ message: "Apple sign-in is not yet configured." });
-  });
+  app.post("/api/auth/apple/callback",
+    (req, res, next) => {
+      passport.authenticate("apple", { failureRedirect: "/auth?error=apple_failed" })(req, res, next);
+    },
+    (req, res) => {
+      const user = req.user as User;
+      if (!user.familyId) {
+        res.redirect("/auth?setup=group");
+      } else {
+        res.redirect("/");
+      }
+    }
+  );
 
   return { hashPassword };
 }
