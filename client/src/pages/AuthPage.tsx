@@ -14,25 +14,283 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useLocation } from "wouter";
 import { Loader2, Users, ArrowRight, Eye, EyeOff, Camera } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { SiGoogle, SiApple } from "react-icons/si";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { api } from "@shared/routes";
 import type { Html5Qrcode } from "html5-qrcode";
+
+function OAuthButtons() {
+  const { toast } = useToast();
+
+  const handleAppleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    toast({
+      title: "Coming Soon",
+      description: "Apple sign-in will be available soon. Please use Google or create an account.",
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      <a
+        href="/api/auth/google"
+        className="flex items-center justify-center gap-3 w-full h-12 rounded-xl border border-border bg-white hover:bg-gray-50 text-gray-700 font-medium transition-all shadow-sm"
+        data-testid="button-google-signin"
+      >
+        <SiGoogle className="w-5 h-5" style={{ color: "#4285F4" }} />
+        Continue with Google
+      </a>
+      <button
+        type="button"
+        onClick={handleAppleClick}
+        className="flex items-center justify-center gap-3 w-full h-12 rounded-xl border border-border bg-black hover:bg-gray-900 text-white font-medium transition-all shadow-sm opacity-60 cursor-not-allowed"
+        data-testid="button-apple-signin"
+      >
+        <SiApple className="w-5 h-5" />
+        Continue with Apple
+      </button>
+      <div className="relative my-4">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-border" />
+        </div>
+        <div className="relative flex justify-center text-xs">
+          <span className="bg-background px-3 text-muted-foreground uppercase tracking-wider">or</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GroupSetupForm({ onComplete }: { onComplete: () => void }) {
+  const [mode, setMode] = useState<"create" | "join">("create");
+  const [groupType, setGroupType] = useState<"family" | "roommates" | "couple">("family");
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const form = useForm({
+    defaultValues: {
+      groupName: "",
+      groupCode: "",
+      groupType: "family" as "family" | "roommates" | "couple",
+    },
+  });
+
+  const setupMutation = useMutation({
+    mutationFn: async (data: { groupCode?: string; groupName?: string; groupType?: string; role?: string }) => {
+      const res = await fetch("/api/auth/setup-group", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to set up group");
+      }
+      return res.json();
+    },
+    onSuccess: (user) => {
+      queryClient.setQueryData([api.auth.me.path], user);
+      toast({ title: "Welcome!", description: "You're all set up." });
+      onComplete();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Setup Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const onSubmit = (data: { groupName: string; groupCode: string; groupType: string }) => {
+    if (mode === "join") {
+      if (!data.groupCode) {
+        form.setError("groupCode", { message: "Invite code is required to join a group" });
+        return;
+      }
+      setupMutation.mutate({ groupCode: data.groupCode });
+    } else {
+      if (!data.groupName) {
+        form.setError("groupName", { message: "Group name is required" });
+        return;
+      }
+      setupMutation.mutate({
+        groupName: data.groupName,
+        groupType: groupType,
+        role: groupType === "family" ? "parent" : "member",
+      });
+    }
+  };
+
+  const groupTypePlaceholders: Record<string, string> = {
+    family: "The Smith Family",
+    roommates: "Apartment 4B",
+    couple: "Our Finances",
+  };
+
+  return (
+    <Card className="border-border/50 shadow-xl shadow-black/5">
+      <CardHeader>
+        <CardTitle>Set Up Your Group</CardTitle>
+        <CardDescription>Create a new group or join an existing one to start tracking shared finances.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex gap-2 mb-6">
+          <button
+            type="button"
+            onClick={() => { setMode("create"); form.clearErrors(); }}
+            className={`flex-1 py-3 px-4 rounded-xl border text-sm font-medium transition-all ${
+              mode === "create"
+                ? "bg-primary text-primary-foreground border-primary shadow-md"
+                : "bg-background border-border hover:bg-muted"
+            }`}
+            data-testid="button-setup-mode-create"
+          >
+            Create Group
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode("join"); form.clearErrors(); }}
+            className={`flex-1 py-3 px-4 rounded-xl border text-sm font-medium transition-all ${
+              mode === "join"
+                ? "bg-accent text-accent-foreground border-accent shadow-md"
+                : "bg-background border-border hover:bg-muted"
+            }`}
+            data-testid="button-setup-mode-join"
+          >
+            Join Group
+          </button>
+        </div>
+
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          {mode === "create" && (
+            <>
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Group Type</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["family", "roommates", "couple"] as const).map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setGroupType(type)}
+                      className={`py-2.5 px-3 rounded-xl border text-xs font-medium transition-all capitalize ${
+                        groupType === type
+                          ? "bg-primary text-primary-foreground border-primary shadow-md"
+                          : "bg-background border-border hover:bg-muted"
+                      }`}
+                      data-testid={`button-setup-group-type-${type}`}
+                    >
+                      {type === "roommates" ? "Roommates" : type === "couple" ? "Couple" : "Family"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Group Name</Label>
+                <Input
+                  placeholder={groupTypePlaceholders[groupType]}
+                  {...form.register("groupName")}
+                  className="h-11 rounded-xl"
+                  data-testid="input-setup-group-name"
+                />
+                {form.formState.errors.groupName && (
+                  <p className="text-sm text-destructive mt-1">{form.formState.errors.groupName.message}</p>
+                )}
+              </div>
+            </>
+          )}
+
+          {mode === "join" && (
+            <>
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Invite Code</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="GRP-1234"
+                    {...form.register("groupCode")}
+                    className="h-11 rounded-xl font-mono flex-1"
+                    autoComplete="off"
+                    data-testid="input-setup-invite-code"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-11 w-11 rounded-xl shrink-0"
+                    onClick={() => setScannerOpen(true)}
+                    data-testid="button-setup-scan-qr"
+                    title="Scan QR Code"
+                  >
+                    <Camera className="w-5 h-5" />
+                  </Button>
+                </div>
+                {form.formState.errors.groupCode && (
+                  <p className="text-sm text-destructive mt-1">{form.formState.errors.groupCode.message}</p>
+                )}
+              </div>
+              <QrScannerDialog
+                open={scannerOpen}
+                onClose={() => setScannerOpen(false)}
+                onScan={(code) => {
+                  form.setValue("groupCode", code);
+                  form.clearErrors("groupCode");
+                  setScannerOpen(false);
+                }}
+              />
+            </>
+          )}
+
+          <Button
+            type="submit"
+            className="w-full h-12 rounded-xl text-md font-semibold mt-4 shadow-lg bg-primary hover:bg-primary/90 shadow-primary/25"
+            disabled={setupMutation.isPending}
+            data-testid="button-setup-submit"
+          >
+            {setupMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (
+              <span className="flex items-center">Get Started <ArrowRight className="ml-2 w-4 h-4" /></span>
+            )}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function AuthPage() {
   const { loginMutation, registerMutation, user } = useAuth();
   const [, setLocation] = useLocation();
+  const [searchParams] = useState(() => new URLSearchParams(window.location.search));
+  const showGroupSetup = searchParams.get("setup") === "group";
 
   useEffect(() => {
-    if (user) {
+    if (user && user.familyId && !showGroupSetup) {
       setLocation("/");
     }
-  }, [user, setLocation]);
+  }, [user, setLocation, showGroupSetup]);
 
-  if (user) {
+  if (user && !user.familyId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-primary/10 blur-[100px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-accent/10 blur-[100px]" />
+        <div className="w-full max-w-md z-10 space-y-8">
+          <div className="text-center space-y-2">
+            <div className="w-16 h-16 bg-gradient-to-tr from-primary to-accent rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-primary/20 rotate-[-6deg]">
+              <Users className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="font-display font-bold text-4xl tracking-tight text-foreground">SharedLedger</h1>
+            <p className="text-muted-foreground">One more step — set up your group.</p>
+          </div>
+          <GroupSetupForm onComplete={() => setLocation("/")} />
+        </div>
+      </div>
+    );
+  }
+
+  if (user && user.familyId) {
     return null;
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
-      {/* Decorative blobs */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-primary/10 blur-[100px]" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-accent/10 blur-[100px]" />
 
@@ -79,6 +337,7 @@ function LoginForm() {
         <CardDescription>Enter your credentials to access your account</CardDescription>
       </CardHeader>
       <CardContent>
+        <OAuthButtons />
         <Form {...form}>
           <form onSubmit={form.handleSubmit((data) => loginMutation.mutate(data))} className="space-y-4">
             <FormField
@@ -294,6 +553,7 @@ function RegisterForm() {
         <CardDescription>Start managing shared finances</CardDescription>
       </CardHeader>
       <CardContent>
+        <OAuthButtons />
         <div className="flex gap-2 mb-6">
           <button
             type="button"

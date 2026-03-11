@@ -19,10 +19,12 @@ export const groups = families;
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  password: text("password"),
   name: text("name").notNull(),
   role: text("role", { enum: ["parent", "child", "member"] }).notNull(),
   familyId: integer("family_id").references(() => families.id),
+  googleId: text("google_id").unique(),
+  appleId: text("apple_id").unique(),
   shareTotalsConsent: boolean("share_totals_consent").default(true).notNull(),
   profileImageUrl: text("profile_image_url"),
   language: text("language", { enum: ["en", "fr"] }).default("en").notNull(),
@@ -389,6 +391,13 @@ export const registerSchema = insertUserSchema.extend({
   groupCode: z.string().optional(),
   groupName: z.string().optional(),
   groupType: z.enum(["family", "roommates", "couple"]).optional(),
+});
+
+export const oauthGroupSetupSchema = z.object({
+  groupCode: z.string().optional(),
+  groupName: z.string().optional(),
+  groupType: z.enum(["family", "roommates", "couple"]).optional(),
+  role: z.enum(["parent", "child", "member"]).optional(),
 });
 
 export type LoginRequest = z.infer<typeof loginSchema>;

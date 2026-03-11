@@ -19,8 +19,8 @@ Preferred communication style: Simple, everyday language.
 ### Backend
 - **Runtime & Language**: Node.js with Express, TypeScript (ESM)
 - **API**: RESTful endpoints, Zod for request/response validation
-- **Authentication**: Passport.js with local strategy, session-based auth (express-session)
-- **Security**: Scrypt hashing for passwords
+- **Authentication**: Passport.js with local strategy + Google OAuth 2.0 (passport-google-oauth20), session-based auth (express-session). Apple Sign In route stubs in place (requires Apple Developer credentials to activate).
+- **Security**: Scrypt hashing for passwords (password is nullable for OAuth-only users)
 - **File Uploads**: Multer for receipt uploads (5MB limit)
 
 ### Data Storage
@@ -47,6 +47,8 @@ Preferred communication style: Simple, everyday language.
 
 ### Registration & Onboarding
 - Registration supports two modes: "Create Group" (pick type + name) and "Join Group" (enter invite code or scan QR code).
+- Social sign-in: "Continue with Google" and "Continue with Apple" buttons on both login and register forms. Google OAuth is fully functional when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set. Apple Sign In routes are stubbed, awaiting Apple Developer credentials.
+- OAuth users who sign in without a group are redirected to a group setup form (create or join) before accessing the dashboard.
 - Group types: Family, Roommates, Couple — each generates different invite code prefixes.
 - QR code scanning on registration uses the device camera to auto-fill the invite code.
 - Onboarding screens introduce the app's privacy model and group concept.

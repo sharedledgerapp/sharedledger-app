@@ -6,7 +6,7 @@ import { storage } from "./storage";
 import { api, errorSchemas } from "@shared/routes";
 import { z } from "zod";
 import { randomBytes } from "crypto";
-import { insertUserSchema, families } from "@shared/schema";
+import { insertUserSchema, families, oauthGroupSetupSchema } from "@shared/schema";
 import multer from "multer";
 import passport from "passport";
 import { db } from "./db";
@@ -18,6 +18,11 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
     return next();
   }
   res.status(401).json({ message: "Unauthorized" });
+}
+
+function sanitizeUser(user: any) {
+  const { password, ...safe } = user;
+  return safe;
 }
 
 const upload = multer({ 
@@ -36,6 +41,10 @@ export async function registerRoutes(
   app.post(api.auth.register.path, async (req, res, next) => {
     try {
       const { familyCode, familyName, groupCode, groupName, groupType, ...userData } = api.auth.register.input.parse(req.body);
+
+      if (!userData.password || userData.password.length < 1) {
+        return res.status(400).json({ message: "Password is required" });
+      }
 
       const existingUser = await storage.getUserByUsername(userData.username);
       if (existingUser) {
@@ -85,7 +94,7 @@ export async function registerRoutes(
 
       req.login(user, (err) => {
         if (err) return next(err);
-        res.status(201).json(user);
+        res.status(201).json(sanitizeUser(user));
       });
     } catch (err) {
         if (err instanceof z.ZodError) {
@@ -96,7 +105,7 @@ export async function registerRoutes(
   });
 
   app.post(api.auth.login.path, passport.authenticate("local"), (req, res) => {
-    res.status(200).json(req.user);
+    res.status(200).json(sanitizeUser(req.user));
   });
 
   app.post(api.auth.logout.path, (req, res, next) => {
@@ -110,7 +119,55 @@ export async function registerRoutes(
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    res.status(200).json(req.user);
+    res.status(200).json(sanitizeUser(req.user));
+  });
+
+  app.post("/api/auth/setup-group", requireAuth, async (req, res, next) => {
+    try {
+      const user = req.user as any;
+      if (user.familyId) {
+        return res.status(400).json({ message: "You are already in a group" });
+      }
+
+      const { groupCode, groupName, groupType } = oauthGroupSetupSchema.parse(req.body);
+      let role = req.body.role || "member";
+
+      let familyId: number;
+
+      if (groupCode) {
+        const family = await storage.getFamilyByCode(groupCode);
+        if (!family) {
+          return res.status(400).json({ message: "Invalid invite code. Please check and try again." });
+        }
+        familyId = family.id;
+        if (family.groupType === "family") {
+          role = "child";
+        } else {
+          role = "member";
+        }
+      } else if (groupName) {
+        const newGroupType = groupType || "family";
+        const prefix = newGroupType === "family" ? "FAM" : newGroupType === "roommates" ? "GRP" : "CPL";
+        const code = `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
+        const family = await storage.createFamily({ name: groupName, code, groupType: newGroupType });
+        familyId = family.id;
+        if (newGroupType === "family") {
+          role = "parent";
+        } else {
+          role = "member";
+        }
+      } else {
+        return res.status(400).json({ message: "Please provide an invite code or group name." });
+      }
+
+      const updated = await storage.updateUser(user.id, { familyId, role });
+      res.json(sanitizeUser(updated));
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      next(err);
+    }
   });
 
   // === USER PROFILE ROUTES ===
