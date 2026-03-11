@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -10,8 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useLocation } from "wouter";
-import { Loader2, Users, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { Loader2, Users, ArrowRight, Eye, EyeOff, Camera, X } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function AuthPage() {
   const { loginMutation, registerMutation, user } = useAuth();
@@ -134,11 +136,115 @@ function LoginForm() {
   );
 }
 
+function QrScannerDialog({ open, onClose, onScan }: { open: boolean; onClose: () => void; onScan: (code: string) => void }) {
+  const { t } = useLanguage();
+  const scannerRef = useRef<HTMLDivElement>(null);
+  const html5QrCodeRef = useRef<any>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const stopScanner = useCallback(async () => {
+    if (html5QrCodeRef.current) {
+      try {
+        const state = html5QrCodeRef.current.getState();
+        if (state === 2) {
+          await html5QrCodeRef.current.stop();
+        }
+        html5QrCodeRef.current.clear();
+      } catch {}
+      html5QrCodeRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+
+    let mounted = true;
+    setError(null);
+
+    const startScanner = async () => {
+      const { Html5Qrcode } = await import("html5-qrcode");
+      if (!mounted || !scannerRef.current) return;
+
+      const scannerId = "qr-scanner-region";
+      scannerRef.current.id = scannerId;
+
+      const scanner = new Html5Qrcode(scannerId);
+      html5QrCodeRef.current = scanner;
+
+      const scanConfig = { fps: 10, qrbox: { width: 220, height: 220 } };
+      const onSuccess = (decodedText: string) => {
+        onScan(decodedText);
+        stopScanner();
+      };
+      const onFailure = () => {};
+
+      try {
+        await scanner.start({ facingMode: "environment" }, scanConfig, onSuccess, onFailure);
+      } catch {
+        try {
+          const devices = await Html5Qrcode.getCameras();
+          if (devices.length > 0) {
+            await scanner.start(devices[0].id, scanConfig, onSuccess, onFailure);
+          } else if (mounted) {
+            setError(t("cameraUnavailable"));
+          }
+        } catch (err2: any) {
+          if (mounted) {
+            if (err2?.toString().includes("NotAllowedError") || err2?.toString().includes("Permission")) {
+              setError(t("cameraPermissionDenied"));
+            } else {
+              setError(t("cameraUnavailable"));
+            }
+          }
+        }
+      }
+    };
+
+    const timer = setTimeout(startScanner, 300);
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+      stopScanner();
+    };
+  }, [open, onScan, stopScanner, t]);
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) { stopScanner(); onClose(); } }}>
+      <DialogContent className="sm:max-w-md p-0 overflow-hidden">
+        <DialogHeader className="p-4 pb-2">
+          <DialogTitle className="flex items-center gap-2 text-lg">
+            <Camera className="w-5 h-5 text-primary" />
+            {t("scanQrCode")}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="px-4 pb-4">
+          {error ? (
+            <div className="text-center py-8 space-y-3">
+              <p className="text-sm text-muted-foreground">{error}</p>
+              <Button variant="outline" size="sm" onClick={() => { stopScanner(); onClose(); }} data-testid="button-close-scanner">
+                {t("close")}
+              </Button>
+            </div>
+          ) : (
+            <div className="relative rounded-xl overflow-hidden bg-black">
+              <div ref={scannerRef} className="w-full" data-testid="qr-scanner-region" />
+              <p className="text-center text-xs text-muted-foreground mt-2 pb-2">
+                {t("pointCamera")}
+              </p>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function RegisterForm() {
   const { registerMutation } = useAuth();
   const [mode, setMode] = useState<"create" | "join">("create");
   const [groupType, setGroupType] = useState<"family" | "roommates" | "couple">("family");
   const [showPassword, setShowPassword] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
   
   const form = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
@@ -323,29 +429,53 @@ function RegisterForm() {
             )}
 
             {mode === "join" && (
-              <FormField
-                control={form.control}
-                name="groupCode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Invite Code</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="GRP-1234" 
-                        {...field} 
-                        className="h-11 rounded-xl font-mono" 
-                        autoComplete="off"
-                        data-testid="input-invite-code"
-                        onChange={(e) => {
-                          field.onChange(e);
-                          form.clearErrors("groupCode");
-                        }}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <>
+                <FormField
+                  control={form.control}
+                  name="groupCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Invite Code</FormLabel>
+                      <FormControl>
+                        <div className="flex gap-2">
+                          <Input 
+                            placeholder="GRP-1234" 
+                            {...field} 
+                            className="h-11 rounded-xl font-mono flex-1" 
+                            autoComplete="off"
+                            data-testid="input-invite-code"
+                            onChange={(e) => {
+                              field.onChange(e);
+                              form.clearErrors("groupCode");
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-11 w-11 rounded-xl shrink-0"
+                            onClick={() => setScannerOpen(true)}
+                            data-testid="button-scan-qr"
+                            title="Scan QR Code"
+                          >
+                            <Camera className="w-5 h-5" />
+                          </Button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <QrScannerDialog
+                  open={scannerOpen}
+                  onClose={() => setScannerOpen(false)}
+                  onScan={(code) => {
+                    form.setValue("groupCode", code);
+                    form.clearErrors("groupCode");
+                    setScannerOpen(false);
+                  }}
+                />
+              </>
             )}
 
             <Button 

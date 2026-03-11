@@ -36,7 +36,7 @@ Preferred communication style: Simple, everyday language.
 - **Balance Board**: Tracks net balances for each group member based on shared expenses and settlements. Shows who owes whom.
 - **Settlements**: Record debt settlements between group members to clear balances.
 - **Goals**: Personal and shared savings goals with approval workflows.
-- **Group Management**: Invite-only groups, role management (parent/child for families, member for roommates/couples), dual admin support, leave group option.
+- **Group Management**: Invite-only groups with QR code invite sharing, role management (parent/child for families, member for roommates/couples), dual admin support, leave group option.
 - **Group Dashboard**: Aggregated shared spending view, category breakdown, balance board, recent shared expenses — all privacy-focused (no personal data leakage).
 - **Reporting**: Personal spending dashboards, spending activity charts (weekly/monthly), customizable recurring expense tracking.
 - **Budgeting**: Per-category budgets with progress tracking, threshold alerts, and notifications.
@@ -46,8 +46,9 @@ Preferred communication style: Simple, everyday language.
 - **PWA**: Progressive Web App capabilities for offline use and installability.
 
 ### Registration & Onboarding
-- Registration supports two modes: "Create Group" (pick type + name) and "Join Group" (enter invite code).
+- Registration supports two modes: "Create Group" (pick type + name) and "Join Group" (enter invite code or scan QR code).
 - Group types: Family, Roommates, Couple — each generates different invite code prefixes.
+- QR code scanning on registration uses the device camera to auto-fill the invite code.
 - Onboarding screens introduce the app's privacy model and group concept.
 
 ### Privacy Model

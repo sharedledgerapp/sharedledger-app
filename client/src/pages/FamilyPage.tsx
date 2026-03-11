@@ -5,7 +5,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Users, Shield, ShieldOff, LogOut, Home, Heart } from "lucide-react";
+import { Copy, Users, Shield, ShieldOff, LogOut, Home, Heart, QrCode, ChevronDown, ChevronUp } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
@@ -30,6 +31,7 @@ export default function FamilyPage() {
   const { t, language } = useLanguage();
   const [roleDialog, setRoleDialog] = useState<{ memberId: number; memberName: string; action: "promote" | "demote" } | null>(null);
   const [leaveDialog, setLeaveDialog] = useState(false);
+  const [showQr, setShowQr] = useState(false);
 
   const changeRoleMutation = useMutation({
     mutationFn: async ({ memberId, role }: { memberId: number; role: string }) => {
@@ -112,6 +114,33 @@ export default function FamilyPage() {
             <Copy className="w-3 h-3" />
           </Button>
         </div>
+        {family?.code && (
+          <div className="mt-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 text-muted-foreground"
+              onClick={() => setShowQr(!showQr)}
+              data-testid="button-toggle-qr"
+            >
+              <QrCode className="w-4 h-4" />
+              {showQr ? t("hideQrCode") : t("showQrCode")}
+              {showQr ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </Button>
+            {showQr && (
+              <div className="mt-3 flex justify-center animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="bg-white p-4 rounded-2xl shadow-sm border border-border/50">
+                  <QRCodeSVG
+                    value={family.code}
+                    size={180}
+                    level="M"
+                    data-testid="qr-code-display"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <section>

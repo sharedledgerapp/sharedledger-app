@@ -11,7 +11,9 @@ type TranslationKey =
   | "roommates" | "couple" | "member"
   | "settlement" | "settleDebt" | "balanceBoard" | "youOwe" | "owesYou" | "settled" | "recordSettlement"
   | "splitEqual" | "splitCustom" | "splitPercentage" | "paidBy" | "splitBetween" | "splitMethod" | "selectMembers"
-  | "totalGroupSpending" | "noGroupYet" | "createOrJoinGroup" | "inviteCode" | "leaveGroup" | "confirmLeaveGroup"
+  | "totalGroupSpending" | "noGroupYet" | "createOrJoinGroup" | "inviteCode" | "showQrCode" | "hideQrCode"
+  | "scanQrCode" | "pointCamera" | "cameraPermissionDenied" | "cameraUnavailable" | "close"
+  | "leaveGroup" | "confirmLeaveGroup"
   | "signOut" | "profile" | "language" | "english" | "french"
   | "spendingBreakdown" | "recentActivity" | "viewAll" | "totalSpent"
   | "thisMonth" | "thisWeek" | "topGoal" | "noGoalsYet" | "setGoal"
@@ -106,6 +108,13 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     noGroupYet: "No group yet",
     createOrJoinGroup: "Create or join a group to get started",
     inviteCode: "Invite Code",
+    showQrCode: "Show QR Code",
+    hideQrCode: "Hide QR Code",
+    scanQrCode: "Scan QR Code",
+    pointCamera: "Point your camera at the QR code",
+    cameraPermissionDenied: "Camera permission was denied. Please allow camera access and try again, or type the code manually.",
+    cameraUnavailable: "Could not access camera. Please type the invite code manually.",
+    close: "Close",
     leaveGroup: "Leave Group",
     confirmLeaveGroup: "Are you sure you want to leave this group? Your personal data will be kept.",
     signOut: "Sign Out",
@@ -382,6 +391,13 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     noGroupYet: "Pas encore de groupe",
     createOrJoinGroup: "Créez ou rejoignez un groupe pour commencer",
     inviteCode: "Code d'invitation",
+    showQrCode: "Afficher le QR Code",
+    hideQrCode: "Masquer le QR Code",
+    scanQrCode: "Scanner le QR Code",
+    pointCamera: "Pointez votre caméra vers le QR code",
+    cameraPermissionDenied: "L'accès à la caméra a été refusé. Veuillez autoriser l'accès et réessayer, ou saisir le code manuellement.",
+    cameraUnavailable: "Impossible d'accéder à la caméra. Veuillez saisir le code d'invitation manuellement.",
+    close: "Fermer",
     leaveGroup: "Quitter le groupe",
     confirmLeaveGroup: "Êtes-vous sûr de vouloir quitter ce groupe ? Vos données personnelles seront conservées.",
     signOut: "Déconnexion",
