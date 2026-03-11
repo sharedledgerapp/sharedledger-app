@@ -443,7 +443,6 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
     if (startDate && endDate) {
       start = new Date(startDate);
-      start.setUTCHours(0, 0, 0, 0);
       end = new Date(endDate);
       end.setUTCHours(23, 59, 59, 999);
     } else {
