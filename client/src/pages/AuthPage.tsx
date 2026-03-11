@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useLocation } from "wouter";
-import { Loader2, Users, ArrowRight, Eye, EyeOff, Camera, X } from "lucide-react";
+import { Loader2, Users, ArrowRight, Eye, EyeOff, Camera } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { Html5Qrcode } from "html5-qrcode";
 
