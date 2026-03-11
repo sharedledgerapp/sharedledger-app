@@ -278,24 +278,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSharedExpenses(familyId: number, startDate?: Date, endDate?: Date): Promise<Expense[]> {
-    let conditions = [
-      eq(expenses.familyId, familyId),
+    const conditions = [
+      eq(users.familyId, familyId),
       eq(expenses.visibility, "public")
     ];
-    
+
     if (startDate) {
       conditions.push(gte(expenses.date, startDate));
     }
     if (endDate) {
       conditions.push(lte(expenses.date, endDate));
     }
-    
-    const results = await db.select()
+
+    const results = await db.select({ expenses: expenses })
       .from(expenses)
+      .innerJoin(users, eq(expenses.userId, users.id))
       .where(and(...conditions))
       .orderBy(desc(expenses.date));
-    
-    return results;
+
+    return results.map((r) => r.expenses);
   }
 
   async updateSplitPayment(splitId: number, isPaid: boolean): Promise<ExpenseSplit> {

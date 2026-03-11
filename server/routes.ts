@@ -443,20 +443,18 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
     if (startDate && endDate) {
       start = new Date(startDate);
+      start.setUTCHours(0, 0, 0, 0);
       end = new Date(endDate);
+      end.setUTCHours(23, 59, 59, 999);
     } else {
       const now = new Date();
       if (period === "week") {
-        const dayOfWeek = now.getDay();
-        start = new Date(now);
-        start.setDate(now.getDate() - dayOfWeek);
-        start.setHours(0, 0, 0, 0);
-        end = new Date(start);
-        end.setDate(start.getDate() + 6);
-        end.setHours(23, 59, 59, 999);
+        const dayOfWeek = now.getUTCDay();
+        start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - dayOfWeek));
+        end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - dayOfWeek + 6, 23, 59, 59, 999));
       } else {
-        start = new Date(now.getFullYear(), now.getMonth(), 1);
-        end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+        end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999));
       }
     }
 
@@ -487,7 +485,10 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const members = await storage.getFamilyMembers(user.familyId);
 
     const memberSpending = members.map(member => {
-      const memberExpenses = sharedExpenses.filter(e => (e.paidByUserId ?? e.userId) === member.id);
+      const memberExpenses = sharedExpenses.filter(e => {
+        const spenderId = e.paidByUserId != null ? e.paidByUserId : e.userId;
+        return spenderId === member.id;
+      });
       const memberTotal = memberExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
       return {
         id: member.id,
