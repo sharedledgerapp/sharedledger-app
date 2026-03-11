@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useLocation } from "wouter";
 import { Loader2, Users, ArrowRight, Eye, EyeOff, Camera, X } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import type { Html5Qrcode } from "html5-qrcode";
 
 export default function AuthPage() {
   const { loginMutation, registerMutation, user } = useAuth();
@@ -139,7 +140,7 @@ function LoginForm() {
 function QrScannerDialog({ open, onClose, onScan }: { open: boolean; onClose: () => void; onScan: (code: string) => void }) {
   const { t } = useLanguage();
   const scannerRef = useRef<HTMLDivElement>(null);
-  const html5QrCodeRef = useRef<any>(null);
+  const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const stopScanner = useCallback(async () => {
@@ -188,9 +189,10 @@ function QrScannerDialog({ open, onClose, onScan }: { open: boolean; onClose: ()
           } else if (mounted) {
             setError(t("cameraUnavailable"));
           }
-        } catch (err2: any) {
+        } catch (err2: unknown) {
           if (mounted) {
-            if (err2?.toString().includes("NotAllowedError") || err2?.toString().includes("Permission")) {
+            const errMsg = err2 instanceof Error ? err2.message : String(err2);
+            if (errMsg.includes("NotAllowedError") || errMsg.includes("Permission")) {
               setError(t("cameraPermissionDenied"));
             } else {
               setError(t("cameraUnavailable"));
