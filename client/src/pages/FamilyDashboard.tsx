@@ -565,7 +565,7 @@ export default function FamilyDashboard() {
         )}
       </section>
 
-      <BalanceBoard />
+      {(data?.summary.groupType === "roommates" || data?.summary.groupType === "couple") && <BalanceBoard />}
 
       {viewingMember && (
         <MemberDetailsDialog

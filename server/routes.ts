@@ -430,7 +430,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const members = await storage.getFamilyMembers(user.familyId);
 
     const memberSpending = members.map(member => {
-      const memberExpenses = sharedExpenses.filter(e => e.userId === member.id);
+      const memberExpenses = sharedExpenses.filter(e => (e.paidByUserId ?? e.userId) === member.id);
       const memberTotal = memberExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
       return {
         id: member.id,

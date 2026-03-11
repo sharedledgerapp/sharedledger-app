@@ -26,7 +26,7 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser & { familyId?: number }): Promise<User>;
-  updateUser(id: number, updates: Partial<Pick<User, 'name' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'familyId'>>): Promise<User>;
+  updateUser(id: number, updates: Partial<Pick<User, 'name' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId'>>): Promise<User>;
   deleteUser(id: number): Promise<void>;
   
   // Group (formerly Family)
@@ -132,7 +132,7 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUser(id: number, updates: Partial<Pick<User, 'name' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'familyId'>>): Promise<User> {
+  async updateUser(id: number, updates: Partial<Pick<User, 'name' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId'>>): Promise<User> {
     const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
     return user;
   }
