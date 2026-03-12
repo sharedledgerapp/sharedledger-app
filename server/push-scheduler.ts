@@ -98,7 +98,9 @@ async function checkDailyReminders() {
     if (await wasNotifiedToday(user.id, "daily")) continue;
 
     const [reminderHour, reminderMinute] = (user.dailyReminderTime || "19:00").split(":").map(Number);
-    if (currentHour === reminderHour && currentMinute >= reminderMinute && currentMinute < reminderMinute + 30) {
+    const currentTotalMinutes = currentHour * 60 + currentMinute;
+    const reminderTotalMinutes = reminderHour * 60 + reminderMinute;
+    if (currentTotalMinutes >= reminderTotalMinutes && currentTotalMinutes < reminderTotalMinutes + 30) {
       const sent = await sendPushToUser(user.id, {
         title: "Time to log expenses",
         body: "Don't forget to record today's expenses in SharedLedger!",
