@@ -480,13 +480,12 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       .filter(e => e.paymentSource === "personal")
       .reduce((sum, e) => sum + Number(e.amount), 0);
 
-    const [family, members, sharedGoals] = await Promise.all([
+    const [family, members, sharedGoals, balances] = await Promise.all([
       storage.getFamily(user.familyId),
       storage.getFamilyMembers(user.familyId),
       storage.getSharedGoals(user.familyId),
+      storage.getGroupBalances(user.familyId),
     ]);
-
-    const balances = await storage.getGroupBalances(user.familyId, { members });
 
     const memberSpending = members.map(member => {
       const memberExpenses = sharedExpenses.filter(e => {
