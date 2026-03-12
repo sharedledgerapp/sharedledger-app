@@ -1,0 +1,280 @@
+You are working on an existing expense tracking application that currently supports Family and Roommate use cases.
+
+Your task is to design and implement a Couple Mode using the existing infrastructure as much as possible. The goal is to support couples who want to track shared household expenses while maintaining privacy for personal spending.
+
+The implementation must focus on MVP functionality only and avoid unnecessary complexity.
+
+Core Design Philosophy
+
+Couples often want to coordinate shared household finances while maintaining personal financial independence.
+
+The system should follow a Three Wallet structure:
+
+My Wallet (Personal)
+Private expenses only visible to the user.
+
+Partner Wallet (Personal)
+The partner’s private expenses remain hidden.
+
+Our Wallet (Shared Household)
+Shared household expenses visible to both partners.
+
+The interface should feel collaborative rather than transactional, unlike the roommate experience which focuses heavily on settling debts.
+
+Reuse Existing Infrastructure
+
+Where possible, reuse components already built for Family and Roommates.
+
+These include:
+
+group system
+
+shared expense toggle
+
+expense categories
+
+dashboards
+
+pie chart visualization used on the personal dashboard
+
+shared dashboard layout
+
+Couple Mode should behave as another group type, not a separate architecture.
+
+Group Structure
+
+Extend the existing group model.
+
+Add a group type:
+
+group_type:
+- family
+- roommates
+- couple
+
+Rules for couple groups:
+
+Maximum members: 2 users
+
+Both members automatically share the shared household dashboard
+
+Expense Visibility System
+
+Extend the current shared expense toggle.
+
+Add an expense visibility field.
+
+expense_visibility:
+- personal
+- shared_household
+
+Behavior:
+
+Personal Expense
+
+visible only to the user
+
+appears only on the personal dashboard
+
+excluded from shared household totals
+
+Shared Household Expense
+
+visible to both partners
+
+appears on the shared dashboard
+
+included in shared totals and contribution calculations
+
+The current shared toggle logic can be adapted to determine whether an expense is shared_household.
+
+Add Expense Flow
+
+When a user adds an expense, allow them to select:
+
+Expense Visibility
+
+• Personal
+• Shared Household
+
+Default selection should be Personal to preserve privacy.
+
+If Shared Household is selected:
+
+expense appears on both partners’ dashboards
+
+included in shared calculations
+
+included in the shared pie chart visualization
+
+Shared Household Dashboard
+
+Reuse the Shared Dashboard structure used for Families, but simplify it for couples.
+
+The dashboard should include:
+
+Household Spending Summary
+
+Example:
+
+Household spending this month
+€420 / €800 household budget
+
+Shared Spending Pie Chart
+
+Reuse the pie chart component currently used on the personal dashboard.
+
+The pie chart should display:
+
+Shared household spending breakdown by category.
+
+Example:
+
+Groceries
+Utilities
+Internet
+Household supplies
+Transport
+
+The chart should only include shared household expenses, never personal expenses.
+
+Contribution Balance System
+
+Couples generally do not want aggressive debt tracking.
+
+Instead provide contribution awareness.
+
+Display a simple comparison:
+
+Household Contributions
+
+Alex contributed €260
+Jamie contributed €210
+
+Difference: €50
+
+This should be informational only.
+
+Reuse existing split and calculation logic from the roommate system, but remove:
+
+IOU language
+
+settlement reminders
+
+payment prompts
+
+Milestone Tracking (New Feature)
+
+Add a lightweight milestone tracking system for shared financial activity.
+
+Milestones should be based only on shared household expenses, not personal ones.
+
+Example milestones:
+
+First shared expense logged
+First grocery purchase together
+First month tracking expenses together
+First €500 in shared expenses
+First month staying under household budget
+
+Milestones should appear on the shared dashboard in a section called:
+
+Shared Milestones
+
+Example display:
+
+Shared Milestones
+
+✓ First shared expense
+✓ First grocery purchase together
+⏳ First month under household budget
+
+This feature should feel like a relationship progress timeline, not a gamified achievement system.
+
+Privacy Rules
+
+Personal expenses must remain fully private.
+
+Personal expenses must:
+
+appear only on the personal dashboard
+
+never appear in the shared dashboard
+
+not appear in partner activity feeds
+
+not affect shared calculations
+
+not appear in the shared pie chart
+
+Shared household expenses must:
+
+appear on both partner dashboards
+
+appear in the shared pie chart
+
+count toward shared totals
+
+count toward contribution tracking
+
+count toward milestones
+
+UX Differences From Roommate Mode
+
+Roommate mode focuses on:
+
+expense splitting
+
+debt settlement
+
+payment reminders
+
+Couple mode should focus on:
+
+cooperation
+
+awareness
+
+shared financial progress
+
+Avoid using terms like:
+
+debts
+
+IOUs
+
+settlements
+
+Use neutral language such as:
+
+contributions
+
+shared spending
+
+household balance
+
+Performance and Architecture Considerations
+
+The implementation should:
+
+reuse existing database models wherever possible
+
+reuse the pie chart visualization component
+
+reuse shared dashboard logic
+
+reuse group infrastructure
+
+minimize schema changes
+
+Couple Mode should function as a specialized configuration of the existing group system, not a new subsystem.
+
+End Result
+
+After implementation, the application should support three group types:
+
+Family
+Roommates
+Couples
+
+All three should share the same core infrastructure while providing different financial experiences tailored to each relationship type.
