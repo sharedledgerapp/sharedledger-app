@@ -480,8 +480,12 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       .filter(e => e.paymentSource === "personal")
       .reduce((sum, e) => sum + Number(e.amount), 0);
 
-    const family = await storage.getFamily(user.familyId);
-    const members = await storage.getFamilyMembers(user.familyId);
+    const [family, members, sharedGoals, balances] = await Promise.all([
+      storage.getFamily(user.familyId),
+      storage.getFamilyMembers(user.familyId),
+      storage.getSharedGoals(user.familyId),
+      storage.getGroupBalances(user.familyId),
+    ]);
 
     const memberSpending = members.map(member => {
       const memberExpenses = sharedExpenses.filter(e => {
@@ -499,8 +503,6 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       };
     });
 
-    const sharedGoals = await storage.getSharedGoals(user.familyId);
-
     const recentExpenses = sharedExpenses.slice(0, 10).map(e => ({
       id: e.id,
       amount: e.amount,
@@ -509,8 +511,6 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       date: e.date,
       paymentSource: e.paymentSource,
     }));
-
-    const balances = await storage.getGroupBalances(user.familyId);
 
     res.json({
       period: {

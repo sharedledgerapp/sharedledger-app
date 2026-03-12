@@ -14,7 +14,7 @@ import {
   type Budget, type InsertBudget, type BudgetSetupPrompt, type InsertBudgetSetupPrompt,
   type Settlement, type InsertSettlement
 } from "@shared/schema";
-import { eq, and, desc, or, ne, gte, lte, sql } from "drizzle-orm";
+import { eq, and, desc, or, ne, gte, lte, sql, inArray, aliasedTable } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -237,12 +237,18 @@ export class DatabaseStorage implements IStorage {
     const expenseIds = finalExpenses.map(e => e.id);
     if (expenseIds.length === 0) return [];
 
-    const splitsPromises = finalExpenses.map(async (e) => {
-      const splits = await db.select().from(expenseSplits).where(eq(expenseSplits.expenseId, e.id));
-      return { ...e, splits: splits.map(s => ({ ...s, amount: s.amount.toString() })) };
-    });
+    const allSplits = await db.select().from(expenseSplits).where(inArray(expenseSplits.expenseId, expenseIds));
+    const splitsByExpenseId = new Map<number, ExpenseSplit[]>();
+    for (const split of allSplits) {
+      const list = splitsByExpenseId.get(split.expenseId) || [];
+      list.push({ ...split, amount: split.amount.toString() });
+      splitsByExpenseId.set(split.expenseId, list);
+    }
 
-    return Promise.all(splitsPromises);
+    return finalExpenses.map(e => ({
+      ...e,
+      splits: splitsByExpenseId.get(e.id) || [],
+    }));
   }
 
   async updateExpense(id: number, updates: Partial<InsertExpense>, splits?: Omit<InsertExpenseSplit, 'expenseId'>[]): Promise<Expense & { splits: ExpenseSplit[] }> {
@@ -314,48 +320,63 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSettlements(groupId: number): Promise<(Settlement & { fromUserName: string; toUserName: string })[]> {
-    const fromUsers = db.select({ id: users.id, name: users.name }).from(users).as('from_users');
-    const toUsers = db.select({ id: users.id, name: users.name }).from(users).as('to_users');
-    
-    const results = await db.select()
+    const fromUsers = aliasedTable(users, 'from_users');
+    const toUsers = aliasedTable(users, 'to_users');
+
+    const results = await db.select({
+      id: settlements.id,
+      fromUserId: settlements.fromUserId,
+      toUserId: settlements.toUserId,
+      groupId: settlements.groupId,
+      amount: settlements.amount,
+      note: settlements.note,
+      createdAt: settlements.createdAt,
+      fromUserName: fromUsers.name,
+      toUserName: toUsers.name,
+    })
       .from(settlements)
+      .leftJoin(fromUsers, eq(settlements.fromUserId, fromUsers.id))
+      .leftJoin(toUsers, eq(settlements.toUserId, toUsers.id))
       .where(eq(settlements.groupId, groupId))
       .orderBy(desc(settlements.createdAt));
 
-    const enriched = await Promise.all(results.map(async (s) => {
-      const [fromUser] = await db.select({ name: users.name }).from(users).where(eq(users.id, s.fromUserId));
-      const [toUser] = await db.select({ name: users.name }).from(users).where(eq(users.id, s.toUserId));
-      return { ...s, fromUserName: fromUser?.name || 'Unknown', toUserName: toUser?.name || 'Unknown' };
+    return results.map(r => ({
+      ...r,
+      fromUserName: r.fromUserName || 'Unknown',
+      toUserName: r.toUserName || 'Unknown',
     }));
-
-    return enriched;
   }
 
   async getGroupBalances(groupId: number): Promise<{ userId: number; userName: string; balance: number }[]> {
-    const members = await this.getFamilyMembers(groupId);
-    
-    const sharedExpenses = await db.select()
-      .from(expenses)
-      .where(and(
-        eq(expenses.familyId, groupId),
-        eq(expenses.visibility, "public")
-      ));
+    const [members, sharedExpenses, groupSettlements] = await Promise.all([
+      this.getFamilyMembers(groupId),
+      db.select()
+        .from(expenses)
+        .where(and(
+          eq(expenses.familyId, groupId),
+          eq(expenses.visibility, "public")
+        )),
+      db.select()
+        .from(settlements)
+        .where(eq(settlements.groupId, groupId)),
+    ]);
 
-    const allSplits = await Promise.all(
-      sharedExpenses.map(async (e) => {
-        const splits = await db.select().from(expenseSplits).where(eq(expenseSplits.expenseId, e.id));
-        return { expense: e, splits };
-      })
-    );
-
-    const groupSettlements = await db.select()
-      .from(settlements)
-      .where(eq(settlements.groupId, groupId));
+    const expenseIds = sharedExpenses.map(e => e.id);
+    const allSplitRows = expenseIds.length > 0
+      ? await db.select().from(expenseSplits).where(inArray(expenseSplits.expenseId, expenseIds))
+      : [];
+    const splitsByExpenseId = new Map<number, typeof allSplitRows>();
+    for (const split of allSplitRows) {
+      const list = splitsByExpenseId.get(split.expenseId) || [];
+      list.push(split);
+      splitsByExpenseId.set(split.expenseId, list);
+    }
 
     const balances: Record<number, number> = {};
     members.forEach(m => { balances[m.id] = 0; });
 
-    for (const { expense, splits } of allSplits) {
+    for (const expense of sharedExpenses) {
+      const splits = splitsByExpenseId.get(expense.id) || [];
       const paidByUserId = expense.paidByUserId || expense.userId;
       if (splits.length > 0) {
         balances[paidByUserId] = (balances[paidByUserId] || 0) + Number(expense.amount);
@@ -411,16 +432,20 @@ export class DatabaseStorage implements IStorage {
       )
     );
 
-    const goalsWithApprovals = await Promise.all(
-      sharedGoals.map(async ({ goal, creatorName }) => {
-        const approvals = await db.select().from(goalApprovals).where(eq(goalApprovals.goalId, goal.id));
-        return {
-          ...goal,
-          creatorName,
-          approvalCount: approvals.length,
-        };
-      })
-    );
+    const goalIds = sharedGoals.map(({ goal }) => goal.id);
+    const allApprovals = goalIds.length > 0
+      ? await db.select().from(goalApprovals).where(inArray(goalApprovals.goalId, goalIds))
+      : [];
+    const approvalCountByGoalId = new Map<number, number>();
+    for (const approval of allApprovals) {
+      approvalCountByGoalId.set(approval.goalId, (approvalCountByGoalId.get(approval.goalId) || 0) + 1);
+    }
+
+    const goalsWithApprovals = sharedGoals.map(({ goal, creatorName }) => ({
+      ...goal,
+      creatorName,
+      approvalCount: approvalCountByGoalId.get(goal.id) || 0,
+    }));
 
     return goalsWithApprovals.sort((a, b) => {
       if (a.visibility === 'family' && b.visibility !== 'family') return -1;
