@@ -1006,7 +1006,7 @@ function CreateExpenseDialog({
                   data-testid="button-payment-family"
                 >
                   <Users className="w-4 h-4" />
-                  <span className="font-medium">{t("familyMoney")}</span>
+                  <span className="font-medium">{familyData?.family?.groupType === "couple" ? "Our Wallet" : t("familyMoney")}</span>
                 </button>
               </div>
             </div>
@@ -1014,13 +1014,15 @@ function CreateExpenseDialog({
             <div className="space-y-2">
               <div className="flex items-center justify-between bg-muted/20 p-4 rounded-xl border border-border/50">
                 <div className="flex items-center gap-2">
-                  <Label htmlFor="public-mode" className="font-medium">Share with Group</Label>
+                  <Label htmlFor="public-mode" className="font-medium">{familyData?.family?.groupType === "couple" ? "Shared with Partner" : "Share with Group"}</Label>
                 </div>
                 <Switch id="public-mode" checked={isPublic || paymentSource === "family"} onCheckedChange={setIsPublic} disabled={paymentSource === "family"} data-testid="switch-share-family" />
               </div>
               {paymentSource !== "family" && (
                 <p className="text-xs text-muted-foreground px-1">
-                  Only expenses you choose to share with your group will appear in the group dashboard.
+                  {familyData?.family?.groupType === "couple"
+                    ? "Only expenses you choose to share will appear on the household dashboard."
+                    : "Only expenses you choose to share with your group will appear in the group dashboard."}
                 </p>
               )}
             </div>

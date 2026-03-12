@@ -526,6 +526,40 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       };
     });
 
+    let coupleData: { contributions?: any; milestones?: any } = {};
+    if (family?.groupType === "couple") {
+      const allTimeShared = await storage.getSharedExpenses(user.familyId);
+      const allTimeTotal = allTimeShared.reduce((sum, e) => sum + Number(e.amount), 0);
+
+      const contributions = members.map(member => {
+        const memberTotal = allTimeShared
+          .filter(e => (e.paidByUserId ?? e.userId) === member.id)
+          .reduce((sum, e) => sum + Number(e.amount), 0);
+        return { id: member.id, name: member.name, total: memberTotal.toFixed(2) };
+      });
+      const sortedContribs = [...contributions].sort((a, b) => Number(b.total) - Number(a.total));
+      const difference = contributions.length === 2
+        ? Math.abs(Number(contributions[0].total) - Number(contributions[1].total)).toFixed(2)
+        : "0.00";
+
+      const hasFood = allTimeShared.some(e => e.category === "Food");
+      const groupAgeDays = family?.createdAt
+        ? Math.floor((Date.now() - new Date(family.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+
+      const milestones = [
+        { key: "first_shared_expense", label: "First shared expense", achieved: allTimeShared.length > 0 },
+        { key: "first_grocery_together", label: "First grocery purchase together", achieved: hasFood },
+        { key: "first_month_tracking", label: "First month tracking together", achieved: groupAgeDays >= 30 },
+        { key: "first_500_shared", label: "First \u20AC500 in shared expenses", achieved: allTimeTotal >= 500 },
+      ];
+
+      coupleData = {
+        contributions: { partners: sortedContribs, difference },
+        milestones,
+      };
+    }
+
     res.json({
       period: {
         type: period,
@@ -562,6 +596,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       recentExpenses,
       memberExpenses: memberExpensesMap,
       balances,
+      ...coupleData,
     });
   });
 

@@ -20,6 +20,7 @@ import { getCurrencySymbol } from "@/lib/currency";
 import { Link } from "wouter";
 import { BalanceBoard } from "@/components/BalanceBoard";
 import { RoommatesDashboardView } from "@/pages/RoommatesDashboard";
+import { CouplesDashboardView } from "@/pages/CouplesDashboard";
 import { useFamily } from "@/hooks/use-data";
 
 const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#a78bfa", "#fb923c", "#4ade80"];
@@ -84,6 +85,11 @@ interface FamilyDashboardData {
     date: string;
     paymentSource: string;
   }[]>;
+  contributions?: {
+    partners: { id: number; name: string; total: string }[];
+    difference: string;
+  };
+  milestones?: { key: string; label: string; achieved: boolean }[];
 }
 
 function getCategoryIcon(category: string) {
@@ -183,6 +189,18 @@ export default function FamilyDashboard() {
     return (
       <RoommatesDashboardView
         summary={data.summary}
+        recentExpenses={data.recentExpenses}
+      />
+    );
+  }
+
+  if (data?.summary.groupType === "couple") {
+    return (
+      <CouplesDashboardView
+        summary={data.summary}
+        categoryBreakdown={data.categoryBreakdown}
+        contributions={data.contributions}
+        milestones={data.milestones}
         recentExpenses={data.recentExpenses}
       />
     );
@@ -600,7 +618,6 @@ export default function FamilyDashboard() {
         )}
       </section>
 
-      {data?.summary.groupType === "couple" && <BalanceBoard />}
 
       {viewingMember && (
         <MemberDetailsDialog
