@@ -1,0 +1,253 @@
+You are working on the Progressive Web App SharedLedger (previously called Family Ledger).
+
+The app now supports a Group system where users can belong to a group with a specific type.
+
+Group types currently include:
+
+family
+
+roommates
+
+couple (future)
+
+Your task is to implement a Shared Dashboard specifically for the Roommates use case.
+
+IMPORTANT:
+
+This dashboard must ONLY appear when group_type = "roommates".
+
+It must NOT modify or break the existing Family dashboard or any other group types.
+
+Existing family users must continue using the current family dashboard without changes.
+
+Goal
+
+Create a Roommates Shared Dashboard where roommates can easily see:
+
+who owes who
+
+recent shared expenses
+
+how to settle debts
+
+The design must remain simple and focused on essential functionality.
+
+1. Dashboard Access
+
+If the user belongs to a group where:
+
+group_type = "roommates"
+
+the Group tab should open the Roommates Shared Dashboard.
+
+If:
+
+group_type = "family"
+
+the app should continue using the existing Family dashboard without modification.
+
+2. Dashboard Header
+
+Display the group information at the top.
+
+Show:
+
+Group Name
+Group Type
+Number of Members
+
+Example:
+
+Apartment 3B
+Roommates • 3 members
+
+Include a quick action button:
+
+Add Expense
+
+This button should open the existing expense creation screen.
+
+Do NOT create a new expense system.
+
+3. Use the Existing Shared Expense Toggle
+
+The current expense creation system already includes a toggle that allows users to mark an expense as shared.
+
+Reuse this functionality.
+
+When a user creates an expense and the toggle is enabled:
+
+Shared Expense = ON
+
+The system should:
+
+link the expense to the user's group
+
+make the expense visible to group members
+
+include the expense in group balance calculations
+
+Shared expenses should automatically include all group members by default, but allow the user to adjust participants if needed.
+
+4. Split Methods
+
+When an expense is marked as shared, support the following split methods:
+
+Default:
+
+equal split
+
+Optional user choices:
+
+custom amount
+percentage split
+
+Example:
+
+Expense: €60 groceries
+Participants: 3 roommates
+
+Equal split:
+
+€20 each
+5. Balance Board (Core Feature)
+
+At the top of the dashboard display the Group Balance Board.
+
+Purpose:
+
+Show how much each roommate owes or is owed.
+
+Balance formula:
+
+balance = total_paid_for_group - total_share_owed
+
+Example:
+
+Maria pays €60 groceries
+Split among 3 roommates
+
+Balances:
+
+Maria +€40
+Alex -€20
+John -€20
+
+Display balances clearly in a list format:
+
+Maria   +€40
+Alex    -€20
+John    -€20
+
+UI rules:
+
+Positive balances appear green
+
+Negative balances appear red
+
+If the logged-in user owes someone money, show a message such as:
+
+You owe Maria €20
+6. Settle Up Feature
+
+Below the balance board add a button:
+
+Settle Up
+
+This allows users to record a payment between roommates.
+
+Settlement form fields:
+
+from_user
+to_user
+amount
+
+Example settlement:
+
+Maria paid Alex €20
+
+After recording a settlement:
+
+balances must update automatically
+
+the settlement should be saved in settlement records
+
+7. Recent Shared Expenses Section
+
+Display a section showing the most recent shared expenses.
+
+Only show expenses where:
+
+shared_expense = true
+
+Limit display to the last 5 expenses.
+
+Each item should show:
+
+expense name
+amount
+who paid
+date
+
+Example:
+
+Groceries – €60
+Paid by Maria
+Today
+
+Example:
+
+Internet – €45
+Paid by Alex
+Yesterday
+
+Users should be able to tap an expense to see full details.
+
+8. Privacy Rules
+
+Roommates must only see shared group data.
+
+The shared dashboard must NOT show:
+
+personal expenses
+personal budgets
+savings goals
+personal reports
+
+Personal financial information must remain private.
+
+9. Keep the Dashboard Minimal
+
+Do NOT add the following features yet:
+
+household analytics
+bill reminders
+expense approval systems
+chore tracking
+group budgets
+
+Only implement the essential components:
+
+balance board
+settle up
+recent shared expenses
+add expense button
+10. Backward Compatibility
+
+Ensure the following:
+
+existing family users continue using their dashboards without changes
+
+roommate features do not affect the family system
+
+shared expenses continue functioning for families as they currently do
+
+Result
+
+The roommates shared dashboard should allow users to instantly understand:
+
+who owes who
+what was recently spent
+how to settle debts
+
+with a clean and simple interface.
