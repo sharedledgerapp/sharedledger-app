@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -20,6 +20,7 @@ import { getCurrencySymbol } from "@/lib/currency";
 import { Link } from "wouter";
 import { BalanceBoard } from "@/components/BalanceBoard";
 import { RoommatesDashboardView } from "@/pages/RoommatesDashboard";
+import { useFamily } from "@/hooks/use-data";
 
 const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#a78bfa", "#fb923c", "#4ade80"];
 
@@ -120,6 +121,8 @@ export default function FamilyDashboard() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const currencySymbol = getCurrencySymbol(user?.currency);
+  const { data: familyData } = useFamily();
+  const isRoommates = familyData?.family?.groupType === "roommates";
   
   const [periodType, setPeriodType] = useState<"month" | "week">("month");
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -134,11 +137,23 @@ export default function FamilyDashboard() {
     ? endOfMonth(currentDate) 
     : endOfWeek(currentDate, { weekStartsOn: 0 });
 
+  const { roommatesStart, roommatesEnd } = useMemo(() => {
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    const start = new Date();
+    start.setDate(start.getDate() - 90);
+    start.setHours(0, 0, 0, 0);
+    return { roommatesStart: start, roommatesEnd: end };
+  }, []);
+
+  const queryStart = isRoommates ? roommatesStart : periodStart;
+  const queryEnd = isRoommates ? roommatesEnd : periodEnd;
+
   const { data, isLoading } = useQuery<FamilyDashboardData>({
-    queryKey: ["/api/family/dashboard", periodType, periodStart.toISOString(), periodEnd.toISOString()],
+    queryKey: ["/api/family/dashboard", isRoommates ? "roommates-90d" : periodType, queryStart.toISOString(), queryEnd.toISOString()],
     queryFn: async () => {
       const res = await fetch(
-        `/api/family/dashboard?period=${periodType}&startDate=${periodStart.toISOString()}&endDate=${periodEnd.toISOString()}`,
+        `/api/family/dashboard?period=${periodType}&startDate=${queryStart.toISOString()}&endDate=${queryEnd.toISOString()}`,
         { credentials: "include" }
       );
       if (!res.ok) throw new Error("Failed to load family dashboard");
