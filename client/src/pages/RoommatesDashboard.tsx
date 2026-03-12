@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Users, Plus, Wallet, Calendar,
+  Users, Plus, Wallet,
   Utensils, Bus, Gamepad2, ShoppingBag,
   Lightbulb, GraduationCap, Heart, Package, Home as HomeIcon
 } from "lucide-react";
@@ -25,11 +25,8 @@ interface RecentExpense {
 
 interface RoommatesDashboardProps {
   summary: {
-    totalSpent: string;
-    expenseCount: number;
     memberCount: number;
     familyName: string;
-    groupType?: string;
   };
   recentExpenses: RecentExpense[];
 }
@@ -72,28 +69,10 @@ export function RoommatesDashboardView({ summary, recentExpenses }: RoommatesDas
         <Link href="/expenses">
           <Button size="sm" className="gap-1.5" data-testid="button-add-expense">
             <Plus className="w-4 h-4" />
-            {t("expense")}
+            + {t("expense")}
           </Button>
         </Link>
       </div>
-
-      <Card className="bg-gradient-to-br from-primary to-primary/80 border-none text-white shadow-xl shadow-primary/20">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-2 text-white/80 mb-1">
-            <Wallet className="w-4 h-4" />
-            <span className="text-sm font-medium">{t("sharedSpending")}</span>
-          </div>
-          <div className="text-4xl font-display font-bold" data-testid="text-roommates-total-spent">
-            {currencySymbol}{summary.totalSpent}
-          </div>
-          <div className="mt-4 flex gap-3 text-xs font-medium text-white/90">
-            <div className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg backdrop-blur-sm">
-              <Calendar className="w-3 h-3" />
-              {summary.expenseCount} {t(summary.expenseCount === 1 ? "expense" : "expensesPlural")}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       <BalanceBoard />
 
