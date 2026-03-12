@@ -202,6 +202,10 @@ export default function FamilyDashboard() {
         contributions={data.contributions}
         milestones={data.milestones}
         recentExpenses={data.recentExpenses}
+        periodType={periodType}
+        setPeriodType={setPeriodType}
+        navigatePeriod={navigatePeriod}
+        periodLabel={periodLabel}
       />
     );
   }

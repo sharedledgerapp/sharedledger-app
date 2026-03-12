@@ -7,7 +7,7 @@ import {
   Heart, Plus, Wallet,
   Utensils, Bus, Gamepad2, ShoppingBag,
   Lightbulb, GraduationCap, Package, Home as HomeIcon,
-  CheckCircle2, Clock, Trophy
+  CheckCircle2, Clock, Trophy, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { format } from "date-fns";
 import { getCurrencySymbol } from "@/lib/currency";
@@ -56,6 +56,10 @@ interface CouplesDashboardProps {
   };
   milestones?: Milestone[];
   recentExpenses: RecentExpense[];
+  periodType: "month" | "week";
+  setPeriodType: (type: "month" | "week") => void;
+  navigatePeriod: (direction: "prev" | "next") => void;
+  periodLabel: string;
 }
 
 const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#a78bfa", "#fb923c", "#4ade80"];
@@ -81,6 +85,10 @@ export function CouplesDashboardView({
   contributions,
   milestones,
   recentExpenses,
+  periodType,
+  setPeriodType,
+  navigatePeriod,
+  periodLabel,
 }: CouplesDashboardProps) {
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -110,11 +118,53 @@ export function CouplesDashboardView({
         </Link>
       </div>
 
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex gap-2">
+          <Button
+            variant={periodType === "month" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setPeriodType("month")}
+            data-testid="button-period-month"
+          >
+            {t("month")}
+          </Button>
+          <Button
+            variant={periodType === "week" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setPeriodType("week")}
+            data-testid="button-period-week"
+          >
+            {t("week")}
+          </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => navigatePeriod("prev")}
+            data-testid="button-prev-period"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <span className="font-medium text-sm min-w-[140px] text-center" data-testid="text-period-label">{periodLabel}</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => navigatePeriod("next")}
+            data-testid="button-next-period"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+
       <Card className="bg-gradient-to-br from-primary to-primary/80 border-none text-white shadow-xl shadow-primary/20">
         <CardContent className="p-6">
           <div className="flex items-center gap-2 text-white/80 mb-1">
             <Wallet className="w-4 h-4" />
-            <span className="text-sm font-medium">Household spending this month</span>
+            <span className="text-sm font-medium">Household spending · {periodLabel}</span>
           </div>
           <div className="text-4xl font-display font-bold" data-testid="text-couple-total-spent">
             {currencySymbol}{summary.totalSpent}
