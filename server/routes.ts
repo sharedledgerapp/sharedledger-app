@@ -512,14 +512,19 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       };
     });
 
-    const recentExpenses = sharedExpenses.slice(0, 10).map(e => ({
-      id: e.id,
-      amount: e.amount,
-      category: e.category,
-      note: e.note,
-      date: e.date,
-      paymentSource: e.paymentSource,
-    }));
+    const recentExpenses = sharedExpenses.slice(0, 10).map(e => {
+      const payerId = e.paidByUserId ?? e.userId;
+      const payer = members.find(m => m.id === payerId);
+      return {
+        id: e.id,
+        amount: e.amount,
+        category: e.category,
+        note: e.note,
+        date: e.date,
+        paymentSource: e.paymentSource,
+        paidByName: payer?.name || "Unknown",
+      };
+    });
 
     res.json({
       period: {

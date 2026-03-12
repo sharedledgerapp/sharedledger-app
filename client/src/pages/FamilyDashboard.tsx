@@ -19,6 +19,7 @@ import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, ad
 import { getCurrencySymbol } from "@/lib/currency";
 import { Link } from "wouter";
 import { BalanceBoard } from "@/components/BalanceBoard";
+import { RoommatesDashboardView } from "@/pages/RoommatesDashboard";
 
 const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#a78bfa", "#fb923c", "#4ade80"];
 
@@ -72,6 +73,7 @@ interface FamilyDashboardData {
     note: string | null;
     date: string;
     paymentSource: string;
+    paidByName?: string;
   }[];
   memberExpenses: Record<number, {
     id: number;
@@ -160,6 +162,15 @@ export default function FamilyDashboard() {
 
   if (isLoading) {
     return <FamilyDashboardSkeleton />;
+  }
+
+  if (data?.summary.groupType === "roommates") {
+    return (
+      <RoommatesDashboardView
+        summary={data.summary}
+        recentExpenses={data.recentExpenses}
+      />
+    );
   }
 
   const categoryExpenses = selectedCategory 
@@ -574,7 +585,7 @@ export default function FamilyDashboard() {
         )}
       </section>
 
-      {(data?.summary.groupType === "roommates" || data?.summary.groupType === "couple") && <BalanceBoard />}
+      {data?.summary.groupType === "couple" && <BalanceBoard />}
 
       {viewingMember && (
         <MemberDetailsDialog

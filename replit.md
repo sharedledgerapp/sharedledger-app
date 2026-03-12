@@ -37,7 +37,7 @@ Preferred communication style: Simple, everyday language.
 - **Settlements**: Record debt settlements between group members to clear balances.
 - **Goals**: Personal and shared savings goals with approval workflows.
 - **Group Management**: Invite-only groups with QR code invite sharing, role management (parent/child for families, member for roommates/couples), dual admin support, leave group option.
-- **Group Dashboard**: Aggregated shared spending view, category breakdown, balance board, recent shared expenses — all privacy-focused (no personal data leakage).
+- **Group Dashboard**: Aggregated shared spending view, category breakdown, balance board, recent shared expenses — all privacy-focused (no personal data leakage). Roommates get a dedicated minimal dashboard (`RoommatesDashboard.tsx`) with balance board, settle up, and recent shared expenses — no period selector, pie charts, or goals.
 - **Reporting**: Personal spending dashboards, spending activity charts (weekly/monthly), customizable recurring expense tracking.
 - **Budgeting**: Per-category budgets with progress tracking, threshold alerts, and notifications.
 - **Communication**: Internal messaging system and shared notes.
@@ -69,7 +69,8 @@ The `shared/` directory contains common code for both frontend and backend, incl
 - `server/routes.ts` — Express route handlers
 - `client/src/contexts/LanguageContext.tsx` — Translation system (EN/FR)
 - `client/src/components/BalanceBoard.tsx` — Balance board and settlement UI
-- `client/src/pages/FamilyDashboard.tsx` — Group Dashboard page
+- `client/src/pages/FamilyDashboard.tsx` — Group Dashboard page (family view, conditionally renders RoommatesDashboardView for roommates)
+- `client/src/pages/RoommatesDashboard.tsx` — Roommates-specific dashboard view (minimal: balance board, recent expenses, add expense)
 - `client/src/pages/FamilyPage.tsx` — Group management page
 - `client/src/pages/ExpensesPage.tsx` — Expense tracking with split UI
 - `client/src/lib/notifications.ts` — Client-side notification scheduling + Web Push subscription
