@@ -312,9 +312,23 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const pushNotificationLog = pgTable("push_notification_log", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  type: text("type").notNull(),
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
+});
+
 export const pushSubscriptionsRelations = relations(pushSubscriptions, ({ one }) => ({
   user: one(users, {
     fields: [pushSubscriptions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const pushNotificationLogRelations = relations(pushNotificationLog, ({ one }) => ({
+  user: one(users, {
+    fields: [pushNotificationLog.userId],
     references: [users.id],
   }),
 }));
@@ -355,6 +369,7 @@ export type RecurringExpense = typeof recurringExpenses.$inferSelect;
 export type Budget = typeof budgets.$inferSelect;
 export type BudgetSetupPrompt = typeof budgetSetupPrompts.$inferSelect;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+export type PushNotificationLog = typeof pushNotificationLog.$inferSelect;
 
 export type InsertFamily = z.infer<typeof insertFamilySchema>;
 export type InsertGroup = InsertFamily;

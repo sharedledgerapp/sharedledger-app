@@ -3,7 +3,7 @@ import { db } from "./db";
 import { 
   users, families, expenses, goals, allowances, expenseSplits, goalApprovals,
   messages, notes, messageReadStatus, recurringExpenses, budgets, budgetSetupPrompts,
-  settlements, pushSubscriptions,
+  settlements, pushSubscriptions, pushNotificationLog,
   type User, type InsertUser, type Family, type InsertFamily,
   type Expense, type InsertExpense, type Goal, type InsertGoal,
   type GoalApproval, type InsertGoalApproval,
@@ -175,6 +175,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(recurringExpenses).where(eq(recurringExpenses.userId, id));
     await db.delete(budgets).where(eq(budgets.userId, id));
     await db.delete(budgetSetupPrompts).where(eq(budgetSetupPrompts.userId, id));
+    await db.delete(pushNotificationLog).where(eq(pushNotificationLog.userId, id));
     
     await db.delete(users).where(eq(users.id, id));
   }
