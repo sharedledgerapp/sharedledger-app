@@ -487,11 +487,20 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     ]);
     const balances = await storage.getGroupBalances(user.familyId, { members });
 
+    const memberExpensesMap: Record<number, { id: number; amount: string | number; category: string; note: string | null; date: string | Date; paymentSource: string }[]> = {};
     const memberSpending = members.map(member => {
       const memberExpenses = sharedExpenses.filter(e => {
         const spenderId = e.paidByUserId != null ? e.paidByUserId : e.userId;
         return spenderId === member.id;
       });
+      memberExpensesMap[member.id] = memberExpenses.map(e => ({
+        id: e.id,
+        amount: e.amount,
+        category: e.category,
+        note: e.note,
+        date: e.date,
+        paymentSource: e.paymentSource,
+      }));
       const memberTotal = memberExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
       return {
         id: member.id,
@@ -546,6 +555,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         deadline: g.deadline,
       })),
       recentExpenses,
+      memberExpenses: memberExpensesMap,
       balances,
     });
   });

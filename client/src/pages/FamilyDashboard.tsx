@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
-import { useExpenses } from "@/hooks/use-data";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -74,6 +73,14 @@ interface FamilyDashboardData {
     date: string;
     paymentSource: string;
   }[];
+  memberExpenses: Record<number, {
+    id: number;
+    amount: string;
+    category: string;
+    note: string | null;
+    date: string;
+    paymentSource: string;
+  }[]>;
 }
 
 function getCategoryIcon(category: string) {
@@ -573,6 +580,8 @@ export default function FamilyDashboard() {
           open={!!viewingMember}
           onOpenChange={(open) => !open && setViewingMember(null)}
           currencySymbol={currencySymbol}
+          expenses={data?.memberExpenses?.[viewingMember.id] ?? []}
+          periodLabel={periodLabel}
         />
       )}
     </div>
@@ -583,17 +592,18 @@ function MemberDetailsDialog({
   member, 
   open, 
   onOpenChange, 
-  currencySymbol 
+  currencySymbol,
+  expenses,
+  periodLabel,
 }: { 
   member: MemberSpending; 
   open: boolean; 
   onOpenChange: (open: boolean) => void;
   currencySymbol: string;
+  expenses: { id: number; amount: string; category: string; note: string | null; date: string; paymentSource: string }[];
+  periodLabel: string;
 }) {
   const { t } = useLanguage();
-  const { data: expenses, isLoading } = useExpenses(member.id);
-
-  const sharedExpenses = (expenses || []).filter((e: any) => e.visibility === "public");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -605,24 +615,20 @@ function MemberDetailsDialog({
             </div>
             <div>
               <DialogTitle className="text-xl">{member.name}</DialogTitle>
-              <p className="text-xs text-muted-foreground">{t("sharedSpending")}</p>
+              <p className="text-xs text-muted-foreground">{t("sharedSpending")} &middot; {periodLabel}</p>
             </div>
           </div>
         </DialogHeader>
 
         <div className="p-6">
-          {isLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
-            </div>
-          ) : sharedExpenses.length === 0 ? (
+          {expenses.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Wallet className="w-10 h-10 mx-auto mb-2 opacity-20" />
               <p>{t("noSharedExpenses")}</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {sharedExpenses.map((expense: any) => (
+              {expenses.map((expense) => (
                 <div key={expense.id} className="flex items-center justify-between p-3 rounded-xl border border-border/50 bg-background shadow-sm">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-secondary/50 flex items-center justify-center">
