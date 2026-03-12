@@ -11,7 +11,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Plus, Wallet, TrendingUp, Star, ArrowUpRight, ArrowDownRight, ChevronRight, Flag, Target, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, PiggyBank, Clock } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format, differenceInDays } from "date-fns";
+import { format, differenceInDays, startOfMonth, endOfMonth } from "date-fns";
 import { sortGoalsByPriority } from "@/lib/goals";
 import { getCurrencySymbol, formatAmount } from "@/lib/currency";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -89,7 +89,14 @@ export default function HomePage() {
   const trend = spendingSummary?.trend || "up";
   const prevMonthTotal = spendingSummary ? Number(spendingSummary.prevMonthTotal) : 0;
 
-  const personalExpenses = expenses?.filter(e => e.paymentSource === "personal") || [];
+  const now = new Date();
+  const monthStart = startOfMonth(now);
+  const monthEnd = endOfMonth(now);
+  const personalExpenses = expenses?.filter(e => {
+    if (e.paymentSource !== "personal") return false;
+    const expDate = new Date(e.date);
+    return expDate >= monthStart && expDate <= monthEnd;
+  }) || [];
   const categoryData = personalExpenses.reduce((acc, curr) => {
     const existing = acc.find(i => i.name === curr.category);
     if (existing) {
