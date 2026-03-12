@@ -48,7 +48,7 @@ export interface IStorage {
   // Settlements
   createSettlement(settlement: InsertSettlement): Promise<Settlement>;
   getSettlements(groupId: number): Promise<(Settlement & { fromUserName: string; toUserName: string })[]>;
-  getGroupBalances(groupId: number): Promise<{ userId: number; userName: string; balance: number }[]>;
+  getGroupBalances(groupId: number, prefetched?: { members?: User[]; sharedExpenses?: Expense[] }): Promise<{ userId: number; userName: string; balance: number }[]>;
 
   // Goals
   createGoal(goal: InsertGoal): Promise<Goal>;
@@ -347,10 +347,10 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getGroupBalances(groupId: number): Promise<{ userId: number; userName: string; balance: number }[]> {
+  async getGroupBalances(groupId: number, prefetched?: { members?: User[]; sharedExpenses?: Expense[] }): Promise<{ userId: number; userName: string; balance: number }[]> {
     const [members, sharedExpenses, groupSettlements] = await Promise.all([
-      this.getFamilyMembers(groupId),
-      db.select()
+      prefetched?.members ?? this.getFamilyMembers(groupId),
+      prefetched?.sharedExpenses ?? db.select()
         .from(expenses)
         .where(and(
           eq(expenses.familyId, groupId),
