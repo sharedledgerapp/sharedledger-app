@@ -32,7 +32,6 @@ const USERS = [
 async function seed() {
   console.log("Seeding test accounts...\n");
 
-  const hashedPassword = await hashPassword(PASSWORD);
   const groupIdMap: Record<string, number> = {};
 
   for (const group of GROUPS) {
@@ -55,9 +54,10 @@ async function seed() {
       console.log(`  [skip] User "${u.username}" already exists (id=${existing.id})`);
     } else {
       const familyId = groupIdMap[u.group];
+      const hashed = await hashPassword(PASSWORD);
       const [created] = await db.insert(users).values({
         username: u.username,
-        password: hashedPassword,
+        password: hashed,
         name: u.name,
         role: u.role,
         familyId,
