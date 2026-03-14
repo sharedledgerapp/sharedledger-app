@@ -31,7 +31,7 @@ export default function ReportsPage() {
   const activityView = periodType === "month" ? "monthly" : "weekly";
   const activityYear = currentDate.getFullYear();
   const activityMonth = currentDate.getMonth() + 1;
-  const activityDate = currentDate.toISOString().split("T")[0];
+  const activityDate = format(currentDate, "yyyy-MM-dd");
 
   const { data: activityData } = useQuery<{
     view: string;
