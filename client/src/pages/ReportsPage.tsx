@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useExpenses } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -7,10 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
-import { ChevronLeft, ChevronRight, Calendar, TrendingDown, ArrowLeft, Users, Wallet, BarChart3, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package } from "lucide-react";
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths, addMonths, subWeeks, addWeeks, isWithinInterval } from "date-fns";
+import { ChevronLeft, ChevronRight, Calendar, TrendingDown, ArrowLeft, Users, Wallet, BarChart3, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, X } from "lucide-react";
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths, addMonths, subWeeks, addWeeks, isWithinInterval, parseISO } from "date-fns";
 import { getCurrencySymbol, formatAmount } from "@/lib/currency";
 import { cn } from "@/lib/utils";
+import type { Expense } from "@shared/schema";
 
 const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#a78bfa", "#fb7185", "#4ade80"];
 
@@ -25,6 +26,7 @@ export default function ReportsPage() {
   const [periodType, setPeriodType] = useState<"month" | "week">("month");
   const [viewMode, setViewMode] = useState<ViewMode>("overview");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedBarIndex, setSelectedBarIndex] = useState<number | null>(null);
   
   const currencySymbol = getCurrencySymbol(user?.currency);
 
@@ -93,6 +95,7 @@ export default function ReportsPage() {
   }, [] as { name: string; value: number; count: number }[]).sort((a, b) => b.value - a.value);
 
   const navigatePeriod = (direction: "prev" | "next") => {
+    setSelectedBarIndex(null);
     if (periodType === "month") {
       setCurrentDate(direction === "prev" ? subMonths(currentDate, 1) : addMonths(currentDate, 1));
     } else {
@@ -132,6 +135,77 @@ export default function ReportsPage() {
     return map[category] || <Package className="w-5 h-5" />;
   };
 
+  const handleBarClick = (data: any, index: number) => {
+    setSelectedBarIndex(prev => prev === index ? null : index);
+  };
+
+  const selectedBarData = selectedBarIndex !== null ? activityData?.data?.[selectedBarIndex] : null;
+
+  const selectedBarExpenses = useMemo(() => {
+    if (!selectedBarData || !personalExpenses.length) return [];
+
+    if (activityView === "weekly" && selectedBarData.date) {
+      const dayStart = new Date(selectedBarData.date + "T00:00:00");
+      const dayEnd = new Date(selectedBarData.date + "T23:59:59.999");
+      return personalExpenses.filter(e => {
+        const d = new Date(e.date);
+        return d >= dayStart && d <= dayEnd;
+      });
+    }
+
+    if (activityView === "monthly" && selectedBarData.weekStart && selectedBarData.weekEnd) {
+      const wkStart = new Date(selectedBarData.weekStart + "T00:00:00");
+      const wkEnd = new Date(selectedBarData.weekEnd + "T23:59:59.999");
+      return personalExpenses.filter(e => {
+        const d = new Date(e.date);
+        return d >= wkStart && d <= wkEnd;
+      });
+    }
+
+    return [];
+  }, [selectedBarData, personalExpenses, activityView]);
+
+  const selectedBarExpensesByDay = useMemo(() => {
+    if (activityView !== "monthly" || !selectedBarExpenses.length) return null;
+    const grouped: Record<string, typeof selectedBarExpenses> = {};
+    for (const exp of selectedBarExpenses) {
+      const dayKey = format(new Date(exp.date), "yyyy-MM-dd");
+      if (!grouped[dayKey]) grouped[dayKey] = [];
+      grouped[dayKey].push(exp);
+    }
+    return Object.entries(grouped)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([dateStr, exps]) => ({
+        label: format(parseISO(dateStr), "EEEE, MMM d"),
+        expenses: exps,
+      }));
+  }, [selectedBarExpenses, activityView]);
+
+  const getSelectedBarLabel = () => {
+    if (!selectedBarData) return "";
+    if (activityView === "weekly" && selectedBarData.date) {
+      return format(parseISO(selectedBarData.date), "EEEE, MMM d");
+    }
+    if (activityView === "monthly" && selectedBarData.weekStart && selectedBarData.weekEnd) {
+      return `${selectedBarData.label} · ${format(parseISO(selectedBarData.weekStart), "MMM d")} – ${format(parseISO(selectedBarData.weekEnd), "MMM d")}`;
+    }
+    return selectedBarData.label;
+  };
+
+  const getCategoryIconSmall = (category: string) => {
+    const map: Record<string, React.ReactNode> = {
+      Food: <Utensils className="w-3.5 h-3.5" />,
+      Transport: <Bus className="w-3.5 h-3.5" />,
+      Entertainment: <Gamepad2 className="w-3.5 h-3.5" />,
+      Shopping: <ShoppingBag className="w-3.5 h-3.5" />,
+      Utilities: <Lightbulb className="w-3.5 h-3.5" />,
+      Education: <GraduationCap className="w-3.5 h-3.5" />,
+      Health: <Heart className="w-3.5 h-3.5" />,
+      Other: <Package className="w-3.5 h-3.5" />
+    };
+    return map[category] || <Package className="w-3.5 h-3.5" />;
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6 pb-20">
@@ -153,7 +227,7 @@ export default function ReportsPage() {
           <div className="flex gap-2">
             <Button
               variant={periodType === "month" ? "default" : "outline"}
-              onClick={() => setPeriodType("month")}
+              onClick={() => { setPeriodType("month"); setSelectedBarIndex(null); }}
               className="flex-1"
               data-testid="button-period-month"
             >
@@ -161,7 +235,7 @@ export default function ReportsPage() {
             </Button>
             <Button
               variant={periodType === "week" ? "default" : "outline"}
-              onClick={() => setPeriodType("week")}
+              onClick={() => { setPeriodType("week"); setSelectedBarIndex(null); }}
               className="flex-1"
               data-testid="button-period-week"
             >
@@ -312,9 +386,19 @@ export default function ReportsPage() {
                       />
                       <Bar
                         dataKey="total"
-                        fill="hsl(var(--primary))"
                         radius={[4, 4, 0, 0]}
-                      />
+                        cursor="pointer"
+                        onClick={handleBarClick}
+                      >
+                        {activityData.data.map((_, index) => (
+                          <Cell
+                            key={`bar-${index}`}
+                            fill={selectedBarIndex === index ? "hsl(var(--primary) / 0.6)" : "hsl(var(--primary))"}
+                            stroke={selectedBarIndex === index ? "hsl(var(--primary))" : "none"}
+                            strokeWidth={selectedBarIndex === index ? 2 : 0}
+                          />
+                        ))}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -324,10 +408,79 @@ export default function ReportsPage() {
                 </div>
               )}
 
-              {activityData?.periodLabel && (
+              {activityData?.periodLabel && !selectedBarData && (
                 <p className="text-xs text-muted-foreground text-center mt-2" data-testid="text-activity-period">
                   {activityData.periodLabel}
                 </p>
+              )}
+
+              {!selectedBarData && activityData?.data && activityData.data.length > 0 && (
+                <p className="text-xs text-muted-foreground text-center mt-1" data-testid="text-bar-hint">
+                  Tap a bar to see its expenses
+                </p>
+              )}
+
+              {selectedBarData && (
+                <div className="mt-3 overflow-hidden transition-all" data-testid="panel-bar-detail">
+                  <div className="border-t pt-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="text-sm font-semibold" data-testid="text-bar-detail-label">
+                          {getSelectedBarLabel()}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {currencySymbol}{formatAmount(selectedBarData.total)} · {selectedBarExpenses.length} {selectedBarExpenses.length === 1 ? t("expense") : t("expensesPlural")}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setSelectedBarIndex(null)}
+                        className="p-1 rounded-full hover:bg-muted/50 transition-colors"
+                        data-testid="button-dismiss-bar-detail"
+                      >
+                        <X className="w-4 h-4 text-muted-foreground" />
+                      </button>
+                    </div>
+
+                    {selectedBarExpenses.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-3 text-center">
+                        Nothing spent here
+                      </p>
+                    ) : activityView === "monthly" && selectedBarExpensesByDay ? (
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {selectedBarExpensesByDay.map(group => (
+                          <div key={group.label}>
+                            <p className="text-xs font-medium text-muted-foreground mb-1">{group.label}</p>
+                            {group.expenses.map(exp => (
+                              <div key={exp.id} className="flex items-center justify-between py-1.5 pl-1" data-testid={`row-bar-expense-${exp.id}`}>
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <span className="text-primary shrink-0">{getCategoryIconSmall(exp.category)}</span>
+                                  <span className="text-sm truncate">{exp.note || exp.category}</span>
+                                </div>
+                                <span className="text-sm font-medium ml-2 shrink-0">
+                                  {currencySymbol}{formatAmount(Number(exp.amount))}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-0.5 max-h-48 overflow-y-auto">
+                        {selectedBarExpenses.map(exp => (
+                          <div key={exp.id} className="flex items-center justify-between py-1.5" data-testid={`row-bar-expense-${exp.id}`}>
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <span className="text-primary shrink-0">{getCategoryIconSmall(exp.category)}</span>
+                              <span className="text-sm truncate">{exp.note || exp.category}</span>
+                            </div>
+                            <span className="text-sm font-medium ml-2 shrink-0">
+                              {currencySymbol}{formatAmount(Number(exp.amount))}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
