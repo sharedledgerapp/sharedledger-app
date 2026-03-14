@@ -339,15 +339,29 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.get("/api/spending/activity", requireAuth, async (req, res) => {
     const user = req.user as any;
-    const { view = "weekly" } = req.query as { view?: "weekly" | "monthly" };
-    const now = new Date();
+    const { view = "weekly", year, month, date } = req.query as {
+      view?: "weekly" | "monthly";
+      year?: string;
+      month?: string;
+      date?: string;
+    };
+
+    let anchor: Date;
+    if (date) {
+      anchor = new Date(date);
+      if (isNaN(anchor.getTime())) anchor = new Date();
+    } else if (year && month) {
+      anchor = new Date(Number(year), Number(month) - 1, 15);
+    } else {
+      anchor = new Date();
+    }
 
     const allExpenses = await storage.getExpenses(user.id);
     const personalExpenses = allExpenses.filter(e => e.paymentSource === "personal");
 
     if (view === "weekly") {
-      const dayOfWeek = now.getDay();
-      const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
+      const dayOfWeek = anchor.getDay();
+      const weekStart = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() - dayOfWeek);
       weekStart.setHours(0, 0, 0, 0);
 
       const days = [];
@@ -377,8 +391,8 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         data: days,
       });
     } else {
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      const monthStart = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+      const monthEnd = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0, 23, 59, 59, 999);
 
       const weeks: { label: string; weekStart: string; weekEnd: string; total: number }[] = [];
       let weekNum = 1;
@@ -420,7 +434,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
       res.json({
         view: "monthly",
-        periodLabel: `${now.toLocaleString("en", { month: "long" })} ${now.getFullYear()}`,
+        periodLabel: `${anchor.toLocaleString("en", { month: "long" })} ${anchor.getFullYear()}`,
         data: weeks,
       });
     }

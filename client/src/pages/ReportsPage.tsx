@@ -28,16 +28,26 @@ export default function ReportsPage() {
   
   const currencySymbol = getCurrencySymbol(user?.currency);
 
-  const [activityView, setActivityView] = useState<"weekly" | "monthly">("weekly");
+  const activityView = periodType === "month" ? "monthly" : "weekly";
+  const activityYear = currentDate.getFullYear();
+  const activityMonth = currentDate.getMonth() + 1;
+  const activityDate = currentDate.toISOString().split("T")[0];
 
   const { data: activityData } = useQuery<{
     view: string;
     periodLabel: string;
     data: { label: string; total: number; date?: string; weekStart?: string; weekEnd?: string }[];
   }>({
-    queryKey: ["/api/spending/activity", activityView],
+    queryKey: ["/api/spending/activity", activityView, activityYear, activityMonth, activityDate],
     queryFn: async () => {
-      const res = await fetch(`/api/spending/activity?view=${activityView}`, { credentials: "include" });
+      const params = new URLSearchParams({ view: activityView });
+      if (periodType === "week") {
+        params.set("date", activityDate);
+      } else {
+        params.set("year", String(activityYear));
+        params.set("month", String(activityMonth));
+      }
+      const res = await fetch(`/api/spending/activity?${params}`, { credentials: "include" });
       return res.json();
     },
   });
@@ -272,27 +282,6 @@ export default function ReportsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-2 mb-4">
-                <Button
-                  variant={activityView === "weekly" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setActivityView("weekly")}
-                  className="flex-1"
-                  data-testid="button-activity-weekly"
-                >
-                  {t("weeklyView")}
-                </Button>
-                <Button
-                  variant={activityView === "monthly" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setActivityView("monthly")}
-                  className="flex-1"
-                  data-testid="button-activity-monthly"
-                >
-                  {t("monthlyView")}
-                </Button>
-              </div>
-
               {activityData?.data && activityData.data.length > 0 ? (
                 <div className="h-52" data-testid="chart-spending-activity">
                   <ResponsiveContainer width="100%" height="100%">
