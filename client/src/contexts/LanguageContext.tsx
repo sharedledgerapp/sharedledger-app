@@ -72,7 +72,8 @@ type TranslationKey =
   | "personalSpending" | "today" | "vsLastMonth"
   | "spendingActivity" | "weeklyView" | "monthlyView"
   | "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat"
-  | "searchExpenses" | "noSearchResults";
+  | "searchExpenses" | "noSearchResults"
+  | "tapBarHint" | "nothingSpentHere";
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -357,6 +358,8 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     sat: "Sat",
     searchExpenses: "Search expenses...",
     noSearchResults: "No expenses matching",
+    tapBarHint: "Tap a bar to see its expenses",
+    nothingSpentHere: "Nothing spent here",
   },
   fr: {
     home: "Accueil",
@@ -640,6 +643,8 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     sat: "Sam",
     searchExpenses: "Rechercher des dépenses...",
     noSearchResults: "Aucune dépense correspondant à",
+    tapBarHint: "Appuyez sur une barre pour voir ses dépenses",
+    nothingSpentHere: "Rien dépensé ici",
   },
 };
 

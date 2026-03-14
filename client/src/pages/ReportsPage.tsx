@@ -416,7 +416,7 @@ export default function ReportsPage() {
 
               {!selectedBarData && activityData?.data && activityData.data.length > 0 && (
                 <p className="text-xs text-muted-foreground text-center mt-1" data-testid="text-bar-hint">
-                  Tap a bar to see its expenses
+                  {t("tapBarHint")}
                 </p>
               )}
 
@@ -450,7 +450,7 @@ export default function ReportsPage() {
 
                   {selectedBarExpenses.length === 0 && selectedBarData ? (
                     <p className="text-sm text-muted-foreground py-3 text-center">
-                      Nothing spent here
+                      {t("nothingSpentHere")}
                     </p>
                   ) : activityView === "monthly" && selectedBarExpensesByDay ? (
                     <div className="space-y-2 max-h-48 overflow-y-auto">
