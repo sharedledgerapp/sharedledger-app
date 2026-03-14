@@ -135,7 +135,7 @@ export default function ReportsPage() {
     return map[category] || <Package className="w-5 h-5" />;
   };
 
-  const handleBarClick = (data: any, index: number) => {
+  const handleBarClick = (_data: { label: string; total: number; date?: string; weekStart?: string; weekEnd?: string }, index: number) => {
     setSelectedBarIndex(prev => prev === index ? null : index);
   };
 
@@ -420,68 +420,74 @@ export default function ReportsPage() {
                 </p>
               )}
 
-              {selectedBarData && (
-                <div className="mt-3 overflow-hidden transition-all" data-testid="panel-bar-detail">
-                  <div className="border-t pt-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <p className="text-sm font-semibold" data-testid="text-bar-detail-label">
-                          {getSelectedBarLabel()}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {currencySymbol}{formatAmount(selectedBarData.total)} · {selectedBarExpenses.length} {selectedBarExpenses.length === 1 ? t("expense") : t("expensesPlural")}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setSelectedBarIndex(null)}
-                        className="p-1 rounded-full hover:bg-muted/50 transition-colors"
-                        data-testid="button-dismiss-bar-detail"
-                      >
-                        <X className="w-4 h-4 text-muted-foreground" />
-                      </button>
-                    </div>
-
-                    {selectedBarExpenses.length === 0 ? (
-                      <p className="text-sm text-muted-foreground py-3 text-center">
-                        Nothing spent here
+              <div
+                className={cn(
+                  "overflow-hidden transition-[max-height,opacity] duration-300 ease-in-out",
+                  selectedBarData ? "max-h-[400px] opacity-100 mt-3" : "max-h-0 opacity-0"
+                )}
+                data-testid="panel-bar-detail"
+              >
+                <div className="border-t pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="text-sm font-semibold" data-testid="text-bar-detail-label">
+                        {getSelectedBarLabel()}
                       </p>
-                    ) : activityView === "monthly" && selectedBarExpensesByDay ? (
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {selectedBarExpensesByDay.map(group => (
-                          <div key={group.label}>
-                            <p className="text-xs font-medium text-muted-foreground mb-1">{group.label}</p>
-                            {group.expenses.map(exp => (
-                              <div key={exp.id} className="flex items-center justify-between py-1.5 pl-1" data-testid={`row-bar-expense-${exp.id}`}>
-                                <div className="flex items-center gap-2 min-w-0 flex-1">
-                                  <span className="text-primary shrink-0">{getCategoryIconSmall(exp.category)}</span>
-                                  <span className="text-sm truncate">{exp.note || exp.category}</span>
-                                </div>
-                                <span className="text-sm font-medium ml-2 shrink-0">
-                                  {currencySymbol}{formatAmount(Number(exp.amount))}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="space-y-0.5 max-h-48 overflow-y-auto">
-                        {selectedBarExpenses.map(exp => (
-                          <div key={exp.id} className="flex items-center justify-between py-1.5" data-testid={`row-bar-expense-${exp.id}`}>
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                              <span className="text-primary shrink-0">{getCategoryIconSmall(exp.category)}</span>
-                              <span className="text-sm truncate">{exp.note || exp.category}</span>
-                            </div>
-                            <span className="text-sm font-medium ml-2 shrink-0">
-                              {currencySymbol}{formatAmount(Number(exp.amount))}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                      <p className="text-xs text-muted-foreground">
+                        {selectedBarData && (
+                          <>{currencySymbol}{formatAmount(selectedBarData.total)} · {selectedBarExpenses.length} {selectedBarExpenses.length === 1 ? t("expense") : t("expensesPlural")}</>
+                        )}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setSelectedBarIndex(null)}
+                      className="p-1 rounded-full hover:bg-muted/50 transition-colors"
+                      data-testid="button-dismiss-bar-detail"
+                    >
+                      <X className="w-4 h-4 text-muted-foreground" />
+                    </button>
                   </div>
+
+                  {selectedBarExpenses.length === 0 && selectedBarData ? (
+                    <p className="text-sm text-muted-foreground py-3 text-center">
+                      Nothing spent here
+                    </p>
+                  ) : activityView === "monthly" && selectedBarExpensesByDay ? (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {selectedBarExpensesByDay.map(group => (
+                        <div key={group.label}>
+                          <p className="text-xs font-medium text-muted-foreground mb-1">{group.label}</p>
+                          {group.expenses.map(exp => (
+                            <div key={exp.id} className="flex items-center justify-between py-1.5 pl-1" data-testid={`row-bar-expense-${exp.id}`}>
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <span className="text-primary shrink-0">{getCategoryIconSmall(exp.category)}</span>
+                                <span className="text-sm truncate">{exp.note || exp.category}</span>
+                              </div>
+                              <span className="text-sm font-medium ml-2 shrink-0">
+                                {currencySymbol}{formatAmount(Number(exp.amount))}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  ) : selectedBarExpenses.length > 0 ? (
+                    <div className="space-y-0.5 max-h-48 overflow-y-auto">
+                      {selectedBarExpenses.map(exp => (
+                        <div key={exp.id} className="flex items-center justify-between py-1.5" data-testid={`row-bar-expense-${exp.id}`}>
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="text-primary shrink-0">{getCategoryIconSmall(exp.category)}</span>
+                            <span className="text-sm truncate">{exp.note || exp.category}</span>
+                          </div>
+                          <span className="text-sm font-medium ml-2 shrink-0">
+                            {currencySymbol}{formatAmount(Number(exp.amount))}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-              )}
+              </div>
             </CardContent>
           </Card>
         </>
