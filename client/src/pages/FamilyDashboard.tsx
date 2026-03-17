@@ -165,8 +165,8 @@ export default function FamilyDashboard() {
       if (!res.ok) throw new Error("Failed to load family dashboard");
       return res.json();
     },
-    staleTime: 30_000,
-    refetchInterval: 60_000,
+    staleTime: 5_000,
+    refetchInterval: 10_000,
   });
 
   const navigatePeriod = (direction: "prev" | "next") => {

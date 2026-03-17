@@ -49,6 +49,7 @@ export function BalanceBoard() {
 
   const { data: balances, isLoading } = useQuery<Balance[]>({
     queryKey: ["/api/group/balances"],
+    refetchInterval: 10_000,
   });
 
   const { data: settlements } = useQuery<Settlement[]>({
