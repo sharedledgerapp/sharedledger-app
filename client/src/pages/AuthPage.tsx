@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useLocation } from "wouter";
 import { Loader2, Users, ArrowRight, Eye, EyeOff, Camera } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { SiGoogle, SiApple } from "react-icons/si";
+import { SiGoogle } from "react-icons/si";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@shared/routes";
@@ -30,14 +30,6 @@ function OAuthButtons() {
       >
         <SiGoogle className="w-5 h-5" style={{ color: "#4285F4" }} />
         Continue with Google
-      </a>
-      <a
-        href="/api/auth/apple"
-        className="flex items-center justify-center gap-3 w-full h-12 rounded-xl border border-border bg-black hover:bg-gray-900 text-white font-medium transition-all shadow-sm"
-        data-testid="button-apple-signin"
-      >
-        <SiApple className="w-5 h-5" />
-        Continue with Apple
       </a>
       <div className="relative my-4">
         <div className="absolute inset-0 flex items-center">
