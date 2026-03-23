@@ -40,7 +40,7 @@ export function TutorialOverlay() {
     return null;
   }, []);
 
-  const measureTarget = useCallback(() => {
+  const measureTarget = useCallback((retries = 5) => {
     if (!step?.target) {
       setSpotlightRect(null);
       setReady(true);
@@ -48,6 +48,10 @@ export function TutorialOverlay() {
     }
     const el = findVisibleTarget(step.target);
     if (!el) {
+      if (retries > 0) {
+        setTimeout(() => measureTarget(retries - 1), 200);
+        return;
+      }
       setSpotlightRect(null);
       setReady(true);
       return;
@@ -287,14 +291,19 @@ function TutorialCard({
       <p className="text-xs text-muted-foreground leading-relaxed mb-3">{step.description}</p>
 
       {showNavigationHint && targetPage && (
-        <button
-          onClick={onNavigate}
-          className="w-full mb-3 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
-          data-testid="button-tutorial-navigate"
-        >
-          <Navigation className="w-3.5 h-3.5" />
-          Go to {pageNames[targetPage] || targetPage}
-        </button>
+        <div className="mb-3 rounded-xl bg-primary/8 border border-primary/15 p-2.5">
+          <p className="text-[11px] text-muted-foreground mb-2">
+            Navigate to {pageNames[targetPage] || targetPage} to see this feature.
+          </p>
+          <button
+            onClick={onNavigate}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
+            data-testid="button-tutorial-navigate"
+          >
+            <Navigation className="w-3.5 h-3.5" />
+            Go to {pageNames[targetPage] || targetPage}
+          </button>
+        </div>
       )}
 
       <div className="flex items-center gap-2">
