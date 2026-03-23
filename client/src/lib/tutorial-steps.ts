@@ -3,7 +3,7 @@ export interface TutorialStep {
   title: string;
   description: string;
   target?: string;
-  placement?: "top" | "bottom" | "left" | "right" | "center";
+  placement?: "top" | "bottom" | "center";
   page?: string;
 }
 
