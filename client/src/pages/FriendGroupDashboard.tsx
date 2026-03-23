@@ -365,7 +365,7 @@ export default function FriendGroupDashboard() {
           </Card>
         ) : (
           <div className="space-y-3">
-            {expenses.map((expense) => {
+            {[...expenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((expense) => {
               const participants = expense.participantNames || [];
               return (
                 <Card
