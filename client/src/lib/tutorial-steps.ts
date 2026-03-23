@@ -97,7 +97,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "settings-link",
     title: "Settings",
-    description: "Settings let you customise your currency, language, expense categories, and notification preferences. You can also reach out via Contact Support for bugs or suggestions, and replay this tour at any time.",
+    description: "Settings let you customise your currency, language, expense categories, and notification preferences. You can also reach out to us via Contact Support for bugs or suggestions, and replay this tour at any time.",
     target: "settings-link",
     placement: "bottom",
     page: "/settings",
