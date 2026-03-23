@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -37,6 +38,15 @@ export function CreateFriendGroupDialog({ open, onOpenChange }: Props) {
     resolver: zodResolver(createSchema),
     defaultValues: { name: "", currency: (user as { currency?: string })?.currency || "EUR" },
   });
+
+  useEffect(() => {
+    if (open && user) {
+      const userCurrency = (user as { currency?: string }).currency;
+      if (userCurrency) {
+        createForm.setValue("currency", userCurrency);
+      }
+    }
+  }, [open, user]);
 
   const joinForm = useForm<z.infer<typeof joinSchema>>({
     resolver: zodResolver(joinSchema),
