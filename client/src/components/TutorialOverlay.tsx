@@ -27,8 +27,9 @@ export function TutorialOverlay() {
   const MARGIN = 12;
 
   const findVisibleTarget = useCallback((target: string): Element | null => {
-    const elements = document.querySelectorAll(`[data-tutorial="${target}"]`);
-    for (const el of elements) {
+    const elements = Array.from(document.querySelectorAll(`[data-tutorial="${target}"]`));
+    for (let i = 0; i < elements.length; i++) {
+      const el = elements[i];
       const rect = el.getBoundingClientRect();
       if (rect.width > 0 && rect.height > 0) {
         const style = window.getComputedStyle(el);
