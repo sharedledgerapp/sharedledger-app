@@ -1356,6 +1356,355 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     res.json({ message: "Unsubscribed from push notifications" });
   });
 
+  // === FRIEND GROUP ROUTES ===
+
+  // POST /api/friend-groups — Create a new friend group
+  app.post("/api/friend-groups", requireAuth, async (req, res, next) => {
+    try {
+      const user = req.user as any;
+      const schema = z.object({
+        name: z.string().min(1).max(100),
+        currency: z.string().optional().default("EUR"),
+      });
+      const { name, currency } = schema.parse(req.body);
+      const group = await storage.createFriendGroup({ name, currency, creatorId: user.id });
+      res.status(201).json(group);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      next(err);
+    }
+  });
+
+  // GET /api/friend-groups — List all friend groups for the current user
+  app.get("/api/friend-groups", requireAuth, async (req, res, next) => {
+    try {
+      const user = req.user as any;
+      const groups = await storage.getFriendGroupsForUser(user.id);
+      res.json(groups);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // POST /api/friend-groups/join — Join a group by invite code
+  app.post("/api/friend-groups/join", requireAuth, async (req, res, next) => {
+    try {
+      const user = req.user as any;
+      const schema = z.object({ code: z.string().min(1) });
+      const { code } = schema.parse(req.body);
+      const group = await storage.joinFriendGroup(code.toUpperCase().trim(), user.id);
+      res.json(group);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      if (err instanceof Error && (err.message === "Invalid invite code" || err.message === "Already a member of this group" || err.message === "This group is archived")) {
+        return res.status(400).json({ message: err.message });
+      }
+      next(err);
+    }
+  });
+
+  // GET /api/friend-groups/:id — Get a group with members and net balances
+  app.get("/api/friend-groups/:id", requireAuth, async (req, res, next) => {
+    try {
+      const user = req.user as any;
+      const groupId = parseInt(req.params.id);
+      if (isNaN(groupId)) return res.status(400).json({ message: "Invalid group ID" });
+
+      const isMember = await storage.isFriendGroupMember(groupId, user.id);
+      if (!isMember) return res.status(403).json({ message: "Forbidden" });
+
+      const group = await storage.getFriendGroup(groupId);
+      if (!group) return res.status(404).json({ message: "Group not found" });
+
+      const balances = await storage.getFriendGroupNetBalances(groupId);
+      res.json({ ...group, balances });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // POST /api/friend-groups/:id/leave — Leave a group
+  app.post("/api/friend-groups/:id/leave", requireAuth, async (req, res, next) => {
+    try {
+      const user = req.user as any;
+      const groupId = parseInt(req.params.id);
+      if (isNaN(groupId)) return res.status(400).json({ message: "Invalid group ID" });
+
+      const isMember = await storage.isFriendGroupMember(groupId, user.id);
+      if (!isMember) return res.status(403).json({ message: "Forbidden" });
+
+      await storage.leaveFriendGroup(groupId, user.id);
+      res.json({ message: "You have left the group" });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // PATCH /api/friend-groups/:id/archive — Archive a group (admin only)
+  app.patch("/api/friend-groups/:id/archive", requireAuth, async (req, res, next) => {
+    try {
+      const user = req.user as any;
+      const groupId = parseInt(req.params.id);
+      if (isNaN(groupId)) return res.status(400).json({ message: "Invalid group ID" });
+
+      const members = await storage.getFriendGroupMembers(groupId);
+      const self = members.find(m => m.id === user.id);
+      if (!self) return res.status(403).json({ message: "Forbidden" });
+      if (self.memberRole !== "admin") return res.status(403).json({ message: "Only group admins can archive the group" });
+
+      const group = await storage.archiveFriendGroup(groupId);
+      res.json(group);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // GET /api/friend-groups/:id/balances — Net simplified balances
+  app.get("/api/friend-groups/:id/balances", requireAuth, async (req, res, next) => {
+    try {
+      const user = req.user as any;
+      const groupId = parseInt(req.params.id);
+      if (isNaN(groupId)) return res.status(400).json({ message: "Invalid group ID" });
+
+      const isMember = await storage.isFriendGroupMember(groupId, user.id);
+      if (!isMember) return res.status(403).json({ message: "Forbidden" });
+
+      const balances = await storage.getFriendGroupNetBalances(groupId);
+      res.json(balances);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // GET /api/friend-groups/:id/expenses — Expense feed
+  app.get("/api/friend-groups/:id/expenses", requireAuth, async (req, res, next) => {
+    try {
+      const user = req.user as any;
+      const groupId = parseInt(req.params.id);
+      if (isNaN(groupId)) return res.status(400).json({ message: "Invalid group ID" });
+
+      const isMember = await storage.isFriendGroupMember(groupId, user.id);
+      if (!isMember) return res.status(403).json({ message: "Forbidden" });
+
+      const members = await storage.getFriendGroupMembers(groupId);
+      const memberMap = new Map(members.map(m => [m.id, m.name]));
+
+      const groupExpenses = await storage.getExpenses(undefined, groupId);
+      const publicExpenses = groupExpenses.filter(e => e.visibility === "public");
+
+      const enriched = publicExpenses.map(e => ({
+        ...e,
+        paidByName: memberMap.get(e.paidByUserId || e.userId) || "Unknown",
+        creatorName: memberMap.get(e.userId) || "Unknown",
+        participantNames: e.splits.map(s => ({ userId: s.userId, name: memberMap.get(s.userId) || "Unknown", amount: s.amount })),
+      }));
+
+      res.json(enriched);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // POST /api/friend-groups/:id/expenses — Add a shared expense
+  app.post("/api/friend-groups/:id/expenses", requireAuth, async (req, res, next) => {
+    try {
+      const user = req.user as any;
+      const groupId = parseInt(req.params.id);
+      if (isNaN(groupId)) return res.status(400).json({ message: "Invalid group ID" });
+
+      const isMember = await storage.isFriendGroupMember(groupId, user.id);
+      if (!isMember) return res.status(403).json({ message: "Forbidden" });
+
+      const group = await storage.getFriendGroup(groupId);
+      if (!group) return res.status(404).json({ message: "Group not found" });
+      if (group.archived) return res.status(400).json({ message: "This group is archived" });
+
+      const schema = z.object({
+        amount: z.string().or(z.number()).transform(v => String(v)),
+        description: z.string().min(1).max(200),
+        paidByUserId: z.number(),
+        participants: z.array(z.number()).min(1),
+        splitType: z.enum(["equal", "custom"]).default("equal"),
+        customSplits: z.array(z.object({ userId: z.number(), amount: z.string().or(z.number()).transform(v => String(v)) })).optional(),
+      });
+
+      const data = schema.parse(req.body);
+      const totalAmount = parseFloat(data.amount);
+
+      let splits: { userId: number; amount: string }[];
+      if (data.splitType === "equal") {
+        const perPerson = totalAmount / data.participants.length;
+        splits = data.participants.map(uid => ({ userId: uid, amount: perPerson.toFixed(2) }));
+      } else {
+        if (!data.customSplits || data.customSplits.length === 0) {
+          return res.status(400).json({ message: "Custom splits are required when splitType is custom" });
+        }
+        const totalSplit = data.customSplits.reduce((sum, s) => sum + parseFloat(String(s.amount)), 0);
+        if (Math.abs(totalSplit - totalAmount) > 0.01) {
+          return res.status(400).json({ message: "Custom split amounts must add up to the total expense amount" });
+        }
+        splits = data.customSplits.map(s => ({ userId: s.userId, amount: String(s.amount) }));
+      }
+
+      const expense = await storage.createExpense({
+        userId: user.id,
+        familyId: groupId,
+        amount: data.amount,
+        category: "Other",
+        note: data.description,
+        visibility: "public",
+        splitType: data.splitType === "equal" ? "equal" : "exact",
+        paymentSource: "personal",
+        paidByUserId: data.paidByUserId,
+        date: new Date(),
+      }, splits.map(s => ({ userId: s.userId, amount: s.amount, isPaid: false })));
+
+      res.status(201).json(expense);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      next(err);
+    }
+  });
+
+  // GET /api/friend-groups/:id/expenses/:expenseId — Get a single expense with splits + member names
+  app.get("/api/friend-groups/:id/expenses/:expenseId", requireAuth, async (req, res, next) => {
+    try {
+      const user = req.user as any;
+      const groupId = parseInt(req.params.id);
+      const expenseId = parseInt(req.params.expenseId);
+      if (isNaN(groupId) || isNaN(expenseId)) return res.status(400).json({ message: "Invalid ID" });
+
+      const isMember = await storage.isFriendGroupMember(groupId, user.id);
+      if (!isMember) return res.status(403).json({ message: "Forbidden" });
+
+      const expense = await storage.getExpense(expenseId);
+      if (!expense || expense.familyId !== groupId) return res.status(404).json({ message: "Expense not found" });
+
+      const members = await storage.getFriendGroupMembers(groupId);
+      const memberMap = new Map(members.map(m => [m.id, m.name]));
+
+      res.json({
+        ...expense,
+        paidByName: memberMap.get(expense.paidByUserId || expense.userId) || "Unknown",
+        participantNames: expense.splits.map(s => ({ userId: s.userId, name: memberMap.get(s.userId) || "Unknown", amount: s.amount })),
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // PATCH /api/friend-groups/:id/expenses/:expenseId — Edit an expense
+  app.patch("/api/friend-groups/:id/expenses/:expenseId", requireAuth, async (req, res, next) => {
+    try {
+      const user = req.user as any;
+      const groupId = parseInt(req.params.id);
+      const expenseId = parseInt(req.params.expenseId);
+      if (isNaN(groupId) || isNaN(expenseId)) return res.status(400).json({ message: "Invalid ID" });
+
+      const isMember = await storage.isFriendGroupMember(groupId, user.id);
+      if (!isMember) return res.status(403).json({ message: "Forbidden" });
+
+      const expense = await storage.getExpense(expenseId);
+      if (!expense || expense.familyId !== groupId) return res.status(404).json({ message: "Expense not found" });
+
+      const group = await storage.getFriendGroup(groupId);
+      if (group?.archived) return res.status(400).json({ message: "This group is archived" });
+
+      const schema = z.object({
+        amount: z.string().or(z.number()).transform(v => String(v)).optional(),
+        description: z.string().min(1).max(200).optional(),
+        paidByUserId: z.number().optional(),
+        participants: z.array(z.number()).min(1).optional(),
+        splitType: z.enum(["equal", "custom"]).optional(),
+        customSplits: z.array(z.object({ userId: z.number(), amount: z.string().or(z.number()).transform(v => String(v)) })).optional(),
+      });
+
+      const data = schema.parse(req.body);
+      const updates: any = {};
+      if (data.description !== undefined) updates.note = data.description;
+      if (data.amount !== undefined) updates.amount = data.amount;
+      if (data.paidByUserId !== undefined) updates.paidByUserId = data.paidByUserId;
+      if (data.splitType !== undefined) updates.splitType = data.splitType === "equal" ? "equal" : "exact";
+
+      let newSplits: { userId: number; amount: string; isPaid: boolean }[] | undefined;
+      if (data.participants || data.customSplits) {
+        const totalAmount = parseFloat(data.amount || String(expense.amount));
+        if (data.splitType === "equal" || (!data.splitType && expense.splitType === "equal")) {
+          const participants = data.participants || expense.splits.map(s => s.userId);
+          const perPerson = totalAmount / participants.length;
+          newSplits = participants.map(uid => ({ userId: uid, amount: perPerson.toFixed(2), isPaid: false }));
+        } else if (data.customSplits) {
+          const totalSplit = data.customSplits.reduce((sum, s) => sum + parseFloat(String(s.amount)), 0);
+          if (Math.abs(totalSplit - totalAmount) > 0.01) {
+            return res.status(400).json({ message: "Custom split amounts must add up to the total expense amount" });
+          }
+          newSplits = data.customSplits.map(s => ({ userId: s.userId, amount: String(s.amount), isPaid: false }));
+        }
+      }
+
+      const updated = await storage.updateExpense(expenseId, updates, newSplits);
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      next(err);
+    }
+  });
+
+  // DELETE /api/friend-groups/:id/expenses/:expenseId — Delete an expense
+  app.delete("/api/friend-groups/:id/expenses/:expenseId", requireAuth, async (req, res, next) => {
+    try {
+      const user = req.user as any;
+      const groupId = parseInt(req.params.id);
+      const expenseId = parseInt(req.params.expenseId);
+      if (isNaN(groupId) || isNaN(expenseId)) return res.status(400).json({ message: "Invalid ID" });
+
+      const isMember = await storage.isFriendGroupMember(groupId, user.id);
+      if (!isMember) return res.status(403).json({ message: "Forbidden" });
+
+      const expense = await storage.getExpense(expenseId);
+      if (!expense || expense.familyId !== groupId) return res.status(404).json({ message: "Expense not found" });
+
+      await storage.deleteExpense(expenseId);
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // POST /api/friend-groups/:id/settle — Record a settlement
+  app.post("/api/friend-groups/:id/settle", requireAuth, async (req, res, next) => {
+    try {
+      const user = req.user as any;
+      const groupId = parseInt(req.params.id);
+      if (isNaN(groupId)) return res.status(400).json({ message: "Invalid group ID" });
+
+      const isMember = await storage.isFriendGroupMember(groupId, user.id);
+      if (!isMember) return res.status(403).json({ message: "Forbidden" });
+
+      const schema = z.object({
+        toUserId: z.number(),
+        amount: z.string().or(z.number()).transform(v => String(v)),
+        note: z.string().optional().nullable(),
+      });
+      const data = schema.parse(req.body);
+
+      const toUserMember = await storage.isFriendGroupMember(groupId, data.toUserId);
+      if (!toUserMember) return res.status(400).json({ message: "User not in this group" });
+
+      const settlement = await storage.createSettlement({
+        fromUserId: user.id,
+        toUserId: data.toUserId,
+        groupId,
+        amount: data.amount,
+        note: data.note || null,
+      });
+      res.status(201).json(settlement);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      next(err);
+    }
+  });
+
   startPushScheduler();
 
   return httpServer;

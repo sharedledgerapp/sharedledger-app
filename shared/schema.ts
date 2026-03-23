@@ -10,7 +10,9 @@ export const families = pgTable("families", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   code: text("code").notNull().unique(),
-  groupType: text("group_type", { enum: ["family", "roommates", "couple"] }).default("family").notNull(),
+  groupType: text("group_type", { enum: ["family", "roommates", "couple", "friends"] }).default("family").notNull(),
+  currency: text("currency").default("EUR"),
+  archived: boolean("archived").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -303,6 +305,14 @@ export const recurringExpensesRelations = relations(recurringExpenses, ({ one })
   }),
 }));
 
+export const friendGroupMembers = pgTable("friend_group_members", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").notNull().references(() => families.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  role: text("role", { enum: ["admin", "member"] }).default("member").notNull(),
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+});
+
 export const pushSubscriptions = pgTable("push_subscriptions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
@@ -318,6 +328,17 @@ export const pushNotificationLog = pgTable("push_notification_log", {
   type: text("type").notNull(),
   sentAt: timestamp("sent_at").defaultNow().notNull(),
 });
+
+export const friendGroupMembersRelations = relations(friendGroupMembers, ({ one }) => ({
+  group: one(families, {
+    fields: [friendGroupMembers.groupId],
+    references: [families.id],
+  }),
+  user: one(users, {
+    fields: [friendGroupMembers.userId],
+    references: [users.id],
+  }),
+}));
 
 export const pushSubscriptionsRelations = relations(pushSubscriptions, ({ one }) => ({
   user: one(users, {
@@ -350,6 +371,7 @@ export const insertRecurringExpenseSchema = createInsertSchema(recurringExpenses
 export const insertBudgetSchema = createInsertSchema(budgets).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertBudgetSetupPromptSchema = createInsertSchema(budgetSetupPrompts).omit({ id: true, createdAt: true });
 export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({ id: true, createdAt: true });
+export const insertFriendGroupMemberSchema = createInsertSchema(friendGroupMembers).omit({ id: true, joinedAt: true });
 
 // === TYPES ===
 
@@ -370,6 +392,7 @@ export type Budget = typeof budgets.$inferSelect;
 export type BudgetSetupPrompt = typeof budgetSetupPrompts.$inferSelect;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type PushNotificationLog = typeof pushNotificationLog.$inferSelect;
+export type FriendGroupMember = typeof friendGroupMembers.$inferSelect;
 
 export type InsertFamily = z.infer<typeof insertFamilySchema>;
 export type InsertGroup = InsertFamily;
@@ -386,6 +409,7 @@ export type InsertRecurringExpense = z.infer<typeof insertRecurringExpenseSchema
 export type InsertBudget = z.infer<typeof insertBudgetSchema>;
 export type InsertBudgetSetupPrompt = z.infer<typeof insertBudgetSetupPromptSchema>;
 export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
+export type InsertFriendGroupMember = z.infer<typeof insertFriendGroupMemberSchema>;
 
 // Request types
 export type CreateExpenseRequest = InsertExpense;

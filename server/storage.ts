@@ -3,7 +3,7 @@ import { db } from "./db";
 import { 
   users, families, expenses, goals, allowances, expenseSplits, goalApprovals,
   messages, notes, messageReadStatus, recurringExpenses, budgets, budgetSetupPrompts,
-  settlements, pushSubscriptions, pushNotificationLog,
+  settlements, pushSubscriptions, pushNotificationLog, friendGroupMembers,
   type User, type InsertUser, type Family, type InsertFamily,
   type Expense, type InsertExpense, type Goal, type InsertGoal,
   type GoalApproval, type InsertGoalApproval,
@@ -12,7 +12,7 @@ import {
   type Message, type InsertMessage, type Note, type InsertNote, type MessageReadStatus,
   type RecurringExpense, type InsertRecurringExpense,
   type Budget, type InsertBudget, type BudgetSetupPrompt, type InsertBudgetSetupPrompt,
-  type Settlement, type InsertSettlement
+  type Settlement, type InsertSettlement, type FriendGroupMember
 } from "@shared/schema";
 import { eq, and, desc, or, ne, gte, lte, sql, inArray, aliasedTable } from "drizzle-orm";
 import session from "express-session";
@@ -104,6 +104,17 @@ export interface IStorage {
   deletePushSubscription(userId: number, endpoint: string): Promise<void>;
   getPushSubscriptionsForUser(userId: number): Promise<{ endpoint: string; p256dh: string; auth: string }[]>;
   getAllPushSubscriptions(): Promise<{ userId: number; endpoint: string; p256dh: string; auth: string }[]>;
+
+  // Friend Groups
+  createFriendGroup(data: { name: string; currency?: string; creatorId: number }): Promise<Family>;
+  getFriendGroupsForUser(userId: number): Promise<(Family & { memberCount: number; memberRole: string })[]>;
+  getFriendGroup(groupId: number): Promise<(Family & { members: (User & { memberRole: string })[] }) | undefined>;
+  joinFriendGroup(code: string, userId: number): Promise<Family>;
+  leaveFriendGroup(groupId: number, userId: number): Promise<void>;
+  archiveFriendGroup(groupId: number): Promise<Family>;
+  isFriendGroupMember(groupId: number, userId: number): Promise<boolean>;
+  getFriendGroupMembers(groupId: number): Promise<(User & { memberRole: string })[]>;
+  getFriendGroupNetBalances(groupId: number): Promise<{ fromUserId: number; fromName: string; toUserId: number; toName: string; amount: number }[]>;
 
   sessionStore: session.Store;
 }
@@ -719,6 +730,205 @@ export class DatabaseStorage implements IStorage {
       p256dh: pushSubscriptions.p256dh,
       auth: pushSubscriptions.auth,
     }).from(pushSubscriptions);
+  }
+
+  // Friend Groups
+  async createFriendGroup(data: { name: string; currency?: string; creatorId: number }): Promise<Family> {
+    const code = `FRD-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const [group] = await db.insert(families).values({
+      name: data.name,
+      code,
+      groupType: "friends",
+      currency: data.currency || "EUR",
+      archived: false,
+    }).returning();
+
+    await db.insert(friendGroupMembers).values({
+      groupId: group.id,
+      userId: data.creatorId,
+      role: "admin",
+    });
+
+    return group;
+  }
+
+  async getFriendGroupsForUser(userId: number): Promise<(Family & { memberCount: number; memberRole: string })[]> {
+    const memberships = await db.select({
+      groupId: friendGroupMembers.groupId,
+      role: friendGroupMembers.role,
+    }).from(friendGroupMembers).where(eq(friendGroupMembers.userId, userId));
+
+    if (memberships.length === 0) return [];
+
+    const groupIds = memberships.map(m => m.groupId);
+    const roleMap = new Map(memberships.map(m => [m.groupId, m.role]));
+
+    const groupList = await db.select().from(families)
+      .where(and(
+        inArray(families.id, groupIds),
+        eq(families.groupType, "friends")
+      ));
+
+    const allMemberCounts = await db.select({
+      groupId: friendGroupMembers.groupId,
+    }).from(friendGroupMembers).where(inArray(friendGroupMembers.groupId, groupIds));
+
+    const countMap = new Map<number, number>();
+    for (const m of allMemberCounts) {
+      countMap.set(m.groupId, (countMap.get(m.groupId) || 0) + 1);
+    }
+
+    return groupList.map(g => ({
+      ...g,
+      memberCount: countMap.get(g.id) || 0,
+      memberRole: roleMap.get(g.id) || "member",
+    }));
+  }
+
+  async getFriendGroup(groupId: number): Promise<(Family & { members: (User & { memberRole: string })[] }) | undefined> {
+    const [group] = await db.select().from(families)
+      .where(and(eq(families.id, groupId), eq(families.groupType, "friends")));
+    if (!group) return undefined;
+
+    const members = await this.getFriendGroupMembers(groupId);
+    return { ...group, members };
+  }
+
+  async getFriendGroupMembers(groupId: number): Promise<(User & { memberRole: string })[]> {
+    const results = await db.select({
+      user: users,
+      role: friendGroupMembers.role,
+    })
+      .from(friendGroupMembers)
+      .innerJoin(users, eq(friendGroupMembers.userId, users.id))
+      .where(eq(friendGroupMembers.groupId, groupId));
+
+    return results.map(r => ({ ...r.user, memberRole: r.role }));
+  }
+
+  async isFriendGroupMember(groupId: number, userId: number): Promise<boolean> {
+    const [row] = await db.select({ id: friendGroupMembers.id })
+      .from(friendGroupMembers)
+      .where(and(eq(friendGroupMembers.groupId, groupId), eq(friendGroupMembers.userId, userId)));
+    return !!row;
+  }
+
+  async joinFriendGroup(code: string, userId: number): Promise<Family> {
+    const [group] = await db.select().from(families)
+      .where(and(eq(families.code, code), eq(families.groupType, "friends")));
+    if (!group) throw new Error("Invalid invite code");
+    if (group.archived) throw new Error("This group is archived");
+
+    const alreadyMember = await this.isFriendGroupMember(group.id, userId);
+    if (alreadyMember) throw new Error("Already a member of this group");
+
+    await db.insert(friendGroupMembers).values({
+      groupId: group.id,
+      userId,
+      role: "member",
+    });
+
+    return group;
+  }
+
+  async leaveFriendGroup(groupId: number, userId: number): Promise<void> {
+    await db.delete(friendGroupMembers).where(
+      and(eq(friendGroupMembers.groupId, groupId), eq(friendGroupMembers.userId, userId))
+    );
+  }
+
+  async archiveFriendGroup(groupId: number): Promise<Family> {
+    const [updated] = await db.update(families)
+      .set({ archived: true })
+      .where(eq(families.id, groupId))
+      .returning();
+    return updated;
+  }
+
+  async getFriendGroupNetBalances(groupId: number): Promise<{ fromUserId: number; fromName: string; toUserId: number; toName: string; amount: number }[]> {
+    const members = await this.getFriendGroupMembers(groupId);
+
+    const [sharedExpenses, groupSettlements] = await Promise.all([
+      db.select().from(expenses).where(and(
+        eq(expenses.familyId, groupId),
+        eq(expenses.visibility, "public")
+      )),
+      db.select().from(settlements).where(eq(settlements.groupId, groupId)),
+    ]);
+
+    const expenseIds = sharedExpenses.map(e => e.id);
+    const allSplitRows = expenseIds.length > 0
+      ? await db.select().from(expenseSplits).where(inArray(expenseSplits.expenseId, expenseIds))
+      : [];
+
+    const splitsByExpenseId = new Map<number, typeof allSplitRows>();
+    for (const split of allSplitRows) {
+      const list = splitsByExpenseId.get(split.expenseId) || [];
+      list.push(split);
+      splitsByExpenseId.set(split.expenseId, list);
+    }
+
+    const balances: Record<number, number> = {};
+    members.forEach(m => { balances[m.id] = 0; });
+
+    for (const expense of sharedExpenses) {
+      const splits = splitsByExpenseId.get(expense.id) || [];
+      const paidByUserId = expense.paidByUserId || expense.userId;
+      if (splits.length > 0) {
+        balances[paidByUserId] = (balances[paidByUserId] || 0) + Number(expense.amount);
+        for (const split of splits) {
+          balances[split.userId] = (balances[split.userId] || 0) - Number(split.amount);
+        }
+      }
+    }
+
+    for (const s of groupSettlements) {
+      balances[s.fromUserId] = (balances[s.fromUserId] || 0) + Number(s.amount);
+      balances[s.toUserId] = (balances[s.toUserId] || 0) - Number(s.amount);
+    }
+
+    const nameMap = new Map(members.map(m => [m.id, m.name]));
+
+    // Greedy debt-minimization (simplify net bilateral balances)
+    type Entry = { userId: number; balance: number };
+    const creditors: Entry[] = [];
+    const debtors: Entry[] = [];
+
+    for (const [userIdStr, bal] of Object.entries(balances)) {
+      const userId = Number(userIdStr);
+      const rounded = Math.round(bal * 100) / 100;
+      if (rounded > 0.005) creditors.push({ userId, balance: rounded });
+      else if (rounded < -0.005) debtors.push({ userId, balance: rounded });
+    }
+
+    creditors.sort((a, b) => b.balance - a.balance);
+    debtors.sort((a, b) => a.balance - b.balance);
+
+    const result: { fromUserId: number; fromName: string; toUserId: number; toName: string; amount: number }[] = [];
+
+    let ci = 0;
+    let di = 0;
+    while (ci < creditors.length && di < debtors.length) {
+      const creditor = creditors[ci];
+      const debtor = debtors[di];
+      const amount = Math.min(creditor.balance, -debtor.balance);
+      const roundedAmount = Math.round(amount * 100) / 100;
+      if (roundedAmount > 0.005) {
+        result.push({
+          fromUserId: debtor.userId,
+          fromName: nameMap.get(debtor.userId) || "Unknown",
+          toUserId: creditor.userId,
+          toName: nameMap.get(creditor.userId) || "Unknown",
+          amount: roundedAmount,
+        });
+      }
+      creditor.balance -= amount;
+      debtor.balance += amount;
+      if (creditor.balance < 0.005) ci++;
+      if (debtor.balance > -0.005) di++;
+    }
+
+    return result;
   }
 }
 
