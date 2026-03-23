@@ -54,7 +54,7 @@ export function TutorialOverlay() {
     const el = findVisibleTarget(step.target);
     if (!el) {
       if (retries > 0) {
-        setTimeout(() => measureTarget(retries - 1, currentGen), 200);
+        setTimeout(() => measureTarget(retries - 1, currentGen), 250);
         return;
       }
       setSpotlightRect(null);
