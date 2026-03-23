@@ -17,6 +17,10 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { CURRENCIES } from "@/lib/currency";
 
 export const DEFAULT_CATEGORIES = ["Food", "Transport", "Entertainment", "Shopping", "Utilities", "Education", "Health", "Other"];
@@ -48,18 +52,23 @@ export default function SettingsPage() {
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [recurringCategoriesOpen, setRecurringCategoriesOpen] = useState(false);
 
+  const feedbackFormSchema = z.object({
+    group: z.string().min(1, "Please select a group"),
+    message: z.string().min(10, "Message must be at least 10 characters"),
+  });
+  type FeedbackValues = z.infer<typeof feedbackFormSchema>;
+
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [feedbackGroup, setFeedbackGroup] = useState("");
-  const [feedbackMessage, setFeedbackMessage] = useState("");
   const [feedbackSent, setFeedbackSent] = useState(false);
 
+  const feedbackForm = useForm<FeedbackValues>({
+    resolver: zodResolver(feedbackFormSchema),
+    defaultValues: { group: "", message: "" },
+  });
+
   const sendFeedbackMutation = useMutation({
-    mutationFn: async (data: { group: string; message: string }) => {
+    mutationFn: async (data: FeedbackValues) => {
       const res = await apiRequest("POST", "/api/feedback", data);
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error((body as any).message || "Failed to send feedback");
-      }
       return res.json();
     },
     onSuccess: () => {
@@ -77,8 +86,7 @@ export default function SettingsPage() {
   const handleCloseFeedback = () => {
     setFeedbackOpen(false);
     setFeedbackSent(false);
-    setFeedbackGroup("");
-    setFeedbackMessage("");
+    feedbackForm.reset();
   };
 
   const [dailyReminderEnabled, setDailyReminderEnabled] = useState((user as any)?.dailyReminderEnabled ?? true);
@@ -881,57 +889,76 @@ export default function SettingsPage() {
                   For bugs or suggestions — we read every message.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="feedback-group">Which group do you use?</Label>
-                  <Select value={feedbackGroup} onValueChange={setFeedbackGroup}>
-                    <SelectTrigger id="feedback-group" data-testid="select-feedback-group">
-                      <SelectValue placeholder="Select your group type…" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover">
-                      <SelectItem value="Family" data-testid="option-feedback-family">Family</SelectItem>
-                      <SelectItem value="Couples" data-testid="option-feedback-couples">Couples</SelectItem>
-                      <SelectItem value="Roommates" data-testid="option-feedback-roommates">Roommates</SelectItem>
-                      <SelectItem value="Friends" data-testid="option-feedback-friends">Friends</SelectItem>
-                      <SelectItem value="Individual" data-testid="option-feedback-individual">Individual</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="feedback-message">Your message</Label>
-                  <Textarea
-                    id="feedback-message"
-                    value={feedbackMessage}
-                    onChange={(e) => setFeedbackMessage(e.target.value)}
-                    placeholder="Describe your bug or suggestion…"
-                    rows={5}
-                    maxLength={2000}
-                    data-testid="textarea-feedback-message"
-                  />
-                  <p className="text-xs text-muted-foreground text-right">{feedbackMessage.length}/2000</p>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={handleCloseFeedback}
-                  data-testid="button-cancel-feedback"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => sendFeedbackMutation.mutate({ group: feedbackGroup, message: feedbackMessage })}
-                  disabled={
-                    !feedbackGroup ||
-                    feedbackMessage.trim().length < 10 ||
-                    sendFeedbackMutation.isPending
-                  }
-                  data-testid="button-send-feedback"
-                >
-                  {sendFeedbackMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Send Feedback
-                </Button>
-              </DialogFooter>
+              <Form {...feedbackForm}>
+                <form onSubmit={feedbackForm.handleSubmit((values) => sendFeedbackMutation.mutate(values))}>
+                  <div className="space-y-4 py-4">
+                    <FormField
+                      control={feedbackForm.control}
+                      name="group"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Which group do you use?</FormLabel>
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-feedback-group">
+                                <SelectValue placeholder="Select your group type…" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-popover">
+                              <SelectItem value="Family" data-testid="option-feedback-family">Family</SelectItem>
+                              <SelectItem value="Couples" data-testid="option-feedback-couples">Couples</SelectItem>
+                              <SelectItem value="Roommates" data-testid="option-feedback-roommates">Roommates</SelectItem>
+                              <SelectItem value="Friends" data-testid="option-feedback-friends">Friends</SelectItem>
+                              <SelectItem value="Individual" data-testid="option-feedback-individual">Individual</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={feedbackForm.control}
+                      name="message"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Your message</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              {...field}
+                              placeholder="Describe your bug or suggestion…"
+                              rows={5}
+                              maxLength={2000}
+                              data-testid="textarea-feedback-message"
+                            />
+                          </FormControl>
+                          <div className="flex justify-between items-center">
+                            <FormMessage />
+                            <p className="text-xs text-muted-foreground ml-auto">{field.value.length}/2000</p>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleCloseFeedback}
+                      data-testid="button-cancel-feedback"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={sendFeedbackMutation.isPending}
+                      data-testid="button-send-feedback"
+                    >
+                      {sendFeedbackMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                      Send Feedback
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
             </>
           )}
         </DialogContent>
