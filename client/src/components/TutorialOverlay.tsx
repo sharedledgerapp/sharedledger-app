@@ -26,13 +26,27 @@ export function TutorialOverlay() {
   const TOOLTIP_EST_HEIGHT = 200;
   const MARGIN = 12;
 
+  const findVisibleTarget = useCallback((target: string): Element | null => {
+    const elements = document.querySelectorAll(`[data-tutorial="${target}"]`);
+    for (const el of elements) {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        const style = window.getComputedStyle(el);
+        if (style.display !== "none" && style.visibility !== "hidden") {
+          return el;
+        }
+      }
+    }
+    return null;
+  }, []);
+
   const measureTarget = useCallback(() => {
     if (!step?.target) {
       setSpotlightRect(null);
       setReady(true);
       return;
     }
-    const el = document.querySelector(`[data-tutorial="${step.target}"]`);
+    const el = findVisibleTarget(step.target);
     if (!el) {
       setSpotlightRect(null);
       setReady(true);
@@ -49,7 +63,7 @@ export function TutorialOverlay() {
       });
       setReady(true);
     }, 350);
-  }, [step]);
+  }, [step, findVisibleTarget]);
 
   useLayoutEffect(() => {
     if (!isActive) {
@@ -110,8 +124,8 @@ export function TutorialOverlay() {
 
   if (!isActive || !ready) return null;
 
-  const isOnWrongPage = step?.page && location !== step.page;
   const isCentered = !step?.target || !spotlightRect;
+  const showNavigationHint = isCentered && !!step?.page && !spotlightRect;
 
   return (
     <div className="fixed inset-0 z-[9999]" style={{ pointerEvents: "none" }}>
@@ -185,7 +199,7 @@ export function TutorialOverlay() {
             currentStep={currentStep}
             totalSteps={steps.length}
             isLastStep={isLastStep}
-            isOnWrongPage={!!isOnWrongPage}
+            showNavigationHint={showNavigationHint}
             targetPage={step?.page}
             onNavigate={() => step?.page && setLocation(step.page)}
             onNext={nextStep}
@@ -199,7 +213,7 @@ export function TutorialOverlay() {
             currentStep={currentStep}
             totalSteps={steps.length}
             isLastStep={isLastStep}
-            isOnWrongPage={false}
+            showNavigationHint={false}
             targetPage={step?.page}
             onNavigate={() => step?.page && setLocation(step.page)}
             onNext={nextStep}
@@ -216,7 +230,7 @@ function TutorialCard({
   currentStep,
   totalSteps,
   isLastStep,
-  isOnWrongPage,
+  showNavigationHint,
   targetPage,
   onNavigate,
   onNext,
@@ -226,7 +240,7 @@ function TutorialCard({
   currentStep: number;
   totalSteps: number;
   isLastStep: boolean;
-  isOnWrongPage: boolean;
+  showNavigationHint: boolean;
   targetPage?: string;
   onNavigate: () => void;
   onNext: () => void;
@@ -272,7 +286,7 @@ function TutorialCard({
       <h3 className="font-display font-bold text-sm text-foreground mb-1">{step.title}</h3>
       <p className="text-xs text-muted-foreground leading-relaxed mb-3">{step.description}</p>
 
-      {isOnWrongPage && targetPage && (
+      {showNavigationHint && targetPage && (
         <button
           onClick={onNavigate}
           className="w-full mb-3 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
