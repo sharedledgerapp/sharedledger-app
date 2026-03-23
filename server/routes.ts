@@ -1675,9 +1675,11 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       if (data.splitType !== undefined) updates.splitType = data.splitType === "equal" ? "equal" : "exact";
 
       let newSplits: { userId: number; amount: string; isPaid: boolean }[] | undefined;
-      if (data.participants || data.customSplits) {
+      const effectiveSplitType = data.splitType ?? expense.splitType;
+      const amountChanged = data.amount !== undefined;
+      if (data.participants || data.customSplits || (amountChanged && effectiveSplitType === "equal")) {
         const totalAmount = parseFloat(data.amount || String(expense.amount));
-        if (data.splitType === "equal" || (!data.splitType && expense.splitType === "equal")) {
+        if (effectiveSplitType === "equal") {
           const participants = data.participants || expense.splits.map(s => s.userId);
           const perPerson = totalAmount / participants.length;
           newSplits = participants.map(uid => ({ userId: uid, amount: perPerson.toFixed(2), isPaid: false }));

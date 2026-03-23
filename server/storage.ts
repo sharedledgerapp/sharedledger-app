@@ -765,18 +765,22 @@ export class DatabaseStorage implements IStorage {
       if (existing.length === 0) break;
       if (attempts > 10) throw new Error("Failed to generate unique invite code");
     }
-    const [group] = await db.insert(families).values({
-      name: data.name,
-      code,
-      groupType: "friends",
-      currency: data.currency || "EUR",
-      archived: false,
-    }).returning();
+    const group = await db.transaction(async (tx) => {
+      const [created] = await tx.insert(families).values({
+        name: data.name,
+        code,
+        groupType: "friends",
+        currency: data.currency || "EUR",
+        archived: false,
+      }).returning();
 
-    await db.insert(friendGroupMembers).values({
-      groupId: group.id,
-      userId: data.creatorId,
-      role: "admin",
+      await tx.insert(friendGroupMembers).values({
+        groupId: created.id,
+        userId: data.creatorId,
+        role: "admin",
+      });
+
+      return created;
     });
 
     return group;
