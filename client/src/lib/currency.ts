@@ -9,6 +9,9 @@ export const CURRENCY_SYMBOLS: Record<string, string> = {
   CNY: "¥",
   INR: "₹",
   MXN: "MX$",
+  UGX: "USh",
+  KES: "KSh",
+  TZS: "TSh",
 };
 
 export const CURRENCIES = [
@@ -22,6 +25,9 @@ export const CURRENCIES = [
   { code: "CNY", symbol: "¥", name: "Chinese Yuan" },
   { code: "INR", symbol: "₹", name: "Indian Rupee" },
   { code: "MXN", symbol: "MX$", name: "Mexican Peso" },
+  { code: "UGX", symbol: "USh", name: "Ugandan Shilling" },
+  { code: "KES", symbol: "KSh", name: "Kenyan Shilling" },
+  { code: "TZS", symbol: "TSh", name: "Tanzanian Shilling" },
 ];
 
 export function getCurrencySymbol(currencyCode: string | undefined | null): string {

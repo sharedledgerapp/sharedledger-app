@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, User, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat, Sparkles } from "lucide-react";
+import { LogOut, User, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat, Sparkles, ChevronDown } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Link, useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
@@ -44,6 +44,9 @@ export default function SettingsPage() {
   const [newRecurringCategory, setNewRecurringCategory] = useState("");
   const [editingRecurringCategory, setEditingRecurringCategory] = useState<{ index: number; value: string } | null>(null);
   
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [recurringCategoriesOpen, setRecurringCategoriesOpen] = useState(false);
+
   const [dailyReminderEnabled, setDailyReminderEnabled] = useState((user as any)?.dailyReminderEnabled ?? true);
   const [dailyReminderTime, setDailyReminderTime] = useState((user as any)?.dailyReminderTime || "19:00");
   const [weeklyReminderEnabled, setWeeklyReminderEnabled] = useState((user as any)?.weeklyReminderEnabled ?? true);
@@ -429,181 +432,211 @@ export default function SettingsPage() {
       </Card>
 
       <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Tag className="w-5 h-5 text-primary" />
-            {t("expenseCategories") || "Expense Categories"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            {t("customizeCategoriesDescription") || "Customize the categories for tracking your expenses. Click a category to edit its name."}
-          </p>
-          
-          <div className="space-y-2">
-            {categories.map((category, index) => (
-              <div 
-                key={index} 
-                className="flex items-center gap-2 p-2 rounded-lg border bg-card"
-                data-testid={`category-item-${index}`}
-              >
-                <GripVertical className="w-4 h-4 text-muted-foreground" />
-                {editingCategory?.index === index ? (
-                  <Input
-                    value={editingCategory.value}
-                    onChange={(e) => setEditingCategory({ ...editingCategory, value: e.target.value })}
-                    onBlur={handleSaveEditCategory}
-                    onKeyDown={(e) => e.key === "Enter" && handleSaveEditCategory()}
-                    className="flex-1 h-8"
-                    autoFocus
-                    maxLength={30}
-                    data-testid={`input-edit-category-${index}`}
-                  />
-                ) : (
-                  <span 
-                    className="flex-1 cursor-pointer hover:text-primary transition-colors"
-                    onClick={() => handleEditCategory(index)}
-                    data-testid={`text-category-${index}`}
-                  >
-                    {category}
-                  </span>
-                )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => handleRemoveCategory(index)}
-                  disabled={categories.length <= 1 || updateCategoriesMutation.isPending}
-                  data-testid={`button-remove-category-${index}`}
+        <button
+          className="w-full text-left"
+          onClick={() => setCategoriesOpen((o) => !o)}
+          data-testid="button-toggle-categories"
+        >
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Tag className="w-5 h-5 text-primary" />
+              <span className="flex-1">{t("expenseCategories") || "Expense Categories"}</span>
+              <span className="text-xs font-normal text-muted-foreground mr-1">
+                {categories.length} {t("categories") || "categories"}
+              </span>
+              <ChevronDown
+                className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${categoriesOpen ? "rotate-180" : ""}`}
+              />
+            </CardTitle>
+          </CardHeader>
+        </button>
+
+        {categoriesOpen && (
+          <CardContent className="space-y-4 pt-0">
+            <p className="text-sm text-muted-foreground">
+              {t("customizeCategoriesDescription") || "Customize the categories for tracking your expenses. Click a category to edit its name."}
+            </p>
+            
+            <div className="space-y-2">
+              {categories.map((category, index) => (
+                <div 
+                  key={index} 
+                  className="flex items-center gap-2 p-2 rounded-lg border bg-card"
+                  data-testid={`category-item-${index}`}
                 >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
+                  <GripVertical className="w-4 h-4 text-muted-foreground" />
+                  {editingCategory?.index === index ? (
+                    <Input
+                      value={editingCategory.value}
+                      onChange={(e) => setEditingCategory({ ...editingCategory, value: e.target.value })}
+                      onBlur={handleSaveEditCategory}
+                      onKeyDown={(e) => e.key === "Enter" && handleSaveEditCategory()}
+                      className="flex-1 h-8"
+                      autoFocus
+                      maxLength={30}
+                      data-testid={`input-edit-category-${index}`}
+                    />
+                  ) : (
+                    <span 
+                      className="flex-1 cursor-pointer hover:text-primary transition-colors"
+                      onClick={() => handleEditCategory(index)}
+                      data-testid={`text-category-${index}`}
+                    >
+                      {category}
+                    </span>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => handleRemoveCategory(index)}
+                    disabled={categories.length <= 1 || updateCategoriesMutation.isPending}
+                    data-testid={`button-remove-category-${index}`}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
 
-          <div className="flex gap-2">
-            <Input
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value)}
-              placeholder={t("newCategoryPlaceholder") || "Add new category..."}
-              maxLength={30}
-              onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
-              data-testid="input-new-category"
-            />
-            <Button
-              onClick={handleAddCategory}
-              disabled={!newCategory.trim() || categories.length >= 20 || updateCategoriesMutation.isPending}
-              data-testid="button-add-category"
-            >
-              <Plus className="w-4 h-4" />
-            </Button>
-          </div>
+            <div className="flex gap-2">
+              <Input
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                placeholder={t("newCategoryPlaceholder") || "Add new category..."}
+                maxLength={30}
+                onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
+                data-testid="input-new-category"
+              />
+              <Button
+                onClick={handleAddCategory}
+                disabled={!newCategory.trim() || categories.length >= 20 || updateCategoriesMutation.isPending}
+                data-testid="button-add-category"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
 
-          <div className="flex justify-between items-center pt-2">
-            <span className="text-xs text-muted-foreground">
-              {categories.length}/20 {t("categories") || "categories"}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleResetCategories}
-              disabled={updateCategoriesMutation.isPending}
-              data-testid="button-reset-categories"
-            >
-              {t("resetToDefault") || "Reset to Default"}
-            </Button>
-          </div>
-        </CardContent>
+            <div className="flex justify-between items-center pt-2">
+              <span className="text-xs text-muted-foreground">
+                {categories.length}/20 {t("categories") || "categories"}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleResetCategories}
+                disabled={updateCategoriesMutation.isPending}
+                data-testid="button-reset-categories"
+              >
+                {t("resetToDefault") || "Reset to Default"}
+              </Button>
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Repeat className="w-5 h-5 text-primary" />
-            {t("recurringCategoriesTitle")}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            {t("recurringCategoriesDescription")}
-          </p>
-          
-          <div className="space-y-2">
-            {recurringCategories.map((category, index) => (
-              <div 
-                key={index} 
-                className="flex items-center gap-2 p-2 rounded-lg border bg-card"
-                data-testid={`recurring-category-item-${index}`}
-              >
-                <GripVertical className="w-4 h-4 text-muted-foreground" />
-                {editingRecurringCategory?.index === index ? (
-                  <Input
-                    value={editingRecurringCategory.value}
-                    onChange={(e) => setEditingRecurringCategory({ ...editingRecurringCategory, value: e.target.value })}
-                    onBlur={handleSaveEditRecurringCategory}
-                    onKeyDown={(e) => e.key === "Enter" && handleSaveEditRecurringCategory()}
-                    className="flex-1 h-8"
-                    autoFocus
-                    maxLength={30}
-                    data-testid={`input-edit-recurring-category-${index}`}
-                  />
-                ) : (
-                  <span 
-                    className="flex-1 cursor-pointer hover:text-primary transition-colors"
-                    onClick={() => handleEditRecurringCategory(index)}
-                    data-testid={`text-recurring-category-${index}`}
-                  >
-                    {category}
-                  </span>
-                )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => handleRemoveRecurringCategory(index)}
-                  disabled={recurringCategories.length <= 1 || updateRecurringCategoriesMutation.isPending}
-                  data-testid={`button-remove-recurring-category-${index}`}
+        <button
+          className="w-full text-left"
+          onClick={() => setRecurringCategoriesOpen((o) => !o)}
+          data-testid="button-toggle-recurring-categories"
+        >
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Repeat className="w-5 h-5 text-primary" />
+              <span className="flex-1">{t("recurringCategoriesTitle")}</span>
+              <span className="text-xs font-normal text-muted-foreground mr-1">
+                {recurringCategories.length} {t("categories")}
+              </span>
+              <ChevronDown
+                className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${recurringCategoriesOpen ? "rotate-180" : ""}`}
+              />
+            </CardTitle>
+          </CardHeader>
+        </button>
+
+        {recurringCategoriesOpen && (
+          <CardContent className="space-y-4 pt-0">
+            <p className="text-sm text-muted-foreground">
+              {t("recurringCategoriesDescription")}
+            </p>
+            
+            <div className="space-y-2">
+              {recurringCategories.map((category, index) => (
+                <div 
+                  key={index} 
+                  className="flex items-center gap-2 p-2 rounded-lg border bg-card"
+                  data-testid={`recurring-category-item-${index}`}
                 >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
+                  <GripVertical className="w-4 h-4 text-muted-foreground" />
+                  {editingRecurringCategory?.index === index ? (
+                    <Input
+                      value={editingRecurringCategory.value}
+                      onChange={(e) => setEditingRecurringCategory({ ...editingRecurringCategory, value: e.target.value })}
+                      onBlur={handleSaveEditRecurringCategory}
+                      onKeyDown={(e) => e.key === "Enter" && handleSaveEditRecurringCategory()}
+                      className="flex-1 h-8"
+                      autoFocus
+                      maxLength={30}
+                      data-testid={`input-edit-recurring-category-${index}`}
+                    />
+                  ) : (
+                    <span 
+                      className="flex-1 cursor-pointer hover:text-primary transition-colors"
+                      onClick={() => handleEditRecurringCategory(index)}
+                      data-testid={`text-recurring-category-${index}`}
+                    >
+                      {category}
+                    </span>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => handleRemoveRecurringCategory(index)}
+                    disabled={recurringCategories.length <= 1 || updateRecurringCategoriesMutation.isPending}
+                    data-testid={`button-remove-recurring-category-${index}`}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
 
-          <div className="flex gap-2">
-            <Input
-              value={newRecurringCategory}
-              onChange={(e) => setNewRecurringCategory(e.target.value)}
-              placeholder={t("newRecurringCategoryPlaceholder")}
-              maxLength={30}
-              onKeyDown={(e) => e.key === "Enter" && handleAddRecurringCategory()}
-              data-testid="input-new-recurring-category"
-            />
-            <Button
-              onClick={handleAddRecurringCategory}
-              disabled={!newRecurringCategory.trim() || recurringCategories.length >= 20 || updateRecurringCategoriesMutation.isPending}
-              data-testid="button-add-recurring-category"
-            >
-              <Plus className="w-4 h-4" />
-            </Button>
-          </div>
+            <div className="flex gap-2">
+              <Input
+                value={newRecurringCategory}
+                onChange={(e) => setNewRecurringCategory(e.target.value)}
+                placeholder={t("newRecurringCategoryPlaceholder")}
+                maxLength={30}
+                onKeyDown={(e) => e.key === "Enter" && handleAddRecurringCategory()}
+                data-testid="input-new-recurring-category"
+              />
+              <Button
+                onClick={handleAddRecurringCategory}
+                disabled={!newRecurringCategory.trim() || recurringCategories.length >= 20 || updateRecurringCategoriesMutation.isPending}
+                data-testid="button-add-recurring-category"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
 
-          <div className="flex justify-between items-center pt-2">
-            <span className="text-xs text-muted-foreground">
-              {recurringCategories.length}/20 {t("categories")}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleResetRecurringCategories}
-              disabled={updateRecurringCategoriesMutation.isPending}
-              data-testid="button-reset-recurring-categories"
-            >
-              {t("resetToDefault")}
-            </Button>
-          </div>
-        </CardContent>
+            <div className="flex justify-between items-center pt-2">
+              <span className="text-xs text-muted-foreground">
+                {recurringCategories.length}/20 {t("categories")}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleResetRecurringCategories}
+                disabled={updateRecurringCategoriesMutation.isPending}
+                data-testid="button-reset-recurring-categories"
+              >
+                {t("resetToDefault")}
+              </Button>
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       <Card className="border-border/50">
