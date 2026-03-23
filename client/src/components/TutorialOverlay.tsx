@@ -1,4 +1,4 @@
-import { useEffect, useState, useLayoutEffect, useCallback } from "react";
+import { useEffect, useState, useLayoutEffect, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 import { useTutorial } from "@/contexts/TutorialContext";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ export function TutorialOverlay() {
   const [spotlightRect, setSpotlightRect] = useState<SpotlightRect | null>(null);
   const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
   const [ready, setReady] = useState(false);
+  const measureGenRef = useRef(0);
 
   const step = steps[currentStep];
   const isLastStep = currentStep === steps.length - 1;
@@ -41,7 +42,10 @@ export function TutorialOverlay() {
     return null;
   }, []);
 
-  const measureTarget = useCallback((retries = 5) => {
+  const measureTarget = useCallback((retries = 5, gen?: number) => {
+    const currentGen = gen ?? measureGenRef.current;
+    if (currentGen !== measureGenRef.current) return;
+
     if (!step?.target) {
       setSpotlightRect(null);
       setReady(true);
@@ -50,7 +54,7 @@ export function TutorialOverlay() {
     const el = findVisibleTarget(step.target);
     if (!el) {
       if (retries > 0) {
-        setTimeout(() => measureTarget(retries - 1), 200);
+        setTimeout(() => measureTarget(retries - 1, currentGen), 200);
         return;
       }
       setSpotlightRect(null);
@@ -59,6 +63,7 @@ export function TutorialOverlay() {
     }
     el.scrollIntoView({ behavior: "smooth", block: "center" });
     setTimeout(() => {
+      if (currentGen !== measureGenRef.current) return;
       const rect = el.getBoundingClientRect();
       setSpotlightRect({
         top: rect.top - PADDING,
@@ -72,19 +77,22 @@ export function TutorialOverlay() {
 
   useLayoutEffect(() => {
     if (!isActive) {
+      measureGenRef.current += 1;
       setReady(false);
       setSpotlightRect(null);
       return;
     }
 
+    measureGenRef.current += 1;
+    const gen = measureGenRef.current;
     setReady(false);
     setSpotlightRect(null);
 
     if (step?.page && location !== step.page) {
       setLocation(step.page);
-      setTimeout(() => measureTarget(), 500);
+      setTimeout(() => measureTarget(5, gen), 500);
     } else {
-      measureTarget();
+      measureTarget(5, gen);
     }
   }, [isActive, currentStep]);
 
