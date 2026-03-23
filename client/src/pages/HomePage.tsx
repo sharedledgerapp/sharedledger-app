@@ -166,20 +166,22 @@ export default function HomePage() {
               </div>
             </div>
 
-            {recurringTotal > 0 && (
-              <div className="mt-3 flex gap-2 text-[11px] text-white/80">
-                <div className="flex items-center gap-1 bg-white/10 rounded-lg px-2.5 py-1.5" data-testid="badge-everyday-total">
+            <div className="mt-3 space-y-1 text-[11px] text-white/80">
+              <div className="flex items-center justify-between" data-testid="badge-everyday-total">
+                <span className="flex items-center gap-1">
                   <Wallet className="w-3 h-3 shrink-0" />
-                  <span>Everyday</span>
-                  <span className="font-semibold text-white ml-0.5">{currencySymbol}{monthlyTotal.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center gap-1 bg-white/10 rounded-lg px-2.5 py-1.5" data-testid="badge-recurring-total">
-                  <Clock className="w-3 h-3 shrink-0" />
-                  <span>Recurring</span>
-                  <span className="font-semibold text-white ml-0.5">{currencySymbol}{recurringTotal.toFixed(2)}/mo</span>
-                </div>
+                  Everyday expenses
+                </span>
+                <span className="font-semibold text-white">{currencySymbol}{monthlyTotal.toFixed(2)}</span>
               </div>
-            )}
+              <div className="flex items-center justify-between" data-testid="badge-recurring-total">
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3 h-3 shrink-0" />
+                  Monthly recurring
+                </span>
+                <span className="font-semibold text-white">{currencySymbol}{recurringTotal.toFixed(2)}/mo</span>
+              </div>
+            </div>
 
             <div className="mt-3 flex gap-3 text-xs font-medium text-white/90">
               {prevMonthTotal > 0 ? (
