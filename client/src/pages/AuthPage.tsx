@@ -137,7 +137,7 @@ function GroupSetupForm({ onComplete }: { onComplete: () => void }) {
             }`}
             data-testid="button-setup-mode-join"
           >
-            Join Group
+            Sign Up
           </button>
         </div>
 
@@ -558,7 +558,7 @@ function RegisterForm() {
             }`}
             data-testid="button-mode-join"
           >
-            Join Group
+            Sign Up
           </button>
         </div>
 
