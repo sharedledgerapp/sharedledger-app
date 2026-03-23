@@ -170,14 +170,14 @@ export default function HomePage() {
               <div className="flex items-center justify-between" data-testid="badge-everyday-total">
                 <span className="flex items-center gap-1">
                   <Wallet className="w-3 h-3 shrink-0" />
-                  Everyday expenses
+                  Everyday
                 </span>
                 <span className="font-semibold text-white">{currencySymbol}{monthlyTotal.toFixed(2)}</span>
               </div>
               <div className="flex items-center justify-between" data-testid="badge-recurring-total">
                 <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3 shrink-0" />
-                  Monthly recurring
+                  Recurring
                 </span>
                 <span className="font-semibold text-white">{currencySymbol}{recurringTotal.toFixed(2)}/mo</span>
               </div>
