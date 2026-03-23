@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Plus, Wallet, TrendingUp, Star, ArrowUpRight, ArrowDownRight, ChevronRight, Flag, Target, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, PiggyBank, Clock } from "lucide-react";
+import { Plus, Wallet, TrendingUp, Star, ArrowUpRight, ArrowDownRight, ChevronRight, Flag, Target, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, PiggyBank, Clock, Globe, Users, Archive } from "lucide-react";
 import { Link, useLocation } from "wouter";
+import { CreateFriendGroupDialog } from "@/components/CreateFriendGroupDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, differenceInDays, startOfMonth, endOfMonth } from "date-fns";
 import { sortGoalsByPriority } from "@/lib/goals";
@@ -18,12 +19,31 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 
 const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa"];
 
+interface FriendGroupSummary {
+  id: number;
+  name: string;
+  currency: string;
+  archived: boolean;
+  memberCount: number;
+  memberRole: string;
+}
+
 export default function HomePage() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const [, navigate] = useLocation();
   const { data: expenses, isLoading: expensesLoading } = useExpenses();
   const { data: goals, isLoading: goalsLoading } = useGoals();
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+
+  const { data: friendGroups } = useQuery<FriendGroupSummary[]>({
+    queryKey: ["/api/friend-groups"],
+    queryFn: async () => {
+      const res = await fetch("/api/friend-groups", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
   const currencySymbol = getCurrencySymbol(user?.currency);
   const [showBudgetPrompt, setShowBudgetPrompt] = useState(false);
 
@@ -324,6 +344,53 @@ export default function HomePage() {
           </Card>
         </Link>
       </section>
+
+      {/* My Groups section */}
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <Link href="/groups">
+            <h3 className="font-display font-bold text-lg flex items-center gap-2 cursor-pointer hover:text-primary transition-colors group" data-testid="link-my-groups">
+              <Globe className="w-5 h-5 text-primary" />
+              My Groups
+              <ChevronRight className="w-4 h-4 ml-auto text-muted-foreground group-hover:text-primary transition-colors" />
+            </h3>
+          </Link>
+        </div>
+        <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
+          {(friendGroups || []).slice(0, 5).map((g) => (
+            <Link href={`/groups/${g.id}`} key={g.id}>
+              <Card
+                className="flex-shrink-0 w-36 border-border/50 shadow-sm cursor-pointer hover:border-primary/30 transition-all active:scale-[0.98]"
+                data-testid={`home-group-card-${g.id}`}
+              >
+                <CardContent className="p-3">
+                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold mb-2">
+                    <Globe className="w-4 h-4" />
+                  </div>
+                  <p className="font-semibold text-sm truncate">{g.name}</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    <Users className="w-3 h-3 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">{g.memberCount}</span>
+                    {g.archived && <Archive className="w-3 h-3 text-muted-foreground ml-1" />}
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+          <Card
+            className="flex-shrink-0 w-36 border-dashed border-border/50 shadow-sm cursor-pointer hover:border-primary/30 transition-all active:scale-[0.98]"
+            onClick={() => setShowCreateGroup(true)}
+            data-testid="button-new-group-home"
+          >
+            <CardContent className="p-3 flex flex-col items-center justify-center h-full min-h-[80px] text-muted-foreground">
+              <Plus className="w-6 h-6 mb-1" />
+              <p className="text-xs font-medium text-center">New Group</p>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      <CreateFriendGroupDialog open={showCreateGroup} onOpenChange={setShowCreateGroup} />
 
       <Dialog open={showBudgetPrompt} onOpenChange={setShowBudgetPrompt}>
         <DialogContent className="max-w-sm">

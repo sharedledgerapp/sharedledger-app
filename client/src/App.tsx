@@ -21,6 +21,8 @@ import SpendingReflectionsPage from "@/pages/SpendingReflectionsPage";
 import ReportsPage from "@/pages/ReportsPage";
 import MessagesPage from "@/pages/MessagesPage";
 import BudgetPage from "@/pages/BudgetPage";
+import FriendGroupsPage from "@/pages/FriendGroupsPage";
+import FriendGroupDashboard from "@/pages/FriendGroupDashboard";
 import { Loader2 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { startNotificationScheduler, stopNotificationScheduler, checkBudgetThresholdNotifications, subscribeToPush } from "@/lib/notifications";
@@ -140,6 +142,12 @@ function Router() {
       </Route>
       <Route path="/budget">
         {() => <ProtectedRoute component={BudgetPage} />}
+      </Route>
+      <Route path="/groups">
+        {() => <ProtectedRoute component={FriendGroupsPage} />}
+      </Route>
+      <Route path="/groups/:id">
+        {() => <ProtectedRoute component={FriendGroupDashboard} />}
       </Route>
 
       <Route component={NotFound} />

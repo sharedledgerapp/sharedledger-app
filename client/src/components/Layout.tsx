@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, Wallet, Users, Trophy, Shield, Settings, BarChart3, MessageCircle } from "lucide-react";
+import { Home, Wallet, Users, Trophy, Shield, Settings, BarChart3, MessageCircle, Globe } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
@@ -15,7 +15,7 @@ export function BottomNav() {
   const routes = [
     { href: "/", label: t("home"), icon: Home },
     { href: "/expenses", label: t("expenses"), icon: Wallet },
-    { href: "/goals", label: t("goals"), icon: Trophy },
+    { href: "/groups", label: "Groups", icon: Globe },
     { href: "/family", label: t("group"), icon: Users },
     { href: "/family-dashboard", label: t("dashboard"), icon: Shield },
   ];
@@ -25,7 +25,7 @@ export function BottomNav() {
       <div className="flex justify-around items-center h-16">
         {routes.map((route) => {
           const Icon = route.icon;
-          const isActive = location === route.href;
+          const isActive = route.href === "/" ? location === "/" : location.startsWith(route.href);
           return (
             <Link key={route.href} href={route.href} className="w-full h-full">
               <div
@@ -103,6 +103,9 @@ export function Layout({ children }: { children: ReactNode }) {
           </Link>
           <Link href="/goals" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
             <Trophy className="w-5 h-5" /> {t("goals")}
+          </Link>
+          <Link href="/groups" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors" data-testid="link-groups-desktop">
+            <Globe className="w-5 h-5" /> Groups
           </Link>
           <Link href="/family" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
             <Users className="w-5 h-5" /> {t("group")}
