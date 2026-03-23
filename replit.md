@@ -84,3 +84,19 @@ The `shared/` directory contains common code for both frontend and backend, incl
 - **Session Management**: connect-pg-simple (requires `SESSION_SECRET`)
 - **UI Libraries**: Radix UI, Lucide React (icons), Embla Carousel, Vaul (drawers), date-fns.
 - **AI Integration**: Google Gemini AI (via Replit AI Integrations) for receipt OCR scanning.
+- **Email**: nodemailer with Gmail SMTP for in-app feedback delivery.
+
+## In-App Feedback / Contact Support Setup
+
+The Settings page includes a "Contact Support" section. When a user submits feedback, it is emailed to `SharedLedger.app@gmail.com` via Gmail SMTP using nodemailer.
+
+**Required one-time setup (owner action):**
+
+1. Sign into `SharedLedger.app@gmail.com`.
+2. Go to **Google Account → Security**.
+3. Enable **2-Step Verification** (required for App Passwords).
+4. Go to **Security → App passwords**.
+5. Create a new App Password — name it **"SharedLedger"** — and copy the 16-character code.
+6. In Replit, open the **Secrets** panel (lock icon) and add a secret named `GMAIL_APP_PASSWORD` with that 16-character code as the value.
+
+Without `GMAIL_APP_PASSWORD`, the UI and API still work end-to-end — the app just logs a warning and skips sending the email (safe for development/staging).
