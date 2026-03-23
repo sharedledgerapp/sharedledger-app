@@ -108,10 +108,20 @@ export function setupAuth(app: Express) {
   );
 
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-    const replitDomain = process.env.REPLIT_DOMAINS?.split(",")[0];
-    const googleCallbackURL = replitDomain
-      ? `https://${replitDomain}/api/auth/google/callback`
-      : `/api/auth/google/callback`;
+    // GOOGLE_CALLBACK_URL can be explicitly set in Replit Secrets to override
+    // the auto-detected domain (useful when the production domain differs from
+    // what REPLIT_DOMAINS reports).
+    let googleCallbackURL: string;
+    if (process.env.GOOGLE_CALLBACK_URL) {
+      googleCallbackURL = process.env.GOOGLE_CALLBACK_URL;
+    } else {
+      const replitDomain = process.env.REPLIT_DOMAINS?.split(",")[0];
+      googleCallbackURL = replitDomain
+        ? `https://${replitDomain}/api/auth/google/callback`
+        : `/api/auth/google/callback`;
+    }
+
+    console.log(`[auth] Google OAuth callback URL: ${googleCallbackURL}`);
 
     passport.use(
       new GoogleStrategy(
