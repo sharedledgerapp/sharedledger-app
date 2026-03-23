@@ -25,7 +25,7 @@ export function BottomNav() {
       <div className="flex justify-around items-center h-16">
         {routes.map((route) => {
           const Icon = route.icon;
-          const isActive = route.href === "/" ? location === "/" : location.startsWith(route.href);
+          const isActive = location === route.href;
           return (
             <Link key={route.href} href={route.href} className="w-full h-full">
               <div
