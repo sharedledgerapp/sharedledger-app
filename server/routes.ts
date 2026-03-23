@@ -334,12 +334,28 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       percentageChange = ((currentMonthTotal - prevMonthTotal) / prevMonthTotal) * 100;
     }
 
+    const allRecurring = await storage.getRecurringExpenses(user.id);
+    const recurringMonthlyTotal = allRecurring
+      .filter(r => r.isActive)
+      .reduce((sum, r) => {
+        const amount = Number(r.amount);
+        switch (r.frequency) {
+          case "yearly": return sum + amount / 12;
+          case "quarterly": return sum + amount / 3;
+          default: return sum + amount;
+        }
+      }, 0);
+
+    const combinedMonthlyTotal = currentMonthTotal + recurringMonthlyTotal;
+
     res.json({
       currentMonthTotal: currentMonthTotal.toFixed(2),
       prevMonthTotal: prevMonthTotal.toFixed(2),
       todayTotal: todayTotal.toFixed(2),
       percentageChange: percentageChange.toFixed(1),
       trend: currentMonthTotal >= prevMonthTotal ? "up" : "down",
+      recurringMonthlyTotal: recurringMonthlyTotal.toFixed(2),
+      combinedMonthlyTotal: combinedMonthlyTotal.toFixed(2),
     });
   });
 

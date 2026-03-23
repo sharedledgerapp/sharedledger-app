@@ -53,6 +53,8 @@ export default function HomePage() {
     todayTotal: string;
     percentageChange: string;
     trend: "up" | "down";
+    recurringMonthlyTotal: string;
+    combinedMonthlyTotal: string;
   }>({
     queryKey: ["/api/spending/summary"],
   });
@@ -108,6 +110,8 @@ export default function HomePage() {
   const percentageChange = spendingSummary ? Math.abs(Number(spendingSummary.percentageChange)) : 0;
   const trend = spendingSummary?.trend || "up";
   const prevMonthTotal = spendingSummary ? Number(spendingSummary.prevMonthTotal) : 0;
+  const recurringTotal = spendingSummary ? Number(spendingSummary.recurringMonthlyTotal) : 0;
+  const combinedTotal = spendingSummary ? Number(spendingSummary.combinedMonthlyTotal) : 0;
 
   const now = new Date();
   const monthStart = startOfMonth(now);
@@ -153,7 +157,7 @@ export default function HomePage() {
                   <span className="text-sm font-medium">{t("personalSpending")}</span>
                 </div>
                 <div className="text-4xl font-display font-bold" data-testid="text-monthly-total">
-                  {currencySymbol}{monthlyTotal.toFixed(2)}
+                  {currencySymbol}{combinedTotal.toFixed(2)}
                 </div>
               </div>
               <div className="text-right bg-white/15 rounded-lg px-3 py-2 backdrop-blur-sm" data-testid="badge-today-total">
@@ -161,7 +165,23 @@ export default function HomePage() {
                 <div className="text-base font-bold">{currencySymbol}{todayTotal.toFixed(2)}</div>
               </div>
             </div>
-            <div className="mt-4 flex gap-3 text-xs font-medium text-white/90">
+
+            {recurringTotal > 0 && (
+              <div className="mt-3 flex gap-2 text-[11px] text-white/80">
+                <div className="flex items-center gap-1 bg-white/10 rounded-lg px-2.5 py-1.5" data-testid="badge-everyday-total">
+                  <Wallet className="w-3 h-3 shrink-0" />
+                  <span>Everyday</span>
+                  <span className="font-semibold text-white ml-0.5">{currencySymbol}{monthlyTotal.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center gap-1 bg-white/10 rounded-lg px-2.5 py-1.5" data-testid="badge-recurring-total">
+                  <Clock className="w-3 h-3 shrink-0" />
+                  <span>Recurring</span>
+                  <span className="font-semibold text-white ml-0.5">{currencySymbol}{recurringTotal.toFixed(2)}/mo</span>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-3 flex gap-3 text-xs font-medium text-white/90">
               {prevMonthTotal > 0 ? (
                 <div className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg backdrop-blur-sm" data-testid="badge-trend">
                   {trend === "up" ? (
