@@ -9,13 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, User, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat, Sparkles, ChevronDown } from "lucide-react";
+import { LogOut, User, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat, Sparkles, ChevronDown, MessageCircle, CheckCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Link, useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { CURRENCIES } from "@/lib/currency";
 
 export const DEFAULT_CATEGORIES = ["Food", "Transport", "Entertainment", "Shopping", "Utilities", "Education", "Health", "Other"];
@@ -46,6 +47,39 @@ export default function SettingsPage() {
   
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [recurringCategoriesOpen, setRecurringCategoriesOpen] = useState(false);
+
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackGroup, setFeedbackGroup] = useState("");
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [feedbackSent, setFeedbackSent] = useState(false);
+
+  const sendFeedbackMutation = useMutation({
+    mutationFn: async (data: { group: string; message: string }) => {
+      const res = await apiRequest("POST", "/api/feedback", data);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as any).message || "Failed to send feedback");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setFeedbackSent(true);
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "Error",
+        description: err.message || "Could not send feedback. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCloseFeedback = () => {
+    setFeedbackOpen(false);
+    setFeedbackSent(false);
+    setFeedbackGroup("");
+    setFeedbackMessage("");
+  };
 
   const [dailyReminderEnabled, setDailyReminderEnabled] = useState((user as any)?.dailyReminderEnabled ?? true);
   const [dailyReminderTime, setDailyReminderTime] = useState((user as any)?.dailyReminderTime || "19:00");
@@ -431,6 +465,22 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      <Card
+        className="border-border/50 cursor-pointer hover:border-primary/40 transition-colors"
+        onClick={() => setFeedbackOpen(true)}
+        data-testid="card-contact-support"
+      >
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <MessageCircle className="w-5 h-5 text-primary" />
+            Contact Support
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">For bugs or suggestions</p>
+        </CardContent>
+      </Card>
+
       <Card className="border-border/50">
         <button
           className="w-full text-left"
@@ -797,6 +847,95 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <Dialog open={feedbackOpen} onOpenChange={(open) => { if (!open) handleCloseFeedback(); }}>
+        <DialogContent className="sm:max-w-md">
+          {feedbackSent ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-primary">
+                  <CheckCircle className="w-5 h-5" />
+                  Message Sent
+                </DialogTitle>
+              </DialogHeader>
+              <div className="py-6 text-center space-y-3">
+                <CheckCircle className="w-12 h-12 text-primary mx-auto" />
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Your message has been recorded and we shall get back to you within 5 business days.
+                </p>
+              </div>
+              <DialogFooter>
+                <Button className="w-full" onClick={handleCloseFeedback} data-testid="button-close-feedback-success">
+                  Close
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5 text-primary" />
+                  Contact Support
+                </DialogTitle>
+                <DialogDescription>
+                  For bugs or suggestions — we read every message.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="feedback-group">Which group do you use?</Label>
+                  <Select value={feedbackGroup} onValueChange={setFeedbackGroup}>
+                    <SelectTrigger id="feedback-group" data-testid="select-feedback-group">
+                      <SelectValue placeholder="Select your group type…" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover">
+                      <SelectItem value="Family" data-testid="option-feedback-family">Family</SelectItem>
+                      <SelectItem value="Couples" data-testid="option-feedback-couples">Couples</SelectItem>
+                      <SelectItem value="Roommates" data-testid="option-feedback-roommates">Roommates</SelectItem>
+                      <SelectItem value="Friends" data-testid="option-feedback-friends">Friends</SelectItem>
+                      <SelectItem value="Individual" data-testid="option-feedback-individual">Individual</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="feedback-message">Your message</Label>
+                  <Textarea
+                    id="feedback-message"
+                    value={feedbackMessage}
+                    onChange={(e) => setFeedbackMessage(e.target.value)}
+                    placeholder="Describe your bug or suggestion…"
+                    rows={5}
+                    maxLength={2000}
+                    data-testid="textarea-feedback-message"
+                  />
+                  <p className="text-xs text-muted-foreground text-right">{feedbackMessage.length}/2000</p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={handleCloseFeedback}
+                  data-testid="button-cancel-feedback"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => sendFeedbackMutation.mutate({ group: feedbackGroup, message: feedbackMessage })}
+                  disabled={
+                    !feedbackGroup ||
+                    feedbackMessage.trim().length < 10 ||
+                    sendFeedbackMutation.isPending
+                  }
+                  data-testid="button-send-feedback"
+                >
+                  {sendFeedbackMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Send Feedback
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent className="sm:max-w-md">

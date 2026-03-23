@@ -12,6 +12,7 @@ import passport from "passport";
 import { db } from "./db";
 import { GoogleGenAI } from "@google/genai";
 import { startPushScheduler } from "./push-scheduler";
+import { sendFeedbackEmail } from "./email";
 
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (req.isAuthenticated()) {
@@ -1767,6 +1768,35 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       res.status(201).json(settlement);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      next(err);
+    }
+  });
+
+  // === FEEDBACK / CONTACT SUPPORT ROUTE ===
+
+  app.post("/api/feedback", requireAuth, async (req, res, next) => {
+    try {
+      const feedbackSchema = z.object({
+        group: z.string().min(1, "Please select a group"),
+        message: z.string().min(10, "Message must be at least 10 characters"),
+      });
+
+      const { group, message } = feedbackSchema.parse(req.body);
+      const user = req.user as any;
+
+      await sendFeedbackEmail({
+        group,
+        message,
+        userEmail: user.email || null,
+        userName: user.name || user.username || null,
+      });
+
+      res.json({ ok: true });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      console.error("[feedback] Failed to send feedback email:", err);
       next(err);
     }
   });
