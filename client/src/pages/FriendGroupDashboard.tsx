@@ -97,7 +97,7 @@ export default function FriendGroupDashboard() {
     enabled: !isNaN(groupId) && groupId > 0,
   });
 
-  const { data: expenses, isLoading: expensesLoading } = useQuery<GroupExpense[]>({
+  const { data: expenses, isLoading: expensesLoading, isError: expensesError } = useQuery<GroupExpense[]>({
     queryKey: ["/api/friend-groups", groupId, "expenses"],
     queryFn: async () => {
       const res = await fetch(`/api/friend-groups/${groupId}/expenses`, { credentials: "include" });
@@ -107,7 +107,7 @@ export default function FriendGroupDashboard() {
     enabled: !isNaN(groupId) && groupId > 0,
   });
 
-  const { data: balances } = useQuery<Balance[]>({
+  const { data: balances, isError: balancesError } = useQuery<Balance[]>({
     queryKey: ["/api/friend-groups", groupId, "balances"],
     queryFn: async () => {
       const res = await fetch(`/api/friend-groups/${groupId}/balances`, { credentials: "include" });
@@ -241,7 +241,13 @@ export default function FriendGroupDashboard() {
       {/* Balances */}
       <section>
         <h3 className="font-display font-bold text-base mb-3">Balances</h3>
-        {allBalances.length === 0 ? (
+        {balancesError ? (
+          <Card className="border-destructive/30">
+            <CardContent className="p-4 text-sm text-destructive">
+              Could not load balances. Please refresh.
+            </CardContent>
+          </Card>
+        ) : allBalances.length === 0 ? (
           <Card className="border-border/50">
             <CardContent className="p-4 flex items-center gap-3 text-green-600">
               <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
@@ -253,14 +259,15 @@ export default function FriendGroupDashboard() {
             {allBalances.map((b, i) => {
               const isMyDebt = b.fromUserId === currentUserId;
               const isMyCredit = b.toUserId === currentUserId;
+              const canSettle = isMyDebt && !group.archived;
               return (
                 <Card
                   key={i}
                   className={cn(
-                    "border-border/50 cursor-pointer hover:border-primary/30 transition-all active:scale-[0.99]",
-                    !group.archived && "cursor-pointer"
+                    "border-border/50 transition-all",
+                    canSettle && "cursor-pointer hover:border-primary/30 active:scale-[0.99]"
                   )}
-                  onClick={() => !group.archived && setSelectedBalance(b)}
+                  onClick={() => canSettle && setSelectedBalance(b)}
                   data-testid={`balance-card-${b.fromUserId}-${b.toUserId}`}
                 >
                   <CardContent className="p-3 flex items-center justify-between">
@@ -286,7 +293,7 @@ export default function FriendGroupDashboard() {
                       )}>
                         {currencySymbol}{Number(b.amount).toFixed(2)}
                       </span>
-                      {!group.archived && <span className="text-xs text-muted-foreground">Tap to settle</span>}
+                      {canSettle && <span className="text-xs text-muted-foreground">Tap to settle</span>}
                     </div>
                   </CardContent>
                 </Card>
@@ -303,6 +310,12 @@ export default function FriendGroupDashboard() {
           <div className="space-y-3">
             {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}
           </div>
+        ) : expensesError ? (
+          <Card className="border-destructive/30">
+            <CardContent className="p-4 text-sm text-destructive">
+              Could not load expenses. Please refresh.
+            </CardContent>
+          </Card>
         ) : !expenses || expenses.length === 0 ? (
           <Card className="border-dashed border-border/50">
             <CardContent className="p-8 text-center">
