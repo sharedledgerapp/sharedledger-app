@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { getCurrencySymbol } from "@/lib/currency";
 import { format } from "date-fns";
-import { MoreVertical, Plus, ArrowLeft, CheckCircle2, Archive } from "lucide-react";
+import { MoreVertical, Plus, ArrowLeft, CheckCircle2, Archive, Copy, Check, X } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { AddFriendExpenseDialog } from "@/components/AddFriendExpenseDialog";
@@ -79,7 +79,11 @@ export default function FriendGroupDashboard() {
   const groupId = parseInt(id || "0");
   const { user } = useAuth();
   const { toast } = useToast();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
+
+  const newGroupCode = new URLSearchParams(location.split("?")[1] || "").get("code");
+  const [showInviteCode, setShowInviteCode] = useState(!!newGroupCode);
+  const [codeCopied, setCodeCopied] = useState(false);
 
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<GroupExpense | null>(null);
@@ -222,6 +226,43 @@ export default function FriendGroupDashboard() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Invite Code Banner (shown right after group creation) */}
+      {showInviteCode && newGroupCode && (
+        <Card className="border-primary/30 bg-primary/5" data-testid="card-invite-code">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <p className="text-sm font-medium">Share this invite code with friends</p>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-muted-foreground flex-shrink-0"
+                onClick={() => setShowInviteCode(false)}
+                data-testid="button-dismiss-invite-code"
+              >
+                <X className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+            <div className="flex items-center gap-2 bg-background rounded-xl p-3">
+              <span className="flex-1 text-lg font-mono font-bold tracking-widest text-center" data-testid="text-invite-code">{newGroupCode}</span>
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-8 w-8 flex-shrink-0"
+                onClick={() => {
+                  navigator.clipboard.writeText(newGroupCode).then(() => {
+                    setCodeCopied(true);
+                    setTimeout(() => setCodeCopied(false), 2000);
+                  });
+                }}
+                data-testid="button-copy-invite-code"
+              >
+                {codeCopied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Member Avatars */}
       <div className="flex items-center gap-1">

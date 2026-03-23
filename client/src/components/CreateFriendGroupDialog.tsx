@@ -52,8 +52,7 @@ export function CreateFriendGroupDialog({ open, onOpenChange }: Props) {
       queryClient.invalidateQueries({ queryKey: ["/api/friend-groups"] });
       onOpenChange(false);
       createForm.reset();
-      navigate(`/groups/${group.id}`);
-      toast({ title: `Group created!`, description: `Invite code: ${group.code} — share it with friends.` });
+      navigate(`/groups/${group.id}?code=${group.code}`);
     },
     onError: (e: Error) => {
       toast({ title: "Error creating group", description: e.message, variant: "destructive" });
