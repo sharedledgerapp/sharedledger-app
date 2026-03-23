@@ -701,7 +701,16 @@ export default function SettingsPage() {
       </Card>
 
       <Card className="border-border/50">
-        <CardContent className="pt-6 space-y-3">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            Help &amp; Tour
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            New to SharedLedger? Take a guided tour to discover all the features — from logging expenses to tracking shared goals.
+          </p>
           <Button
             variant="outline"
             className="w-full gap-2"
@@ -711,6 +720,11 @@ export default function SettingsPage() {
             <Sparkles className="w-4 h-4" />
             Take the Tour
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/50">
+        <CardContent className="pt-6">
           <Button 
             variant="outline" 
             className="w-full"

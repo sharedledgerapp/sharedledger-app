@@ -1,7 +1,8 @@
 import { useEffect, useState, useLayoutEffect, useCallback } from "react";
+import { useLocation } from "wouter";
 import { useTutorial } from "@/contexts/TutorialContext";
 import { Button } from "@/components/ui/button";
-import { X, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Sparkles, Navigation } from "lucide-react";
 
 interface SpotlightRect {
   top: number;
@@ -12,6 +13,7 @@ interface SpotlightRect {
 
 export function TutorialOverlay() {
   const { isActive, currentStep, steps, nextStep, prevStep, skipTutorial } = useTutorial();
+  const [location, setLocation] = useLocation();
   const [spotlightRect, setSpotlightRect] = useState<SpotlightRect | null>(null);
   const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
   const [ready, setReady] = useState(false);
@@ -21,7 +23,7 @@ export function TutorialOverlay() {
 
   const PADDING = 8;
   const TOOLTIP_WIDTH = 300;
-  const TOOLTIP_EST_HEIGHT = 180;
+  const TOOLTIP_EST_HEIGHT = 200;
   const MARGIN = 12;
 
   const measureTarget = useCallback(() => {
@@ -55,9 +57,17 @@ export function TutorialOverlay() {
       setSpotlightRect(null);
       return;
     }
+
     setReady(false);
-    measureTarget();
-  }, [isActive, currentStep, measureTarget]);
+    setSpotlightRect(null);
+
+    if (step?.page && location !== step.page) {
+      setLocation(step.page);
+      setTimeout(() => measureTarget(), 500);
+    } else {
+      measureTarget();
+    }
+  }, [isActive, currentStep]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -77,7 +87,9 @@ export function TutorialOverlay() {
 
     const spaceBelow = vh - (spotlightRect.top + spotlightRect.height);
     const spaceAbove = spotlightRect.top;
-    const showAbove = placement === "top" || (spaceBelow < TOOLTIP_EST_HEIGHT + MARGIN * 2 && spaceAbove > spaceBelow);
+    const showAbove =
+      placement === "top" ||
+      (spaceBelow < TOOLTIP_EST_HEIGHT + MARGIN * 2 && spaceAbove > spaceBelow);
 
     if (showAbove) {
       setTooltipStyle({
@@ -98,45 +110,48 @@ export function TutorialOverlay() {
 
   if (!isActive || !ready) return null;
 
+  const isOnWrongPage = step?.page && location !== step.page;
   const isCentered = !step?.target || !spotlightRect;
 
   return (
-    <div className="fixed inset-0 z-[9999]" style={{ pointerEvents: "all" }}>
+    <div className="fixed inset-0 z-[9999]" style={{ pointerEvents: "none" }}>
       {isCentered ? (
         <div className="absolute inset-0 bg-black/60" />
       ) : (
-        <div className="absolute inset-0" style={{ pointerEvents: "none" }}>
-          <div
-            className="absolute bg-black/60"
-            style={{ top: 0, left: 0, right: 0, height: Math.max(0, spotlightRect.top) }}
-          />
-          <div
-            className="absolute bg-black/60"
-            style={{
-              top: spotlightRect.top + spotlightRect.height,
-              left: 0,
-              right: 0,
-              bottom: 0,
-            }}
-          />
-          <div
-            className="absolute bg-black/60"
-            style={{
-              top: spotlightRect.top,
-              left: 0,
-              width: Math.max(0, spotlightRect.left),
-              height: spotlightRect.height,
-            }}
-          />
-          <div
-            className="absolute bg-black/60"
-            style={{
-              top: spotlightRect.top,
-              left: spotlightRect.left + spotlightRect.width,
-              right: 0,
-              height: spotlightRect.height,
-            }}
-          />
+        <>
+          <div className="absolute inset-0">
+            <div
+              className="absolute bg-black/60"
+              style={{ top: 0, left: 0, right: 0, height: Math.max(0, spotlightRect.top) }}
+            />
+            <div
+              className="absolute bg-black/60"
+              style={{
+                top: spotlightRect.top + spotlightRect.height,
+                left: 0,
+                right: 0,
+                bottom: 0,
+              }}
+            />
+            <div
+              className="absolute bg-black/60"
+              style={{
+                top: spotlightRect.top,
+                left: 0,
+                width: Math.max(0, spotlightRect.left),
+                height: spotlightRect.height,
+              }}
+            />
+            <div
+              className="absolute bg-black/60"
+              style={{
+                top: spotlightRect.top,
+                left: spotlightRect.left + spotlightRect.width,
+                right: 0,
+                height: spotlightRect.height,
+              }}
+            />
+          </div>
           <div
             className="absolute rounded-xl ring-2 ring-primary ring-offset-0"
             style={{
@@ -146,7 +161,7 @@ export function TutorialOverlay() {
               height: spotlightRect.height,
             }}
           />
-        </div>
+        </>
       )}
 
       <button
@@ -154,29 +169,39 @@ export function TutorialOverlay() {
         className="fixed top-4 right-4 z-[10001] flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-sm text-white text-xs font-semibold border border-white/25 hover:bg-white/25 transition-colors"
         data-testid="button-skip-tutorial"
         aria-label="Skip tour"
+        style={{ pointerEvents: "auto" }}
       >
         <X className="w-3.5 h-3.5" />
         Skip Tour
       </button>
 
       {isCentered ? (
-        <div className="fixed inset-0 flex items-center justify-center p-6 z-[10001]">
+        <div
+          className="fixed inset-0 flex items-center justify-center p-6 z-[10001]"
+          style={{ pointerEvents: "auto" }}
+        >
           <TutorialCard
             step={step}
             currentStep={currentStep}
             totalSteps={steps.length}
             isLastStep={isLastStep}
+            isOnWrongPage={!!isOnWrongPage}
+            targetPage={step?.page}
+            onNavigate={() => step?.page && setLocation(step.page)}
             onNext={nextStep}
             onPrev={prevStep}
           />
         </div>
       ) : (
-        <div style={{ ...tooltipStyle, zIndex: 10001 }}>
+        <div style={{ ...tooltipStyle, zIndex: 10001, pointerEvents: "auto" }}>
           <TutorialCard
             step={step}
             currentStep={currentStep}
             totalSteps={steps.length}
             isLastStep={isLastStep}
+            isOnWrongPage={false}
+            targetPage={step?.page}
+            onNavigate={() => step?.page && setLocation(step.page)}
             onNext={nextStep}
             onPrev={prevStep}
           />
@@ -191,18 +216,36 @@ function TutorialCard({
   currentStep,
   totalSteps,
   isLastStep,
+  isOnWrongPage,
+  targetPage,
+  onNavigate,
   onNext,
   onPrev,
 }: {
-  step: { title: string; description: string };
+  step: { title: string; description: string; page?: string };
   currentStep: number;
   totalSteps: number;
   isLastStep: boolean;
+  isOnWrongPage: boolean;
+  targetPage?: string;
+  onNavigate: () => void;
   onNext: () => void;
   onPrev: () => void;
 }) {
+  const pageNames: Record<string, string> = {
+    "/": "Home",
+    "/expenses": "Expenses",
+    "/budget": "Budget",
+    "/goals": "Goals",
+    "/family": "Group",
+    "/family-dashboard": "Dashboard",
+    "/reports": "Reports",
+    "/messages": "Messages",
+    "/settings": "Settings",
+  };
+
   return (
-    <div className="bg-white dark:bg-card rounded-2xl shadow-2xl p-4 w-full animate-in fade-in slide-in-from-bottom-2 duration-200">
+    <div className="bg-white dark:bg-card rounded-2xl shadow-2xl p-4 w-full max-w-xs animate-in fade-in slide-in-from-bottom-2 duration-200">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-primary" />
@@ -228,6 +271,17 @@ function TutorialCard({
 
       <h3 className="font-display font-bold text-sm text-foreground mb-1">{step.title}</h3>
       <p className="text-xs text-muted-foreground leading-relaxed mb-3">{step.description}</p>
+
+      {isOnWrongPage && targetPage && (
+        <button
+          onClick={onNavigate}
+          className="w-full mb-3 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
+          data-testid="button-tutorial-navigate"
+        >
+          <Navigation className="w-3.5 h-3.5" />
+          Go to {pageNames[targetPage] || targetPage}
+        </button>
+      )}
 
       <div className="flex items-center gap-2">
         {currentStep > 0 && (
