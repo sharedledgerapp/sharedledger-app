@@ -106,6 +106,7 @@ export interface IStorage {
   getAllPushSubscriptions(): Promise<{ userId: number; endpoint: string; p256dh: string; auth: string }[]>;
 
   // Friend Groups
+  getFriendGroupExpenses(groupId: number): Promise<(Expense & { splits: ExpenseSplit[] })[]>;
   createFriendGroup(data: { name: string; currency?: string; creatorId: number }): Promise<Family>;
   getFriendGroupsForUser(userId: number): Promise<(Family & { memberCount: number; memberRole: string })[]>;
   getFriendGroup(groupId: number): Promise<(Family & { members: (User & { memberRole: string })[] }) | undefined>;
@@ -733,8 +734,36 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Friend Groups
+  async getFriendGroupExpenses(groupId: number): Promise<(Expense & { splits: ExpenseSplit[] })[]> {
+    const groupExpenses = await db.select().from(expenses)
+      .where(and(eq(expenses.familyId, groupId), eq(expenses.visibility, "public")))
+      .orderBy(desc(expenses.date));
+
+    if (groupExpenses.length === 0) return [];
+
+    const expenseIds = groupExpenses.map(e => e.id);
+    const allSplits = await db.select().from(expenseSplits).where(inArray(expenseSplits.expenseId, expenseIds));
+    const splitMap = new Map<number, ExpenseSplit[]>();
+    for (const s of allSplits) {
+      const list = splitMap.get(s.expenseId) || [];
+      list.push({ ...s, amount: s.amount.toString() });
+      splitMap.set(s.expenseId, list);
+    }
+    return groupExpenses.map(e => ({ ...e, splits: splitMap.get(e.id) || [] }));
+  }
+
   async createFriendGroup(data: { name: string; currency?: string; creatorId: number }): Promise<Family> {
-    const code = `FRD-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    // Retry until unique code is found
+    let code: string;
+    let attempts = 0;
+    while (true) {
+      attempts++;
+      const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+      code = `FRD-${rand}`;
+      const existing = await db.select({ id: families.id }).from(families).where(eq(families.code, code));
+      if (existing.length === 0) break;
+      if (attempts > 10) throw new Error("Failed to generate unique invite code");
+    }
     const [group] = await db.insert(families).values({
       name: data.name,
       code,

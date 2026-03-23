@@ -1417,7 +1417,8 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       if (!group) return res.status(404).json({ message: "Group not found" });
 
       const balances = await storage.getFriendGroupNetBalances(groupId);
-      res.json({ ...group, balances });
+      const safeMembers = group.members.map(({ password, ...safe }) => safe);
+      res.json({ ...group, members: safeMembers, balances });
     } catch (err) {
       next(err);
     }
@@ -1489,8 +1490,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       const members = await storage.getFriendGroupMembers(groupId);
       const memberMap = new Map(members.map(m => [m.id, m.name]));
 
-      const groupExpenses = await storage.getExpenses(undefined, groupId);
-      const publicExpenses = groupExpenses.filter(e => e.visibility === "public");
+      const publicExpenses = await storage.getFriendGroupExpenses(groupId);
 
       const enriched = publicExpenses.map(e => ({
         ...e,
@@ -1530,6 +1530,25 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
       const data = schema.parse(req.body);
       const totalAmount = parseFloat(data.amount);
+
+      // Validate all referenced users are group members
+      const groupMembers = group.members.map(m => m.id);
+      const memberSet = new Set(groupMembers);
+      if (!memberSet.has(data.paidByUserId)) {
+        return res.status(400).json({ message: "paidByUserId is not a member of this group" });
+      }
+      for (const uid of data.participants) {
+        if (!memberSet.has(uid)) {
+          return res.status(400).json({ message: `Participant user ${uid} is not a member of this group` });
+        }
+      }
+      if (data.customSplits) {
+        for (const s of data.customSplits) {
+          if (!memberSet.has(s.userId)) {
+            return res.status(400).json({ message: `Split user ${s.userId} is not a member of this group` });
+          }
+        }
+      }
 
       let splits: { userId: number; amount: string }[];
       if (data.splitType === "equal") {
@@ -1620,6 +1639,29 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       });
 
       const data = schema.parse(req.body);
+
+      // Validate that referenced users are group members
+      if (group) {
+        const memberSet = new Set(group.members.map(m => m.id));
+        if (data.paidByUserId !== undefined && !memberSet.has(data.paidByUserId)) {
+          return res.status(400).json({ message: "paidByUserId is not a member of this group" });
+        }
+        if (data.participants) {
+          for (const uid of data.participants) {
+            if (!memberSet.has(uid)) {
+              return res.status(400).json({ message: `Participant user ${uid} is not a member of this group` });
+            }
+          }
+        }
+        if (data.customSplits) {
+          for (const s of data.customSplits) {
+            if (!memberSet.has(s.userId)) {
+              return res.status(400).json({ message: `Split user ${s.userId} is not a member of this group` });
+            }
+          }
+        }
+      }
+
       const updates: any = {};
       if (data.description !== undefined) updates.note = data.description;
       if (data.amount !== undefined) updates.amount = data.amount;
