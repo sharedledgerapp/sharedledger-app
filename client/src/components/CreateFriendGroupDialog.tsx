@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -14,7 +13,6 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { CURRENCIES } from "@/lib/currency";
-import { Copy, Check } from "lucide-react";
 
 const createSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(60),
@@ -22,7 +20,7 @@ const createSchema = z.object({
 });
 
 const joinSchema = z.object({
-  code: z.string().min(4, "Enter a valid invite code"),
+  code: z.string().regex(/^FRD-[A-Z0-9]{4}$/i, "Enter a valid invite code (e.g. FRD-ABCD)"),
 });
 
 interface Props {
@@ -34,8 +32,6 @@ export function CreateFriendGroupDialog({ open, onOpenChange }: Props) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
-  const [createdGroup, setCreatedGroup] = useState<{ id: number; code: string } | null>(null);
-  const [copied, setCopied] = useState(false);
 
   const createForm = useForm<z.infer<typeof createSchema>>({
     resolver: zodResolver(createSchema),
@@ -54,7 +50,10 @@ export function CreateFriendGroupDialog({ open, onOpenChange }: Props) {
     },
     onSuccess: (group) => {
       queryClient.invalidateQueries({ queryKey: ["/api/friend-groups"] });
-      setCreatedGroup({ id: group.id, code: group.code });
+      onOpenChange(false);
+      createForm.reset();
+      navigate(`/groups/${group.id}`);
+      toast({ title: `Group created!`, description: `Invite code: ${group.code} — share it with friends.` });
     },
     onError: (e: Error) => {
       toast({ title: "Error creating group", description: e.message, variant: "destructive" });
@@ -76,48 +75,6 @@ export function CreateFriendGroupDialog({ open, onOpenChange }: Props) {
       toast({ title: "Error joining group", description: e.message, variant: "destructive" });
     },
   });
-
-  function handleCopyCode() {
-    if (!createdGroup) return;
-    navigator.clipboard.writeText(createdGroup.code).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }
-
-  function handleGoToGroup() {
-    if (!createdGroup) return;
-    onOpenChange(false);
-    setCreatedGroup(null);
-    createForm.reset();
-    navigate(`/groups/${createdGroup.id}`);
-  }
-
-  if (createdGroup) {
-    return (
-      <Dialog open={open} onOpenChange={(o) => { if (!o) { setCreatedGroup(null); createForm.reset(); } onOpenChange(o); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Group Created!</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Share this invite code with friends so they can join your group.
-            </p>
-            <div className="flex items-center gap-2 bg-secondary rounded-xl p-4">
-              <span className="flex-1 text-xl font-mono font-bold tracking-widest text-center">{createdGroup.code}</span>
-              <Button size="icon" variant="ghost" onClick={handleCopyCode} data-testid="button-copy-invite-code">
-                {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-              </Button>
-            </div>
-            <Button className="w-full" onClick={handleGoToGroup} data-testid="button-go-to-group">
-              Go to Group
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

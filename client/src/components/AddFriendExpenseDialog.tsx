@@ -29,7 +29,7 @@ interface ExpenseSplit {
 
 interface InitialExpense {
   id: number;
-  note: string;
+  note: string | null;
   amount: string;
   paidByUserId: number;
   splitType: string;
