@@ -69,6 +69,7 @@ export async function sendFeedbackEmail(payload: FeedbackPayload): Promise<void>
   await transporter.sendMail({
     from: `SharedLedger <${SUPPORT_EMAIL}>`,
     to: SUPPORT_EMAIL,
+    replyTo: userEmail ? `${userName || "User"} <${userEmail}>` : undefined,
     subject: `SharedLedger Feedback – ${group}`,
     text: textBody,
     html: htmlBody,
