@@ -310,7 +310,7 @@ export default function SettingsPage() {
             <ChevronLeft className="w-5 h-5" />
           </Button>
         </Link>
-        <h1 className="text-2xl font-display font-bold">{t("settingsTitle")}</h1>
+        <h1 className="text-2xl font-display font-bold" data-tutorial="settings-link">{t("settingsTitle")}</h1>
       </div>
 
       <Card className="border-border/50">

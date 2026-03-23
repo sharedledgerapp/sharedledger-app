@@ -25,7 +25,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "add-expense-button",
     title: "Add an Expense",
-    description: "Tap here to log a new expense. Choose the amount, category, date, and whether to share it with your group.",
+    description: "This button opens the expense entry form — your one-tap way to record any purchase. Choose the amount, category, date, and whether to share it with your group.",
     target: "add-expense-button",
     placement: "bottom",
     page: "/",
@@ -33,7 +33,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "expenses-list",
     title: "Your Expense List",
-    description: "All your everyday transactions appear here. Tap any entry to edit it. You can also search by amount, category, or note.",
+    description: "All your everyday transactions appear here. Each entry can be tapped to edit it. You can also search by amount, category, or note.",
     target: "expenses-list",
     placement: "bottom",
     page: "/expenses",
@@ -41,7 +41,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "recurring-tab",
     title: "Recurring Expenses",
-    description: "Track fixed costs like subscriptions, rent, and utilities here. See your total monthly commitments at a glance and pause them when needed.",
+    description: "This section tracks fixed costs like subscriptions, rent, and utilities. It shows your total monthly commitments at a glance and lets you pause them when needed.",
     target: "recurring-tab",
     placement: "bottom",
     page: "/expenses",
@@ -49,7 +49,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "budget-card",
     title: "Budget Planning",
-    description: "Set spending limits per category. Colour-coded progress bars alert you as you get close to your limit — green is on track, red means over budget.",
+    description: "This is where you set spending limits per category. Colour-coded progress bars alert you as you get close to your limit — green is on track, red means over budget.",
     target: "budget-card",
     placement: "bottom",
     page: "/budget",
@@ -57,7 +57,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "goals-list",
     title: "Savings Goals",
-    description: "Create personal or shared savings goals with targets and deadlines. Add funds over time and track your progress toward anything you are saving for.",
+    description: "This section lets you create personal or shared savings goals with targets and deadlines. Add funds over time and track your progress toward anything you are saving for.",
     target: "goals-list",
     placement: "bottom",
     page: "/goals",
@@ -65,7 +65,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "group-section",
     title: "Your Group",
-    description: "View all members in your group. Share the invite code or QR code to add new people, and manage who has admin access.",
+    description: "This section shows all members in your group. You can share the invite code or QR code to add new people, and manage who has admin access.",
     target: "group-section",
     placement: "bottom",
     page: "/family",
@@ -73,7 +73,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "shared-dashboard",
     title: "Shared Dashboard",
-    description: "See how your group spends together — broken down by member, category, and payment source. Great for staying aligned on shared finances.",
+    description: "This dashboard shows how your group spends together — broken down by member, category, and payment source. Great for staying aligned on shared finances.",
     target: "shared-dashboard",
     placement: "bottom",
     page: "/family-dashboard",
@@ -81,7 +81,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "reports-chart",
     title: "Reports & Insights",
-    description: "Dive into your spending history with interactive charts. Tap any bar to see the expenses for that day. Filter by category for a deeper breakdown.",
+    description: "This chart lets you dive into your spending history interactively. Each bar represents a day — select one to see its expenses. Filter by category for a deeper breakdown.",
     target: "reports-chart",
     placement: "top",
     page: "/reports",
@@ -89,7 +89,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "messages-area",
     title: "Messages & Notes",
-    description: "Chat with your group about finances, or leave shared notes and checklists — great for shopping lists and financial reminders.",
+    description: "This area lets you chat with your group about finances, or leave shared notes and checklists — great for shopping lists and financial reminders.",
     target: "messages-area",
     placement: "bottom",
     page: "/messages",
@@ -97,7 +97,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "settings-link",
     title: "Settings",
-    description: "Customise your currency, language, expense categories, and notification preferences. You can also replay this tour here at any time.",
+    description: "Settings let you customise your currency, language, expense categories, and notification preferences. You can also replay this tour here at any time.",
     target: "settings-link",
     placement: "bottom",
     page: "/settings",

@@ -81,7 +81,7 @@ export function Layout({ children }: { children: ReactNode }) {
               </div>
             </Link>
             <Link href="/settings">
-              <Avatar className="w-9 h-9 border-2 border-primary/20 cursor-pointer hover:border-primary/50 transition-colors" data-testid="button-profile-mobile" data-tutorial="settings-link">
+              <Avatar className="w-9 h-9 border-2 border-primary/20 cursor-pointer hover:border-primary/50 transition-colors" data-testid="button-profile-mobile">
                 <AvatarImage src={user.profileImageUrl || undefined} alt={user.name} />
                 <AvatarFallback className="text-sm bg-primary/10 text-primary font-bold">
                   {user.name?.[0]?.toUpperCase() || "U"}
@@ -130,7 +130,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </nav>
         <div className="pt-6 border-t border-border">
           <Link href="/settings">
-            <div className="flex items-center gap-3 px-2 mb-4 cursor-pointer hover:bg-muted rounded-xl py-2 transition-colors" data-testid="button-profile-desktop" data-tutorial="settings-link">
+            <div className="flex items-center gap-3 px-2 mb-4 cursor-pointer hover:bg-muted rounded-xl py-2 transition-colors" data-testid="button-profile-desktop">
               <Avatar className="w-10 h-10 border-2 border-primary/20">
                 <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.name} />
                 <AvatarFallback className="bg-primary/10 text-primary font-bold">

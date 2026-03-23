@@ -42,7 +42,7 @@ export function TutorialOverlay() {
     return null;
   }, []);
 
-  const measureTarget = useCallback((retries = 5, gen?: number) => {
+  const measureTarget = useCallback((retries = 8, gen?: number) => {
     const currentGen = gen ?? measureGenRef.current;
     if (currentGen !== measureGenRef.current) return;
 
@@ -90,9 +90,9 @@ export function TutorialOverlay() {
 
     if (step?.page && location !== step.page) {
       setLocation(step.page);
-      setTimeout(() => measureTarget(5, gen), 500);
+      setTimeout(() => measureTarget(8, gen), 900);
     } else {
-      measureTarget(5, gen);
+      measureTarget(8, gen);
     }
   }, [isActive, currentStep]);
 
@@ -186,6 +186,16 @@ export function TutorialOverlay() {
               left: spotlightRect.left,
               width: spotlightRect.width,
               height: spotlightRect.height,
+            }}
+          />
+          <div
+            className="absolute rounded-xl"
+            style={{
+              top: spotlightRect.top,
+              left: spotlightRect.left,
+              width: spotlightRect.width,
+              height: spotlightRect.height,
+              pointerEvents: "auto",
             }}
           />
         </>
