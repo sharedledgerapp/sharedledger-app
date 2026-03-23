@@ -15,7 +15,7 @@ export function BottomNav() {
   const routes = [
     { href: "/", label: t("home"), icon: Home },
     { href: "/expenses", label: t("expenses"), icon: Wallet },
-    { href: "/groups", label: "Groups", icon: Globe },
+    { href: "/goals", label: t("goals"), icon: Trophy },
     { href: "/family", label: t("group"), icon: Users },
     { href: "/family-dashboard", label: t("dashboard"), icon: Shield },
   ];

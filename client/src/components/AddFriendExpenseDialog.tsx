@@ -22,6 +22,20 @@ interface Member {
   memberRole: string;
 }
 
+interface ExpenseSplit {
+  userId: number;
+  amount: string;
+}
+
+interface InitialExpense {
+  id: number;
+  note: string;
+  amount: string;
+  paidByUserId: number;
+  splitType: string;
+  splits?: ExpenseSplit[];
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -29,7 +43,7 @@ interface Props {
   groupCurrency: string;
   members: Member[];
   currentUserId: number;
-  initialExpense?: any;
+  initialExpense?: InitialExpense;
 }
 
 const expenseSchema = z.object({
@@ -66,11 +80,11 @@ export function AddFriendExpenseDialog({ open, onOpenChange, groupId, groupCurre
           splitType: initialExpense.splitType === "equal" ? "equal" : "custom",
         });
         setSplitType(initialExpense.splitType === "equal" ? "equal" : "custom");
-        const existingParticipants = initialExpense.splits?.map((s: any) => s.userId) || members.map((m) => m.id);
+        const existingParticipants = initialExpense.splits?.map((s) => s.userId) || members.map((m) => m.id);
         setParticipants(existingParticipants);
         const existingSplits: Record<number, string> = {};
         if (initialExpense.splitType !== "equal") {
-          initialExpense.splits?.forEach((s: any) => { existingSplits[s.userId] = String(s.amount); });
+          initialExpense.splits?.forEach((s) => { existingSplits[s.userId] = String(s.amount); });
         }
         setCustomSplits(existingSplits);
       } else {
@@ -84,9 +98,18 @@ export function AddFriendExpenseDialog({ open, onOpenChange, groupId, groupCurre
 
   const isEditing = !!initialExpense;
 
+  interface ExpenseBody {
+    description: string;
+    amount: string;
+    paidByUserId: number;
+    participants: number[];
+    splitType: string;
+    customSplits?: { userId: number; amount: string }[];
+  }
+
   const mutation = useMutation({
     mutationFn: async (values: z.infer<typeof expenseSchema>) => {
-      const body: any = {
+      const body: ExpenseBody = {
         description: values.description,
         amount: values.amount,
         paidByUserId: values.paidByUserId,

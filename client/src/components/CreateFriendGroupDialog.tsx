@@ -34,12 +34,12 @@ export function CreateFriendGroupDialog({ open, onOpenChange }: Props) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
-  const [createdCode, setCreatedCode] = useState<string | null>(null);
+  const [createdGroup, setCreatedGroup] = useState<{ id: number; code: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
   const createForm = useForm<z.infer<typeof createSchema>>({
     resolver: zodResolver(createSchema),
-    defaultValues: { name: "", currency: (user as any)?.currency || "EUR" },
+    defaultValues: { name: "", currency: (user as { currency?: string })?.currency || "EUR" },
   });
 
   const joinForm = useForm<z.infer<typeof joinSchema>>({
@@ -50,11 +50,11 @@ export function CreateFriendGroupDialog({ open, onOpenChange }: Props) {
   const createMutation = useMutation({
     mutationFn: async (values: z.infer<typeof createSchema>) => {
       const res = await apiRequest("POST", "/api/friend-groups", values);
-      return res.json();
+      return res.json() as Promise<{ id: number; name: string; code: string }>;
     },
-    onSuccess: (group: any) => {
+    onSuccess: (group) => {
       queryClient.invalidateQueries({ queryKey: ["/api/friend-groups"] });
-      setCreatedCode(group.code);
+      setCreatedGroup({ id: group.id, code: group.code });
     },
     onError: (e: Error) => {
       toast({ title: "Error creating group", description: e.message, variant: "destructive" });
@@ -64,9 +64,9 @@ export function CreateFriendGroupDialog({ open, onOpenChange }: Props) {
   const joinMutation = useMutation({
     mutationFn: async (values: z.infer<typeof joinSchema>) => {
       const res = await apiRequest("POST", "/api/friend-groups/join", { code: values.code.toUpperCase().trim() });
-      return res.json();
+      return res.json() as Promise<{ id: number; name: string }>;
     },
-    onSuccess: (group: any) => {
+    onSuccess: (group) => {
       queryClient.invalidateQueries({ queryKey: ["/api/friend-groups"] });
       toast({ title: "Joined group!", description: `You joined ${group.name}` });
       onOpenChange(false);
@@ -78,22 +78,24 @@ export function CreateFriendGroupDialog({ open, onOpenChange }: Props) {
   });
 
   function handleCopyCode() {
-    if (!createdCode) return;
-    navigator.clipboard.writeText(createdCode).then(() => {
+    if (!createdGroup) return;
+    navigator.clipboard.writeText(createdGroup.code).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
   }
 
   function handleGoToGroup() {
+    if (!createdGroup) return;
     onOpenChange(false);
-    setCreatedCode(null);
+    setCreatedGroup(null);
     createForm.reset();
+    navigate(`/groups/${createdGroup.id}`);
   }
 
-  if (createdCode) {
+  if (createdGroup) {
     return (
-      <Dialog open={open} onOpenChange={(o) => { if (!o) { setCreatedCode(null); createForm.reset(); } onOpenChange(o); }}>
+      <Dialog open={open} onOpenChange={(o) => { if (!o) { setCreatedGroup(null); createForm.reset(); } onOpenChange(o); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Group Created!</DialogTitle>
@@ -103,7 +105,7 @@ export function CreateFriendGroupDialog({ open, onOpenChange }: Props) {
               Share this invite code with friends so they can join your group.
             </p>
             <div className="flex items-center gap-2 bg-secondary rounded-xl p-4">
-              <span className="flex-1 text-xl font-mono font-bold tracking-widest text-center">{createdCode}</span>
+              <span className="flex-1 text-xl font-mono font-bold tracking-widest text-center">{createdGroup.code}</span>
               <Button size="icon" variant="ghost" onClick={handleCopyCode} data-testid="button-copy-invite-code">
                 {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
               </Button>

@@ -147,7 +147,7 @@ export default function FriendGroupDashboard() {
   });
 
   const currencySymbol = getCurrencySymbol(group?.currency);
-  const currentUserId = (user as any)?.id;
+  const currentUserId = (user as { id: number })?.id;
   const myBalances = (balances || group?.balances || []).filter(
     (b) => b.fromUserId === currentUserId || b.toUserId === currentUserId
   );
