@@ -17,7 +17,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "home-spending",
     title: "Your Spending Overview",
-    description: "This card shows your total personal spending for the month alongside today's total and how you compare to last month.",
+    description: "This card shows your combined monthly total — everyday spending plus any active recurring costs — alongside today's total and how your spending compares to last month. The breakdown below the main number separates everyday and recurring amounts.",
     target: "home-spending",
     placement: "bottom",
     page: "/",
@@ -97,7 +97,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "settings-link",
     title: "Settings",
-    description: "Settings let you customise your currency, language, expense categories, and notification preferences. You can also replay this tour here at any time.",
+    description: "Settings let you customise your currency, language, expense categories, and notification preferences. You can also reach out via Contact Support for bugs or suggestions, and replay this tour at any time.",
     target: "settings-link",
     placement: "bottom",
     page: "/settings",
