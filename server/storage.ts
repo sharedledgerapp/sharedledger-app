@@ -162,6 +162,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(id: number): Promise<void> {
+    await db.delete(friendGroupMembers).where(eq(friendGroupMembers.userId, id));
     await db.delete(expenseSplits).where(eq(expenseSplits.userId, id));
     
     const userExpenses = await db.select({ id: expenses.id }).from(expenses).where(eq(expenses.userId, id));

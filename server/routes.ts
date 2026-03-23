@@ -63,6 +63,9 @@ export async function registerRoutes(
         if (!family) {
           return res.status(400).json({ message: "Invalid invite code. Please check and try again." });
         }
+        if (family.groupType === "friends") {
+          return res.status(400).json({ message: "This is a Friends group invite code. Use the Friends tab to join." });
+        }
         familyId = family.id;
         if (family.groupType === "family") {
           role = "child";
@@ -138,6 +141,9 @@ export async function registerRoutes(
         const family = await storage.getFamilyByCode(groupCode);
         if (!family) {
           return res.status(400).json({ message: "Invalid invite code. Please check and try again." });
+        }
+        if (family.groupType === "friends") {
+          return res.status(400).json({ message: "This is a Friends group invite code. Use the Friends tab to join." });
         }
         familyId = family.id;
         if (family.groupType === "family") {
@@ -1662,7 +1668,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         }
       }
 
-      const updates: any = {};
+      const updates: Partial<{ note: string; amount: string; paidByUserId: number; splitType: string }> = {};
       if (data.description !== undefined) updates.note = data.description;
       if (data.amount !== undefined) updates.amount = data.amount;
       if (data.paidByUserId !== undefined) updates.paidByUserId = data.paidByUserId;
