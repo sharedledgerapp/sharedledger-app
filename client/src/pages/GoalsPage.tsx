@@ -35,7 +35,7 @@ export default function GoalsPage() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2" data-tutorial="goals-list">
         {isLoading ? (
           <p className="text-muted-foreground">Loading goals...</p>
         ) : sortGoalsByPriority(goals || []).map((goal) => {

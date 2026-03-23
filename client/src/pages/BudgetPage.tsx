@@ -234,7 +234,7 @@ export default function BudgetPage() {
         <h1 className="font-display font-bold text-2xl">{t("budgetPlanning")}</h1>
       </div>
 
-      <Card className="border-border/50 shadow-sm" data-testid="card-budget-overview">
+      <Card className="border-border/50 shadow-sm" data-testid="card-budget-overview" data-tutorial="budget-card">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg flex items-center gap-2">
             <Wallet className="w-5 h-5 text-primary" />

@@ -288,7 +288,7 @@ export default function ReportsPage() {
               </CardContent>
             </Card>
           ) : (
-            <Card>
+            <Card data-tutorial="reports-chart">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg">{t("spendingBreakdown")}</CardTitle>
               </CardHeader>

@@ -117,14 +117,14 @@ export default function HomePage() {
           <p className="text-muted-foreground mt-1">{t("financialSnapshot")}</p>
         </div>
         <Link href="/expenses">
-          <Button size="icon" className="rounded-full shadow-lg shadow-primary/25">
+          <Button size="icon" className="rounded-full shadow-lg shadow-primary/25" data-tutorial="add-expense-button">
             <Plus className="w-6 h-6" />
           </Button>
         </Link>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <Card className="col-span-2 bg-gradient-to-br from-primary to-primary/80 border-none text-white shadow-xl shadow-primary/20">
+        <Card className="col-span-2 bg-gradient-to-br from-primary to-primary/80 border-none text-white shadow-xl shadow-primary/20" data-tutorial="home-spending">
           <CardContent className="p-6">
             <div className="flex justify-between items-start gap-2">
               <div>

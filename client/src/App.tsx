@@ -4,6 +4,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { TutorialProvider, useTutorial } from "@/contexts/TutorialContext";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { Layout } from "@/components/Layout";
 import { FamilyOnboardingModal } from "@/components/FamilyOnboardingModal";
 import NotFound from "@/pages/not-found";
@@ -20,8 +22,9 @@ import ReportsPage from "@/pages/ReportsPage";
 import MessagesPage from "@/pages/MessagesPage";
 import BudgetPage from "@/pages/BudgetPage";
 import { Loader2 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { startNotificationScheduler, stopNotificationScheduler, checkBudgetThresholdNotifications, subscribeToPush } from "@/lib/notifications";
+import { TUTORIAL_STORAGE_KEY } from "@/lib/tutorial-steps";
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
@@ -144,13 +147,36 @@ function Router() {
   );
 }
 
+function TutorialAutoStart() {
+  const { user } = useAuth();
+  const { startTutorial } = useTutorial();
+  const started = useRef(false);
+
+  useEffect(() => {
+    if (user && user.familyId && !started.current) {
+      const completed = localStorage.getItem(TUTORIAL_STORAGE_KEY);
+      if (!completed) {
+        started.current = true;
+        const timer = setTimeout(() => startTutorial(), 800);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [user, startTutorial]);
+
+  return null;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <LanguageProvider>
-          <Router />
-          <Toaster />
+          <TutorialProvider>
+            <Router />
+            <TutorialAutoStart />
+            <TutorialOverlay />
+            <Toaster />
+          </TutorialProvider>
         </LanguageProvider>
       </AuthProvider>
     </QueryClientProvider>

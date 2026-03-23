@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useTutorial } from "@/contexts/TutorialContext";
 import { subscribeToPush, unsubscribeFromPush } from "@/lib/notifications";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, User, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat } from "lucide-react";
+import { LogOut, User, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat, Sparkles } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Link, useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
@@ -23,6 +24,7 @@ export const DEFAULT_RECURRING_CATEGORIES = ["Subscriptions", "Utilities", "Taxe
 export default function SettingsPage() {
   const { user, logoutMutation } = useAuth();
   const { language, setLanguage, t, isUpdating: isLanguageUpdating } = useLanguage();
+  const { startTutorial } = useTutorial();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   
@@ -699,7 +701,16 @@ export default function SettingsPage() {
       </Card>
 
       <Card className="border-border/50">
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 space-y-3">
+          <Button
+            variant="outline"
+            className="w-full gap-2"
+            onClick={startTutorial}
+            data-testid="button-take-tour"
+          >
+            <Sparkles className="w-4 h-4" />
+            Take the Tour
+          </Button>
           <Button 
             variant="outline" 
             className="w-full"

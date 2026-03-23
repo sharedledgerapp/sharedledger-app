@@ -386,7 +386,7 @@ export default function MessagesPage() {
   const [activeTab, setActiveTab] = useState<TabType>("messages");
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] lg:h-[calc(100vh-2rem)] -m-4 md:-m-8">
+    <div className="flex flex-col h-[calc(100vh-8rem)] lg:h-[calc(100vh-2rem)] -m-4 md:-m-8" data-tutorial="messages-area">
       <div className="px-4 pt-4 pb-2">
         <div className="flex items-center gap-1 p-1 bg-secondary/50 rounded-xl">
           <button

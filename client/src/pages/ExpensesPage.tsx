@@ -306,6 +306,7 @@ export default function ExpensesPage() {
           size="sm"
           onClick={() => setView("recurring")}
           data-testid="button-recurring-view"
+          data-tutorial="recurring-tab"
           className="flex-1"
         >
           <Repeat className="w-4 h-4 mr-1.5" />
@@ -324,7 +325,7 @@ export default function ExpensesPage() {
               {[1,2,3,4].map(i => <div key={i} className="h-16 bg-muted animate-pulse rounded-xl" />)}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3" data-tutorial="expenses-list">
               {searchQuery && filteredExpenses?.length === 0 && (
                 <div className="text-center py-12 bg-muted/20 rounded-2xl border border-dashed border-muted" data-testid="text-no-search-results">
                   <Search className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />

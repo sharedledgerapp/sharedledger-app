@@ -1,0 +1,261 @@
+import { useEffect, useState, useLayoutEffect, useCallback } from "react";
+import { useTutorial } from "@/contexts/TutorialContext";
+import { Button } from "@/components/ui/button";
+import { X, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+
+interface SpotlightRect {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}
+
+export function TutorialOverlay() {
+  const { isActive, currentStep, steps, nextStep, prevStep, skipTutorial } = useTutorial();
+  const [spotlightRect, setSpotlightRect] = useState<SpotlightRect | null>(null);
+  const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
+  const [ready, setReady] = useState(false);
+
+  const step = steps[currentStep];
+  const isLastStep = currentStep === steps.length - 1;
+
+  const PADDING = 8;
+  const TOOLTIP_WIDTH = 300;
+  const TOOLTIP_EST_HEIGHT = 180;
+  const MARGIN = 12;
+
+  const measureTarget = useCallback(() => {
+    if (!step?.target) {
+      setSpotlightRect(null);
+      setReady(true);
+      return;
+    }
+    const el = document.querySelector(`[data-tutorial="${step.target}"]`);
+    if (!el) {
+      setSpotlightRect(null);
+      setReady(true);
+      return;
+    }
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => {
+      const rect = el.getBoundingClientRect();
+      setSpotlightRect({
+        top: rect.top - PADDING,
+        left: rect.left - PADDING,
+        width: rect.width + PADDING * 2,
+        height: rect.height + PADDING * 2,
+      });
+      setReady(true);
+    }, 350);
+  }, [step]);
+
+  useLayoutEffect(() => {
+    if (!isActive) {
+      setReady(false);
+      setSpotlightRect(null);
+      return;
+    }
+    setReady(false);
+    measureTarget();
+  }, [isActive, currentStep, measureTarget]);
+
+  useEffect(() => {
+    if (!isActive) return;
+    const onResize = () => measureTarget();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [isActive, measureTarget]);
+
+  useEffect(() => {
+    if (!spotlightRect) return;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const placement = step?.placement || "bottom";
+
+    let left = spotlightRect.left + spotlightRect.width / 2 - TOOLTIP_WIDTH / 2;
+    left = Math.max(MARGIN, Math.min(left, vw - TOOLTIP_WIDTH - MARGIN));
+
+    const spaceBelow = vh - (spotlightRect.top + spotlightRect.height);
+    const spaceAbove = spotlightRect.top;
+    const showAbove = placement === "top" || (spaceBelow < TOOLTIP_EST_HEIGHT + MARGIN * 2 && spaceAbove > spaceBelow);
+
+    if (showAbove) {
+      setTooltipStyle({
+        position: "fixed",
+        bottom: vh - spotlightRect.top + MARGIN,
+        left,
+        width: TOOLTIP_WIDTH,
+      });
+    } else {
+      setTooltipStyle({
+        position: "fixed",
+        top: spotlightRect.top + spotlightRect.height + MARGIN,
+        left,
+        width: TOOLTIP_WIDTH,
+      });
+    }
+  }, [spotlightRect, step]);
+
+  if (!isActive || !ready) return null;
+
+  const isCentered = !step?.target || !spotlightRect;
+
+  return (
+    <div className="fixed inset-0 z-[9999]" style={{ pointerEvents: "all" }}>
+      {isCentered ? (
+        <div className="absolute inset-0 bg-black/60" />
+      ) : (
+        <div className="absolute inset-0" style={{ pointerEvents: "none" }}>
+          <div
+            className="absolute bg-black/60"
+            style={{ top: 0, left: 0, right: 0, height: Math.max(0, spotlightRect.top) }}
+          />
+          <div
+            className="absolute bg-black/60"
+            style={{
+              top: spotlightRect.top + spotlightRect.height,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
+          />
+          <div
+            className="absolute bg-black/60"
+            style={{
+              top: spotlightRect.top,
+              left: 0,
+              width: Math.max(0, spotlightRect.left),
+              height: spotlightRect.height,
+            }}
+          />
+          <div
+            className="absolute bg-black/60"
+            style={{
+              top: spotlightRect.top,
+              left: spotlightRect.left + spotlightRect.width,
+              right: 0,
+              height: spotlightRect.height,
+            }}
+          />
+          <div
+            className="absolute rounded-xl ring-2 ring-primary ring-offset-0"
+            style={{
+              top: spotlightRect.top,
+              left: spotlightRect.left,
+              width: spotlightRect.width,
+              height: spotlightRect.height,
+            }}
+          />
+        </div>
+      )}
+
+      <button
+        onClick={skipTutorial}
+        className="fixed top-4 right-4 z-[10001] flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-sm text-white text-xs font-semibold border border-white/25 hover:bg-white/25 transition-colors"
+        data-testid="button-skip-tutorial"
+        aria-label="Skip tour"
+      >
+        <X className="w-3.5 h-3.5" />
+        Skip Tour
+      </button>
+
+      {isCentered ? (
+        <div className="fixed inset-0 flex items-center justify-center p-6 z-[10001]">
+          <TutorialCard
+            step={step}
+            currentStep={currentStep}
+            totalSteps={steps.length}
+            isLastStep={isLastStep}
+            onNext={nextStep}
+            onPrev={prevStep}
+          />
+        </div>
+      ) : (
+        <div style={{ ...tooltipStyle, zIndex: 10001 }}>
+          <TutorialCard
+            step={step}
+            currentStep={currentStep}
+            totalSteps={steps.length}
+            isLastStep={isLastStep}
+            onNext={nextStep}
+            onPrev={prevStep}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TutorialCard({
+  step,
+  currentStep,
+  totalSteps,
+  isLastStep,
+  onNext,
+  onPrev,
+}: {
+  step: { title: string; description: string };
+  currentStep: number;
+  totalSteps: number;
+  isLastStep: boolean;
+  onNext: () => void;
+  onPrev: () => void;
+}) {
+  return (
+    <div className="bg-white dark:bg-card rounded-2xl shadow-2xl p-4 w-full animate-in fade-in slide-in-from-bottom-2 duration-200">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-primary" />
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            {currentStep + 1} / {totalSteps}
+          </span>
+        </div>
+        <div className="flex gap-1">
+          {Array.from({ length: totalSteps }).map((_, i) => (
+            <div
+              key={i}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                i === currentStep
+                  ? "w-4 bg-primary"
+                  : i < currentStep
+                  ? "w-1.5 bg-primary/40"
+                  : "w-1.5 bg-muted"
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+
+      <h3 className="font-display font-bold text-sm text-foreground mb-1">{step.title}</h3>
+      <p className="text-xs text-muted-foreground leading-relaxed mb-3">{step.description}</p>
+
+      <div className="flex items-center gap-2">
+        {currentStep > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onPrev}
+            className="h-8 w-8 p-0 rounded-full shrink-0"
+            data-testid="button-tutorial-prev"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+        )}
+        <Button
+          onClick={onNext}
+          size="sm"
+          className="flex-1 h-8 rounded-xl text-xs font-semibold"
+          data-testid="button-tutorial-next"
+        >
+          {isLastStep ? (
+            "Done!"
+          ) : (
+            <>
+              Next <ChevronRight className="w-3.5 h-3.5 ml-1" />
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+}

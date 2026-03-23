@@ -269,7 +269,7 @@ export default function FamilyDashboard() {
         </div>
       </div>
 
-      <Card className="bg-gradient-to-br from-primary to-primary/80 border-none text-white shadow-xl shadow-primary/20">
+      <Card className="bg-gradient-to-br from-primary to-primary/80 border-none text-white shadow-xl shadow-primary/20" data-tutorial="shared-dashboard">
         <CardContent className="p-6">
           <div className="flex items-center gap-2 text-white/80 mb-1">
             <Wallet className="w-4 h-4" />

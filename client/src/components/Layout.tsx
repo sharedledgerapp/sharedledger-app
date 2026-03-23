@@ -81,7 +81,7 @@ export function Layout({ children }: { children: ReactNode }) {
               </div>
             </Link>
             <Link href="/settings">
-              <Avatar className="w-9 h-9 border-2 border-primary/20 cursor-pointer hover:border-primary/50 transition-colors" data-testid="button-profile-mobile">
+              <Avatar className="w-9 h-9 border-2 border-primary/20 cursor-pointer hover:border-primary/50 transition-colors" data-testid="button-profile-mobile" data-tutorial="settings-link">
                 <AvatarImage src={user.profileImageUrl || undefined} alt={user.name} />
                 <AvatarFallback className="text-sm bg-primary/10 text-primary font-bold">
                   {user.name?.[0]?.toUpperCase() || "U"}

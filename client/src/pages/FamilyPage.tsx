@@ -99,7 +99,7 @@ export default function FamilyPage() {
 
   return (
     <div className="space-y-6 pb-20">
-      <div className="text-center py-6 bg-primary/5 rounded-3xl border border-primary/10">
+      <div className="text-center py-6 bg-primary/5 rounded-3xl border border-primary/10" data-tutorial="group-section">
         <div className="w-16 h-16 bg-white rounded-2xl mx-auto flex items-center justify-center shadow-md mb-4 text-primary">
           <GroupIcon className="w-8 h-8" />
         </div>
