@@ -1,8 +1,9 @@
-import { createContext, ReactNode, useContext } from "react";
+import { createContext, ReactNode, useContext, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { User, LoginRequest, RegisterRequest } from "@shared/schema";
 import { api } from "@shared/routes";
 import { useToast } from "@/hooks/use-toast";
+import { identifyUser, resetAnalytics } from "@/lib/analytics";
 
 type AuthContextType = {
   user: User | null;
@@ -36,6 +37,7 @@ function useLoginMutation() {
     },
     onSuccess: (user) => {
       queryClient.setQueryData([api.auth.me.path], user);
+      identifyUser(user);
       toast({ title: "Welcome back!", description: `Signed in as ${user.name}` });
     },
     onError: (error: Error) => {
@@ -72,6 +74,7 @@ function useRegisterMutation() {
     },
     onSuccess: (user) => {
       queryClient.setQueryData([api.auth.me.path], user);
+      identifyUser(user);
       toast({ title: "Welcome!", description: "Account created successfully" });
     },
     onError: (error: Error) => {
@@ -93,6 +96,7 @@ function useLogoutMutation() {
       await fetch(api.auth.logout.path, { method: api.auth.logout.method });
     },
     onSuccess: () => {
+      resetAnalytics();
       queryClient.setQueryData([api.auth.me.path], null);
       queryClient.clear(); // Clear all data on logout
       toast({ title: "Goodbye", description: "See you next time!" });
@@ -114,6 +118,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return api.auth.me.responses[200].parse(await res.json());
     },
   });
+
+  useEffect(() => {
+    if (user) identifyUser(user);
+  }, [user?.id]);
 
   const loginMutation = useLoginMutation();
   const logoutMutation = useLogoutMutation();
