@@ -6,13 +6,15 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Users, Shield, ShieldOff, LogOut, Home, Heart, QrCode, ChevronDown, ChevronUp } from "lucide-react";
+import { Copy, Users, Shield, ShieldOff, LogOut, Home, Heart, QrCode, ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const groupTypeIcons: Record<string, any> = {
   family: Users,
@@ -83,15 +85,42 @@ export default function FamilyPage() {
     setRoleDialog(null);
   };
 
+  const [createDialog, setCreateDialog] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupType, setNewGroupType] = useState<"family" | "roommates" | "couple">("family");
+
+  const createGroupMutation = useMutation({
+    mutationFn: async () => {
+      if (!newGroupName.trim()) return;
+      const res = await apiRequest("POST", "/api/auth/setup-group", {
+        groupName: newGroupName.trim(),
+        groupType: newGroupType,
+        role: newGroupType === "family" ? "parent" : "member",
+      });
+      return res.json();
+    },
+    onSuccess: (updatedUser) => {
+      queryClient.setQueryData(["/api/user"], updatedUser);
+      queryClient.invalidateQueries({ queryKey: ["/api/family"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      setCreateDialog(false);
+      setNewGroupName("");
+      toast({ title: "Group created!", description: "You can now invite others to join." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading group info...</div>;
 
   const family = data?.family;
   const members = data?.members || [];
   const parentCount = members.filter((m: any) => m.role === 'parent').length;
-  const groupType = (family as any)?.groupType || "family";
-  const isFamily = groupType === "family";
+  const familyGroupType = (family as any)?.groupType || "family";
+  const isFamily = familyGroupType === "family";
   const isAdmin = user?.role === "parent";
-  const GroupIcon = groupTypeIcons[groupType] || Users;
+  const GroupIcon = groupTypeIcons[familyGroupType] || Users;
 
   const copyCode = () => {
     if (family?.code) {
@@ -101,6 +130,81 @@ export default function FamilyPage() {
     }
   };
 
+  if (!user?.familyId && !isLoading) {
+    return (
+      <div className="space-y-6 pb-20">
+        <div className="text-center py-16 px-6">
+          <div className="w-20 h-20 bg-primary/10 rounded-3xl mx-auto flex items-center justify-center mb-6">
+            <Users className="w-10 h-10 text-primary" />
+          </div>
+          <h1 className="font-display font-bold text-2xl mb-2">No Group Yet</h1>
+          <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
+            Groups let you track shared finances with family, roommates, or a partner. Create one to get started, or join an existing group with an invite code.
+          </p>
+          <Button
+            onClick={() => setCreateDialog(true)}
+            className="h-12 px-8 rounded-xl shadow-lg shadow-primary/25"
+            data-testid="button-create-group-empty"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Create a Group
+          </Button>
+        </div>
+
+        <Dialog open={createDialog} onOpenChange={setCreateDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Create a Group</DialogTitle>
+              <DialogDescription>Set up a group to track shared finances together.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Group Type</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["family", "roommates", "couple"] as const).map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setNewGroupType(type)}
+                      className={`py-2.5 px-3 rounded-xl border text-xs font-medium transition-all capitalize ${
+                        newGroupType === type
+                          ? "bg-primary text-primary-foreground border-primary shadow-md"
+                          : "bg-background border-border hover:bg-muted"
+                      }`}
+                      data-testid={`button-new-group-type-${type}`}
+                    >
+                      {type === "roommates" ? "Roommates" : type === "couple" ? "Couple" : "Family"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Group Name</Label>
+                <Input
+                  placeholder={newGroupType === "family" ? "The Smith Family" : newGroupType === "roommates" ? "Apartment 4B" : "Our Finances"}
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  className="h-11 rounded-xl"
+                  data-testid="input-new-group-name"
+                />
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setCreateDialog(false)} data-testid="button-cancel-create-group">Cancel</Button>
+              <Button
+                onClick={() => createGroupMutation.mutate()}
+                disabled={createGroupMutation.isPending || !newGroupName.trim()}
+                data-testid="button-confirm-create-group"
+              >
+                {createGroupMutation.isPending ? "Creating..." : "Create Group"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-20">
       <div className="text-center py-6 bg-primary/5 rounded-3xl border border-primary/10" data-tutorial="group-section">
@@ -109,7 +213,7 @@ export default function FamilyPage() {
         </div>
         <h1 className="font-display font-bold text-3xl mb-1" data-testid="text-group-name">{family?.name || "My Group"}</h1>
         <Badge variant="secondary" className="mb-3 capitalize" data-testid="badge-group-type">
-          {groupTypeLabels[language]?.[groupType] || groupType}
+          {groupTypeLabels[language]?.[familyGroupType] || familyGroupType}
         </Badge>
         <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
           <span>{t("inviteCode")}:</span>

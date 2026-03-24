@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Plus, Wallet, TrendingUp, Star, ArrowUpRight, ArrowDownRight, ChevronRight, Flag, Target, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, PiggyBank, Clock, Globe, Users, Archive } from "lucide-react";
+import { Plus, Wallet, TrendingUp, Star, ArrowUpRight, ArrowDownRight, ChevronRight, Flag, Target, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, PiggyBank, Clock, Globe, Users, Archive, Bell, Sparkles, X } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { CreateFriendGroupDialog } from "@/components/CreateFriendGroupDialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,6 +17,12 @@ import { format, differenceInDays, startOfMonth, endOfMonth } from "date-fns";
 import { sortGoalsByPriority } from "@/lib/goals";
 import { getCurrencySymbol, formatAmount, toFixedAmount } from "@/lib/currency";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useTutorial } from "@/contexts/TutorialContext";
+import { TUTORIAL_STORAGE_KEY } from "@/lib/tutorial-steps";
+import { subscribeToPush } from "@/lib/notifications";
+
+const PUSH_PROMPT_KEY = "sharedledger_push_prompted";
+const TOUR_DISMISSED_KEY = TUTORIAL_STORAGE_KEY;
 
 const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa"];
 
@@ -36,6 +42,61 @@ export default function HomePage() {
   const { data: expenses, isLoading: expensesLoading } = useExpenses();
   const { data: goals, isLoading: goalsLoading } = useGoals();
   const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const { startTutorial } = useTutorial();
+
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
+  const [showTourPrompt, setShowTourPrompt] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    const promptKey = `${PUSH_PROMPT_KEY}_${user.id}`;
+    const alreadyPrompted = localStorage.getItem(promptKey);
+    if (!alreadyPrompted && typeof Notification !== "undefined" && Notification.permission === "default") {
+      const timer = setTimeout(() => setShowPushPrompt(true), 1000);
+      return () => clearTimeout(timer);
+    } else {
+      const tourCompleted = localStorage.getItem(TOUR_DISMISSED_KEY);
+      if (!tourCompleted) {
+        const timer = setTimeout(() => setShowTourPrompt(true), 1000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [user]);
+
+  const handlePushEnable = async () => {
+    if (user) {
+      localStorage.setItem(`${PUSH_PROMPT_KEY}_${user.id}`, "true");
+    }
+    setShowPushPrompt(false);
+    try {
+      await subscribeToPush();
+    } catch {}
+    const tourCompleted = localStorage.getItem(TOUR_DISMISSED_KEY);
+    if (!tourCompleted) {
+      setTimeout(() => setShowTourPrompt(true), 500);
+    }
+  };
+
+  const handlePushDismiss = () => {
+    if (user) {
+      localStorage.setItem(`${PUSH_PROMPT_KEY}_${user.id}`, "true");
+    }
+    setShowPushPrompt(false);
+    const tourCompleted = localStorage.getItem(TOUR_DISMISSED_KEY);
+    if (!tourCompleted) {
+      setTimeout(() => setShowTourPrompt(true), 500);
+    }
+  };
+
+  const handleStartTour = () => {
+    setShowTourPrompt(false);
+    startTutorial();
+  };
+
+  const handleDismissTour = () => {
+    setShowTourPrompt(false);
+    localStorage.setItem(TOUR_DISMISSED_KEY, "true");
+  };
 
   const { data: friendGroups } = useQuery<FriendGroupSummary[]>({
     queryKey: ["/api/friend-groups"],
@@ -161,31 +222,39 @@ export default function HomePage() {
                   {currencySymbol}{toFixedAmount(combinedTotal, user?.currency)}
                 </div>
               </div>
-              <div className="text-right bg-white/15 rounded-lg px-3 py-2 backdrop-blur-sm" data-testid="badge-today-total">
-                <div className="text-[10px] uppercase tracking-wider text-white/70">{t("today")}</div>
-                <div className="text-base font-bold">{currencySymbol}{toFixedAmount(todayTotal, user?.currency)}</div>
-              </div>
+              {todayTotal > 0 && (
+                <div className="text-right bg-white/15 rounded-lg px-3 py-2 backdrop-blur-sm" data-testid="badge-today-total">
+                  <div className="text-[10px] uppercase tracking-wider text-white/70">{t("today")}</div>
+                  <div className="text-base font-bold">{currencySymbol}{toFixedAmount(todayTotal, user?.currency)}</div>
+                </div>
+              )}
             </div>
 
-            <div className="mt-3 space-y-1 text-[11px] text-white/80">
-              <div className="flex items-center justify-between" data-testid="badge-everyday-total">
-                <span className="flex items-center gap-1">
-                  <Wallet className="w-3 h-3 shrink-0" />
-                  Everyday
-                </span>
-                <span className="font-semibold text-white">{currencySymbol}{toFixedAmount(monthlyTotal, user?.currency)}</span>
+            {(monthlyTotal > 0 || recurringTotal > 0) && (
+              <div className="mt-3 space-y-1 text-[11px] text-white/80">
+                {monthlyTotal > 0 && (
+                  <div className="flex items-center justify-between" data-testid="badge-everyday-total">
+                    <span className="flex items-center gap-1">
+                      <Wallet className="w-3 h-3 shrink-0" />
+                      Everyday
+                    </span>
+                    <span className="font-semibold text-white">{currencySymbol}{toFixedAmount(monthlyTotal, user?.currency)}</span>
+                  </div>
+                )}
+                {recurringTotal > 0 && (
+                  <div className="flex items-center justify-between" data-testid="badge-recurring-total">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3 shrink-0" />
+                      Recurring
+                    </span>
+                    <span className="font-semibold text-white">{currencySymbol}{toFixedAmount(recurringTotal, user?.currency)}/mo</span>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center justify-between" data-testid="badge-recurring-total">
-                <span className="flex items-center gap-1">
-                  <Clock className="w-3 h-3 shrink-0" />
-                  Recurring
-                </span>
-                <span className="font-semibold text-white">{currencySymbol}{toFixedAmount(recurringTotal, user?.currency)}/mo</span>
-              </div>
-            </div>
+            )}
 
-            <div className="mt-3 flex gap-3 text-xs font-medium text-white/90">
-              {prevMonthTotal > 0 ? (
+            {prevMonthTotal > 0 && (
+              <div className="mt-3 flex gap-3 text-xs font-medium text-white/90">
                 <div className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg backdrop-blur-sm" data-testid="badge-trend">
                   {trend === "up" ? (
                     <ArrowUpRight className="w-3 h-3" />
@@ -194,13 +263,8 @@ export default function HomePage() {
                   )}
                   {trend === "up" ? "+" : "-"}{percentageChange.toFixed(0)}% {t("vsLastMonth")}
                 </div>
-              ) : (
-                <div className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg backdrop-blur-sm">
-                  <Wallet className="w-3 h-3" />
-                  {t("thisMonth")}
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -414,6 +478,66 @@ export default function HomePage() {
       </section>
 
       <CreateFriendGroupDialog open={showCreateGroup} onOpenChange={setShowCreateGroup} />
+
+      {/* Push notification opt-in prompt */}
+      {showPushPrompt && (
+        <div className="fixed bottom-24 left-4 right-4 z-50 animate-in slide-in-from-bottom-4 duration-300">
+          <Card className="border-primary/20 shadow-xl">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Bell className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-sm">Stay on top of your finances</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Enable notifications to get budget alerts and spending reminders.</p>
+                  <div className="flex gap-2 mt-3">
+                    <Button size="sm" onClick={handlePushEnable} className="h-8 text-xs" data-testid="button-enable-notifications">
+                      Enable notifications
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={handlePushDismiss} className="h-8 text-xs text-muted-foreground" data-testid="button-maybe-later-notifications">
+                      Maybe later
+                    </Button>
+                  </div>
+                </div>
+                <button onClick={handlePushDismiss} className="text-muted-foreground hover:text-foreground" data-testid="button-dismiss-push-prompt">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Take a tour prompt */}
+      {showTourPrompt && !showPushPrompt && (
+        <div className="fixed bottom-24 left-4 right-4 z-50 animate-in slide-in-from-bottom-4 duration-300">
+          <Card className="border-primary/20 shadow-xl">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-sm">Take a quick tour?</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">We'll show you the key features in about a minute.</p>
+                  <div className="flex gap-2 mt-3">
+                    <Button size="sm" onClick={handleStartTour} className="h-8 text-xs" data-testid="button-start-tour">
+                      Take a tour
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={handleDismissTour} className="h-8 text-xs text-muted-foreground" data-testid="button-dismiss-tour">
+                      Maybe later
+                    </Button>
+                  </div>
+                </div>
+                <button onClick={handleDismissTour} className="text-muted-foreground hover:text-foreground" data-testid="button-close-tour-prompt">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <Dialog open={showBudgetPrompt} onOpenChange={setShowBudgetPrompt}>
         <DialogContent className="max-w-sm">

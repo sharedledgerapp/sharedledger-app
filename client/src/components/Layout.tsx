@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, Wallet, Users, Trophy, Shield, Settings, BarChart3, MessageCircle, Globe } from "lucide-react";
+import { Home, Wallet, Users, Trophy, PieChart, Shield, Settings, BarChart3, MessageCircle, Globe } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
@@ -11,13 +11,20 @@ export function BottomNav() {
   const [location] = useLocation();
   const { user } = useAuth();
   const { t } = useLanguage();
-  
+
+  const { data: expensesData } = useQuery<any[]>({
+    queryKey: ["/api/expenses"],
+    enabled: !!user,
+  });
+  const hasExpenses = (expensesData?.length ?? 0) > 0;
+
   const routes = [
     { href: "/", label: t("home"), icon: Home },
     { href: "/expenses", label: t("expenses"), icon: Wallet },
+    { href: "/budget", label: t("budget"), icon: PieChart },
     { href: "/goals", label: t("goals"), icon: Trophy },
     { href: "/family", label: t("group"), icon: Users },
-    { href: "/family-dashboard", label: t("dashboard"), icon: Shield },
+    ...(hasExpenses ? [{ href: "/reports", label: t("reports"), icon: BarChart3 }] : []),
   ];
 
   return (
@@ -59,9 +66,11 @@ export function Layout({ children }: { children: ReactNode }) {
   const { data: unreadData } = useQuery<{ count: number }>({
     queryKey: ['/api/messages/unread'],
     refetchInterval: 15000,
-    enabled: !!user,
+    enabled: !!user && !!user.familyId,
   });
   const unreadCount = unreadData?.count || 0;
+
+  const hasGroup = !!user?.familyId;
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
@@ -70,16 +79,18 @@ export function Layout({ children }: { children: ReactNode }) {
         <h1 className="font-display font-bold text-xl text-primary tracking-tight">SharedLedger</h1>
         {user && (
           <div className="flex items-center gap-3">
-            <Link href="/messages">
-              <div className="relative cursor-pointer" data-testid="button-messages-mobile">
-                <MessageCircle className="w-6 h-6 text-muted-foreground hover:text-foreground transition-colors" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1" data-testid="badge-unread-count">
-                    {unreadCount > 99 ? "99+" : unreadCount}
-                  </span>
-                )}
-              </div>
-            </Link>
+            {hasGroup && (
+              <Link href="/messages">
+                <div className="relative cursor-pointer" data-testid="button-messages-mobile">
+                  <MessageCircle className="w-6 h-6 text-muted-foreground hover:text-foreground transition-colors" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1" data-testid="badge-unread-count">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                </div>
+              </Link>
+            )}
             <Link href="/settings">
               <Avatar className="w-9 h-9 border-2 border-primary/20 cursor-pointer hover:border-primary/50 transition-colors" data-testid="button-profile-mobile">
                 <AvatarImage src={user.profileImageUrl || undefined} alt={user.name} />
@@ -101,6 +112,9 @@ export function Layout({ children }: { children: ReactNode }) {
           <Link href="/expenses" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
             <Wallet className="w-5 h-5" /> {t("expenses")}
           </Link>
+          <Link href="/budget" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
+            <PieChart className="w-5 h-5" /> {t("budget")}
+          </Link>
           <Link href="/goals" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
             <Trophy className="w-5 h-5" /> {t("goals")}
           </Link>
@@ -116,17 +130,19 @@ export function Layout({ children }: { children: ReactNode }) {
           <Link href="/reports" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors" data-testid="link-reports-desktop">
             <BarChart3 className="w-5 h-5" /> {t("reports")}
           </Link>
-          <Link href="/messages" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors" data-testid="link-messages-desktop">
-            <div className="relative">
-              <MessageCircle className="w-5 h-5" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] rounded-full bg-destructive text-destructive-foreground text-[8px] font-bold flex items-center justify-center px-0.5">
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </span>
-              )}
-            </div>
-            {t("messages")}
-          </Link>
+          {hasGroup && (
+            <Link href="/messages" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors" data-testid="link-messages-desktop">
+              <div className="relative">
+                <MessageCircle className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] rounded-full bg-destructive text-destructive-foreground text-[8px] font-bold flex items-center justify-center px-0.5">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </div>
+              {t("messages")}
+            </Link>
+          )}
         </nav>
         <div className="pt-6 border-t border-border">
           <Link href="/settings">

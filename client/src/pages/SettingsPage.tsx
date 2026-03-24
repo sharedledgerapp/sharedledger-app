@@ -438,7 +438,7 @@ export default function SettingsPage() {
             value={currency} 
             onValueChange={(val) => setCurrency(val)}
           >
-            <SelectTrigger className="w-full" data-testid="select-currency">
+            <SelectTrigger className="w-full" data-testid="select-currency" data-tutorial="settings-currency">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="bg-popover">

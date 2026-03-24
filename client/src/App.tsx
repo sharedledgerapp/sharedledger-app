@@ -4,12 +4,10 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { LanguageProvider } from "@/contexts/LanguageContext";
-import { TutorialProvider, useTutorial } from "@/contexts/TutorialContext";
+import { TutorialProvider } from "@/contexts/TutorialContext";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { Layout } from "@/components/Layout";
-import { FamilyOnboardingModal } from "@/components/FamilyOnboardingModal";
 import NotFound from "@/pages/not-found";
-import OnboardingPage, { hasSeenOnboarding } from "@/pages/OnboardingPage";
 import AuthPage from "@/pages/AuthPage";
 import HomePage from "@/pages/HomePage";
 import ExpensesPage from "@/pages/ExpensesPage";
@@ -24,9 +22,8 @@ import BudgetPage from "@/pages/BudgetPage";
 import FriendGroupsPage from "@/pages/FriendGroupsPage";
 import FriendGroupDashboard from "@/pages/FriendGroupDashboard";
 import { Loader2 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { startNotificationScheduler, stopNotificationScheduler, checkBudgetThresholdNotifications, subscribeToPush } from "@/lib/notifications";
-import { TUTORIAL_STORAGE_KEY } from "@/lib/tutorial-steps";
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
@@ -87,14 +84,9 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
     return <Redirect to="/auth" />;
   }
 
-  if (!user.familyId) {
-    return <Redirect to="/auth" />;
-  }
-
   return (
     <Layout>
       <Component />
-      <FamilyOnboardingModal userId={user.id} />
     </Layout>
   );
 }
@@ -102,15 +94,7 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
 function Router() {
   return (
     <Switch>
-      <Route path="/onboarding" component={OnboardingPage} />
-      <Route path="/auth">
-        {() => {
-          if (!hasSeenOnboarding()) {
-            return <Redirect to="/onboarding" />;
-          }
-          return <AuthPage />;
-        }}
-      </Route>
+      <Route path="/auth" component={AuthPage} />
       
       {/* Protected Routes */}
       <Route path="/">
@@ -155,25 +139,6 @@ function Router() {
   );
 }
 
-function TutorialAutoStart() {
-  const { user } = useAuth();
-  const { startTutorial } = useTutorial();
-  const started = useRef(false);
-
-  useEffect(() => {
-    if (user && user.familyId && !started.current) {
-      const completed = localStorage.getItem(TUTORIAL_STORAGE_KEY);
-      if (!completed) {
-        started.current = true;
-        const timer = setTimeout(() => startTutorial(), 800);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [user, startTutorial]);
-
-  return null;
-}
-
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -181,7 +146,6 @@ function App() {
         <LanguageProvider>
           <TutorialProvider>
             <Router />
-            <TutorialAutoStart />
             <TutorialOverlay />
             <Toaster />
           </TutorialProvider>

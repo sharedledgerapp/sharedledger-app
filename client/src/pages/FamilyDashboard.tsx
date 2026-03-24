@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -180,6 +181,31 @@ export default function FamilyDashboard() {
   const periodLabel = periodType === "month"
     ? format(currentDate, "MMMM yyyy")
     : `${format(periodStart, "MMM d")} - ${format(periodEnd, "MMM d, yyyy")}`;
+
+  const [, navigate] = useLocation();
+
+  if (!user?.familyId) {
+    return (
+      <div className="space-y-6 pb-20">
+        <div className="text-center py-16 px-6">
+          <div className="w-20 h-20 bg-primary/10 rounded-3xl mx-auto flex items-center justify-center mb-6">
+            <Users className="w-10 h-10 text-primary" />
+          </div>
+          <h1 className="font-display font-bold text-2xl mb-2">No Group Yet</h1>
+          <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
+            The group dashboard shows shared spending, member breakdowns, and shared goals. Create a group to get started.
+          </p>
+          <Button
+            onClick={() => navigate("/family")}
+            className="h-12 px-8 rounded-xl shadow-lg shadow-primary/25"
+            data-testid="button-create-group-dashboard"
+          >
+            Create a Group
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return <FamilyDashboardSkeleton />;

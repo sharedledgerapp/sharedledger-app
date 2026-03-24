@@ -242,31 +242,12 @@ export default function AuthPage() {
   const showGroupSetup = searchParams.get("setup") === "group";
 
   useEffect(() => {
-    if (user && user.familyId && !showGroupSetup) {
+    if (user && !showGroupSetup) {
       setLocation("/");
     }
   }, [user, setLocation, showGroupSetup]);
 
-  if (user && !user.familyId) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-primary/10 blur-[100px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-accent/10 blur-[100px]" />
-        <div className="w-full max-w-md z-10 space-y-8">
-          <div className="text-center space-y-2">
-            <div className="w-16 h-16 bg-gradient-to-tr from-primary to-accent rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-primary/20 rotate-[-6deg]">
-              <Users className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="font-display font-bold text-4xl tracking-tight text-foreground">SharedLedger</h1>
-            <p className="text-muted-foreground">One more step — set up your group.</p>
-          </div>
-          <GroupSetupForm onComplete={() => setLocation("/")} />
-        </div>
-      </div>
-    );
-  }
-
-  if (user && user.familyId) {
+  if (user) {
     return null;
   }
 
@@ -510,7 +491,7 @@ function RegisterForm() {
         return;
       }
       data.role = "member";
-    } else {
+    } else if (mode === "create") {
       data.groupType = groupType;
       data.role = groupType === "family" ? "parent" : "member";
       if (!data.groupName && !data.familyName) {
@@ -519,6 +500,15 @@ function RegisterForm() {
       }
     }
     registerMutation.mutate(data);
+  };
+
+  const onSkipGroup = () => {
+    const values = form.getValues();
+    if (!values.name || !values.username || !values.password) {
+      form.trigger(["name", "username", "password"]);
+      return;
+    }
+    registerMutation.mutate({ ...values, groupName: "", groupCode: "", familyName: "", familyCode: "" });
   };
 
   const groupTypePlaceholders: Record<string, string> = {
@@ -731,6 +721,15 @@ function RegisterForm() {
                 <span className="flex items-center">Get Started <ArrowRight className="ml-2 w-4 h-4" /></span>
               )}
             </Button>
+            <button
+              type="button"
+              onClick={onSkipGroup}
+              className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors py-1"
+              disabled={registerMutation.isPending}
+              data-testid="button-skip-group"
+            >
+              Skip for now — I'll set up a group later
+            </button>
           </form>
         </Form>
       </CardContent>

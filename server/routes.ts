@@ -85,7 +85,19 @@ export async function registerRoutes(
           role = "member";
         }
       } else {
-        return res.status(400).json({ message: "Please provide an invite code or enter a new group name to get started." });
+        const hashedPassword = await hashPassword(userData.password);
+        const user = await storage.createUser({
+          ...userData,
+          password: hashedPassword,
+          role: "member",
+          familyId: null,
+        });
+
+        req.login(user, (err) => {
+          if (err) return next(err);
+          res.status(201).json(sanitizeUser(user));
+        });
+        return;
       }
 
       const hashedPassword = await hashPassword(userData.password);
@@ -223,7 +235,7 @@ export async function registerRoutes(
     if (!user.familyId) {
       return res.status(400).json({ message: "You are not in a group" });
     }
-    await storage.updateUser(user.id, { familyId: null as any });
+    await storage.updateUser(user.id, { familyId: null });
     res.json({ message: "You have left the group" });
   });
 
