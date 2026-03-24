@@ -16,7 +16,7 @@ import {
   Flag
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, addWeeks, subMonths, subWeeks, differenceInDays } from "date-fns";
-import { getCurrencySymbol } from "@/lib/currency";
+import { getCurrencySymbol, toFixedAmount } from "@/lib/currency";
 import { Link } from "wouter";
 import { BalanceBoard } from "@/components/BalanceBoard";
 import { RoommatesDashboardView } from "@/pages/RoommatesDashboard";
@@ -417,7 +417,7 @@ export default function FamilyDashboard() {
                     <Badge variant={expense.paymentSource === "family" ? "outline" : "secondary"} className="text-xs">
                       {expense.paymentSource === "family" ? t("familyBadge") : t("personal")}
                     </Badge>
-                    <span className="font-bold text-sm">-{currencySymbol}{Number(expense.amount).toFixed(2)}</span>
+                    <span className="font-bold text-sm">-{currencySymbol}{toFixedAmount(Number(expense.amount), user?.currency)}</span>
                   </div>
                 </div>
               )) : (
@@ -456,7 +456,7 @@ export default function FamilyDashboard() {
                           ))}
                         </Pie>
                         <Tooltip 
-                          formatter={(value: any) => [`${currencySymbol}${Number(value).toFixed(2)}`, ""]}
+                          formatter={(value: any) => [`${currencySymbol}${toFixedAmount(Number(value), user?.currency)}`, ""]}
                           contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                         />
                       </PieChart>
@@ -611,7 +611,7 @@ export default function FamilyDashboard() {
                   </div>
                 </div>
               </div>
-              <span className="font-bold text-foreground">-{currencySymbol}{Number(expense.amount).toFixed(2)}</span>
+              <span className="font-bold text-foreground">-{currencySymbol}{toFixedAmount(Number(expense.amount), user?.currency)}</span>
             </div>
           )) : (
             <div className="text-center py-8 text-muted-foreground text-sm bg-muted/30 rounded-xl">
@@ -693,7 +693,7 @@ function MemberDetailsDialog({
                       </div>
                     </div>
                   </div>
-                  <span className="font-bold text-sm">-{currencySymbol}{Number(expense.amount).toFixed(2)}</span>
+                  <span className="font-bold text-sm">-{currencySymbol}{toFixedAmount(Number(expense.amount), user?.currency)}</span>
                 </div>
               ))}
             </div>

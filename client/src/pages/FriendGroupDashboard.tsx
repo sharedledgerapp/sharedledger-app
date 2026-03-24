@@ -23,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { getCurrencySymbol } from "@/lib/currency";
+import { getCurrencySymbol, toFixedAmount } from "@/lib/currency";
 import { format } from "date-fns";
 import { MoreVertical, Plus, ArrowLeft, CheckCircle2, Archive, Copy, Check, X } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -273,7 +273,7 @@ export default function FriendGroupDashboard() {
             {getInitials(m.name)}
           </div>
         ))}
-        <span className="ml-3 text-sm text-muted-foreground">{currencySymbol}{totalSpent.toFixed(2)} total</span>
+        <span className="ml-3 text-sm text-muted-foreground">{currencySymbol}{toFixedAmount(totalSpent, group?.currency)} total</span>
       </div>
 
       {/* Balances */}
@@ -329,7 +329,7 @@ export default function FriendGroupDashboard() {
                         "font-bold text-sm",
                         isMyDebt ? "text-destructive" : isMyCredit ? "text-green-600" : ""
                       )}>
-                        {currencySymbol}{Number(b.amount).toFixed(2)}
+                        {currencySymbol}{toFixedAmount(Number(b.amount), group?.currency)}
                       </span>
                       {canSettle && <span className="text-xs text-muted-foreground">Tap to settle</span>}
                     </div>
@@ -399,7 +399,7 @@ export default function FriendGroupDashboard() {
                         )}
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <span className="font-bold">{currencySymbol}{Number(expense.amount).toFixed(2)}</span>
+                        <span className="font-bold">{currencySymbol}{toFixedAmount(Number(expense.amount), group?.currency)}</span>
                       </div>
                     </div>
                   </CardContent>

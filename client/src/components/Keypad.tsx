@@ -15,7 +15,7 @@ export function Keypad({ value, onValueChange }: KeypadProps) {
     if (key === "." && value.includes(".")) return;
     
     // Max length prevention
-    if (value.length > 8) return;
+    if (value.length > 12) return;
     
     onValueChange(value + key);
   };

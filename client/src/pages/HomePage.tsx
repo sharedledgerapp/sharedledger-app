@@ -15,7 +15,7 @@ import { CreateFriendGroupDialog } from "@/components/CreateFriendGroupDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, differenceInDays, startOfMonth, endOfMonth } from "date-fns";
 import { sortGoalsByPriority } from "@/lib/goals";
-import { getCurrencySymbol, formatAmount } from "@/lib/currency";
+import { getCurrencySymbol, formatAmount, toFixedAmount } from "@/lib/currency";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
 const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa"];
@@ -158,12 +158,12 @@ export default function HomePage() {
                   <span className="text-sm font-medium">{t("personalSpending")}</span>
                 </div>
                 <div className="text-4xl font-display font-bold" data-testid="text-monthly-total">
-                  {currencySymbol}{combinedTotal.toFixed(2)}
+                  {currencySymbol}{toFixedAmount(combinedTotal, user?.currency)}
                 </div>
               </div>
               <div className="text-right bg-white/15 rounded-lg px-3 py-2 backdrop-blur-sm" data-testid="badge-today-total">
                 <div className="text-[10px] uppercase tracking-wider text-white/70">{t("today")}</div>
-                <div className="text-base font-bold">{currencySymbol}{todayTotal.toFixed(2)}</div>
+                <div className="text-base font-bold">{currencySymbol}{toFixedAmount(todayTotal, user?.currency)}</div>
               </div>
             </div>
 
@@ -173,14 +173,14 @@ export default function HomePage() {
                   <Wallet className="w-3 h-3 shrink-0" />
                   Everyday
                 </span>
-                <span className="font-semibold text-white">{currencySymbol}{monthlyTotal.toFixed(2)}</span>
+                <span className="font-semibold text-white">{currencySymbol}{toFixedAmount(monthlyTotal, user?.currency)}</span>
               </div>
               <div className="flex items-center justify-between" data-testid="badge-recurring-total">
                 <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3 shrink-0" />
                   Recurring
                 </span>
-                <span className="font-semibold text-white">{currencySymbol}{recurringTotal.toFixed(2)}/mo</span>
+                <span className="font-semibold text-white">{currencySymbol}{toFixedAmount(recurringTotal, user?.currency)}/mo</span>
               </div>
             </div>
 

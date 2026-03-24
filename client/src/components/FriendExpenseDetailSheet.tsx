@@ -16,7 +16,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { getCurrencySymbol } from "@/lib/currency";
+import { getCurrencySymbol, toFixedAmount } from "@/lib/currency";
 import { format } from "date-fns";
 import { Pencil, Trash2 } from "lucide-react";
 import { AddFriendExpenseDialog } from "./AddFriendExpenseDialog";
@@ -94,7 +94,7 @@ export function FriendExpenseDetailSheet({ expense, open, onOpenChange, groupId,
           <div className="space-y-4 pb-6">
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-3xl font-bold">{currencySymbol}{Number(expense.amount).toFixed(2)}</span>
+                <span className="text-3xl font-bold">{currencySymbol}{toFixedAmount(Number(expense.amount), groupCurrency)}</span>
               </div>
               <Badge variant="outline">{expense.splitType === "equal" ? "Equal split" : "Custom split"}</Badge>
             </div>
@@ -128,7 +128,7 @@ export function FriendExpenseDetailSheet({ expense, open, onOpenChange, groupId,
                       </div>
                       <span className="text-sm">{p.name}</span>
                     </div>
-                    <span className="text-sm font-semibold">{currencySymbol}{Number(p.amount).toFixed(2)}</span>
+                    <span className="text-sm font-semibold">{currencySymbol}{toFixedAmount(Number(p.amount), groupCurrency)}</span>
                   </div>
                 ))}
               </div>

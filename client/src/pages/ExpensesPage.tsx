@@ -18,7 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useDeleteExpense } from "@/hooks/use-data";
-import { getCurrencySymbol, CURRENCIES } from "@/lib/currency";
+import { getCurrencySymbol, CURRENCIES, toFixedAmount } from "@/lib/currency";
 import { DEFAULT_CATEGORIES, DEFAULT_RECURRING_CATEGORIES } from "@/pages/SettingsPage";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -373,7 +373,7 @@ export default function ExpensesPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="block font-bold text-lg">-{currencySymbol}{Number(expense.amount).toFixed(2)}</span>
+                    <span className="block font-bold text-lg">-{currencySymbol}{toFixedAmount(Number(expense.amount), user?.currency)}</span>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -421,7 +421,7 @@ export default function ExpensesPage() {
                     <span className="text-sm text-muted-foreground">{t("perMonth")}</span>
                   </div>
                   <div className="text-3xl font-display font-bold mt-1" data-testid="text-total-recurring">
-                    {currencySymbol}{totalRecurringMonthly.toFixed(2)}
+                    {currencySymbol}{toFixedAmount(totalRecurringMonthly, user?.currency)}
                   </div>
                 </CardContent>
               </Card>
@@ -444,7 +444,7 @@ export default function ExpensesPage() {
                         </Badge>
                       </div>
                       <span className="font-bold text-sm" data-testid={`text-group-total-${group.category.toLowerCase()}`}>
-                        {currencySymbol}{group.total.toFixed(2)}{t("perMonth")}
+                        {currencySymbol}{toFixedAmount(group.total, user?.currency)}{t("perMonth")}
                       </span>
                     </div>
 
@@ -464,7 +464,7 @@ export default function ExpensesPage() {
                           <div className="flex items-center gap-2 ml-2">
                             <div className="text-right">
                               <span className="font-bold text-sm">
-                                {currencySymbol}{Number(expense.amount).toFixed(2)}
+                                {currencySymbol}{toFixedAmount(Number(expense.amount), user?.currency)}
                               </span>
                               <span className="text-xs text-muted-foreground ml-0.5">
                                 {frequencyLabel(expense.frequency)}
@@ -521,7 +521,7 @@ export default function ExpensesPage() {
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-sm text-foreground truncate">{expense.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {categoryLabel(expense.category)} - {currencySymbol}{Number(expense.amount).toFixed(2)}{frequencyLabel(expense.frequency)}
+                            {categoryLabel(expense.category)} - {currencySymbol}{toFixedAmount(Number(expense.amount), user?.currency)}{frequencyLabel(expense.frequency)}
                           </p>
                         </div>
                         <div className="flex items-center gap-1">
@@ -896,9 +896,10 @@ function CreateExpenseDialog({
     setShowCurrencyPrompt(false);
   };
 
+  const userCurrencyCode = (user as any)?.currency || selectedCurrency;
+
   const getCurrencySymbolLocal = () => {
-    const userCurrency = (user as any)?.currency || selectedCurrency;
-    const curr = CURRENCIES.find(c => c.code === userCurrency);
+    const curr = CURRENCIES.find(c => c.code === userCurrencyCode);
     return curr?.symbol || '$';
   };
 
@@ -1128,7 +1129,7 @@ function CreateExpenseDialog({
 
                     {splitType === "equal" && selectedMembers.length > 0 && (
                       <p className="text-xs text-muted-foreground">
-                        Each person pays: <span className="font-bold">{getCurrencySymbolLocal()}{(Number(amount) / selectedMembers.length).toFixed(2)}</span>
+                        Each person pays: <span className="font-bold">{getCurrencySymbolLocal()}{toFixedAmount(Number(amount) / selectedMembers.length, userCurrencyCode)}</span>
                       </p>
                     )}
                   </div>

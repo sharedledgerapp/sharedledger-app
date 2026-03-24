@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { getCurrencySymbol } from "@/lib/currency";
+import { getCurrencySymbol, toFixedAmount } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 
 interface Member {
@@ -158,7 +158,7 @@ export function AddFriendExpenseDialog({ open, onOpenChange, groupId, groupCurre
       return;
     }
     if (splitType === "custom" && !customValid) {
-      toast({ title: `Custom splits must sum to ${currencySymbol}${amount.toFixed(2)}`, variant: "destructive" });
+      toast({ title: `Custom splits must sum to ${currencySymbol}${toFixedAmount(amount, groupCurrency)}`, variant: "destructive" });
       return;
     }
     mutation.mutate(values);
@@ -187,7 +187,7 @@ export function AddFriendExpenseDialog({ open, onOpenChange, groupId, groupCurre
                         step="0.01"
                         min="0"
                         placeholder="0.00"
-                        className="pl-8"
+                        className="pl-12"
                         data-testid="input-expense-amount"
                       />
                     </div>
@@ -279,7 +279,7 @@ export function AddFriendExpenseDialog({ open, onOpenChange, groupId, groupCurre
                       {m.name}
                     </Label>
                     {splitType === "custom" && participants.includes(m.id) && (
-                      <div className="relative w-28">
+                      <div className="relative w-32">
                         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">{currencySymbol}</span>
                         <Input
                           type="number"
@@ -287,14 +287,14 @@ export function AddFriendExpenseDialog({ open, onOpenChange, groupId, groupCurre
                           min="0"
                           value={customSplits[m.id] || ""}
                           onChange={(e) => setCustomSplits((prev) => ({ ...prev, [m.id]: e.target.value }))}
-                          className="pl-6 h-8 text-sm"
+                          className="pl-10 h-8 text-sm"
                           data-testid={`input-custom-split-${m.id}`}
                         />
                       </div>
                     )}
                     {splitType === "equal" && participants.includes(m.id) && amount > 0 && (
                       <span className="text-xs text-muted-foreground w-16 text-right">
-                        {currencySymbol}{(amount / participants.length).toFixed(2)}
+                        {currencySymbol}{toFixedAmount(amount / participants.length, groupCurrency)}
                       </span>
                     )}
                   </div>
@@ -306,8 +306,8 @@ export function AddFriendExpenseDialog({ open, onOpenChange, groupId, groupCurre
                   "text-xs px-2 py-1 rounded-lg",
                   customValid ? "text-green-600 bg-green-50 dark:bg-green-950/30" : "text-destructive bg-destructive/10"
                 )}>
-                  Total: {currencySymbol}{customTotal.toFixed(2)} / {currencySymbol}{amount.toFixed(2)}
-                  {!customValid && ` (${currencySymbol}${customDiff.toFixed(2)} off)`}
+                  Total: {currencySymbol}{toFixedAmount(customTotal, groupCurrency)} / {currencySymbol}{toFixedAmount(amount, groupCurrency)}
+                  {!customValid && ` (${currencySymbol}${toFixedAmount(customDiff, groupCurrency)} off)`}
                 </div>
               )}
             </div>

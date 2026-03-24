@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Scale, Handshake } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { getCurrencySymbol } from "@/lib/currency";
+import { getCurrencySymbol, toFixedAmount } from "@/lib/currency";
 import { useFamily } from "@/hooks/use-data";
 import { format } from "date-fns";
 
@@ -150,7 +150,7 @@ export function BalanceBoard() {
                       }`}
                       data-testid={`balance-amount-${b.userId}`}
                     >
-                      {isZero ? `${currencySymbol}0.00` : `${isPositive ? "+" : ""}${currencySymbol}${b.balance.toFixed(2)}`}
+                      {isZero ? `${currencySymbol}${toFixedAmount(0, user?.currency)}` : `${isPositive ? "+" : ""}${currencySymbol}${toFixedAmount(b.balance, user?.currency)}`}
                     </Badge>
                   </div>
                 );
@@ -172,7 +172,7 @@ export function BalanceBoard() {
                       <span className="font-medium">{s.toUserName}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold">{currencySymbol}{Number(s.amount).toFixed(2)}</span>
+                      <span className="font-bold">{currencySymbol}{toFixedAmount(Number(s.amount), user?.currency)}</span>
                       <span className="text-muted-foreground">{format(new Date(s.createdAt), "MMM d")}</span>
                     </div>
                   </div>

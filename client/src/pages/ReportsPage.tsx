@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { ChevronLeft, ChevronRight, Calendar, TrendingDown, ArrowLeft, Users, Wallet, BarChart3, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, X } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths, addMonths, subWeeks, addWeeks, isWithinInterval, parseISO } from "date-fns";
-import { getCurrencySymbol, formatAmount } from "@/lib/currency";
+import { getCurrencySymbol, formatAmount, toFixedAmount } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 import type { Expense } from "@shared/schema";
 
@@ -278,7 +278,7 @@ export default function ReportsPage() {
                 <span className="text-sm font-medium">{t("totalSpent")}</span>
               </div>
               <div className="text-4xl font-display font-bold" data-testid="text-total-spent">
-                {currencySymbol}{totalSpent.toFixed(2)}
+                {currencySymbol}{toFixedAmount(totalSpent, user?.currency)}
               </div>
               <div className="mt-2 text-sm text-white/80">
                 {filteredExpenses.length} {filteredExpenses.length === 1 ? t("expense") : t("expensesPlural")}
@@ -315,7 +315,7 @@ export default function ReportsPage() {
                         ))}
                       </Pie>
                       <Tooltip
-                        formatter={(value: number) => [`${currencySymbol}${value.toFixed(2)}`, ""]}
+                        formatter={(value: number) => [`${currencySymbol}${toFixedAmount(value, user?.currency)}`, ""]}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -342,7 +342,7 @@ export default function ReportsPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="font-bold">
-                          {currencySymbol}{cat.value.toFixed(2)}
+                          {currencySymbol}{toFixedAmount(cat.value, user?.currency)}
                         </span>
                         <ChevronRight className="w-4 h-4 text-muted-foreground" />
                       </div>
@@ -386,7 +386,7 @@ export default function ReportsPage() {
                           backgroundColor: 'hsl(var(--card))',
                           boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                         }}
-                        formatter={(value: number) => [`${currencySymbol}${formatAmount(value)}`, t("spent")]}
+                        formatter={(value: number) => [`${currencySymbol}${toFixedAmount(value, user?.currency)}`, t("spent")]}
                         labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
                       />
                       <Bar
@@ -440,7 +440,7 @@ export default function ReportsPage() {
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {selectedBarData && (
-                          <>{currencySymbol}{formatAmount(selectedBarData.total)} · {selectedBarExpenses.length} {selectedBarExpenses.length === 1 ? t("expense") : t("expensesPlural")}</>
+                          <>{currencySymbol}{toFixedAmount(selectedBarData.total, user?.currency)} · {selectedBarExpenses.length} {selectedBarExpenses.length === 1 ? t("expense") : t("expensesPlural")}</>
                         )}
                       </p>
                     </div>
@@ -469,7 +469,7 @@ export default function ReportsPage() {
                                 <span className="text-sm truncate">{exp.note || exp.category}</span>
                               </div>
                               <span className="text-sm font-medium ml-2 shrink-0">
-                                {currencySymbol}{formatAmount(Number(exp.amount))}
+                                {currencySymbol}{toFixedAmount(Number(exp.amount), user?.currency)}
                               </span>
                             </div>
                           ))}
@@ -485,7 +485,7 @@ export default function ReportsPage() {
                             <span className="text-sm truncate">{exp.note || exp.category}</span>
                           </div>
                           <span className="text-sm font-medium ml-2 shrink-0">
-                            {currencySymbol}{formatAmount(Number(exp.amount))}
+                            {currencySymbol}{toFixedAmount(Number(exp.amount), user?.currency)}
                           </span>
                         </div>
                       ))}
@@ -524,7 +524,7 @@ export default function ReportsPage() {
                 </div>
                 <div className="text-right">
                   <div className="font-bold text-lg">
-                    {currencySymbol}{categoryExpenses.reduce((acc, e) => acc + Number(e.amount), 0).toFixed(2)}
+                    {currencySymbol}{toFixedAmount(categoryExpenses.reduce((acc, e) => acc + Number(e.amount), 0), user?.currency)}
                   </div>
                   <div className="text-sm text-muted-foreground">
                     {categoryExpenses.length} {categoryExpenses.length === 1 ? t("expense") : t("expensesPlural")}
@@ -558,7 +558,7 @@ export default function ReportsPage() {
                       </div>
                     </div>
                     <span className="font-bold text-lg">
-                      -{currencySymbol}{Number(expense.amount).toFixed(2)}
+                      -{currencySymbol}{toFixedAmount(Number(expense.amount), user?.currency)}
                     </span>
                   </div>
                 </CardContent>

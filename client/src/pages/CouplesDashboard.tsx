@@ -10,7 +10,7 @@ import {
   CheckCircle2, Clock, Trophy, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { format } from "date-fns";
-import { getCurrencySymbol } from "@/lib/currency";
+import { getCurrencySymbol, toFixedAmount } from "@/lib/currency";
 import { Link } from "wouter";
 
 interface CategoryBreakdown {
@@ -339,7 +339,7 @@ export function CouplesDashboardView({
                       </div>
                     </div>
                     <span className="font-bold text-foreground" data-testid={`couple-expense-amount-${expense.id}`}>
-                      {currencySymbol}{Number(expense.amount).toFixed(2)}
+                      {currencySymbol}{toFixedAmount(Number(expense.amount), user?.currency)}
                     </span>
                   </div>
                 </CardContent>

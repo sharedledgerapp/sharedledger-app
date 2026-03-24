@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getCurrencySymbol } from "@/lib/currency";
+import { getCurrencySymbol, toFixedAmount } from "@/lib/currency";
 import { Plus, Users, Search, Archive, Globe, CheckCircle2 } from "lucide-react";
 import { CreateFriendGroupDialog } from "@/components/CreateFriendGroupDialog";
 import { cn } from "@/lib/utils";
@@ -199,11 +199,11 @@ function GroupCard({ group, currentUserId }: { group: FriendGroup; currentUserId
                     </span>
                   ) : netSummary.type === "owe" ? (
                     <span className={cn("text-xs font-medium text-destructive")}>
-                      You owe {currencySymbol}{netSummary.amount.toFixed(2)}
+                      You owe {currencySymbol}{toFixedAmount(netSummary.amount, group.currency)}
                     </span>
                   ) : (
                     <span className="text-xs font-medium text-green-600">
-                      You are owed {currencySymbol}{netSummary.amount.toFixed(2)}
+                      You are owed {currencySymbol}{toFixedAmount(netSummary.amount, group.currency)}
                     </span>
                   )}
                 </div>
