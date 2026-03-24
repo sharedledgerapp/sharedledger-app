@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { captureEvent } from "@/lib/analytics";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { checkBudgetThresholdNotifications } from "@/lib/notifications";
@@ -111,10 +112,11 @@ export default function BudgetPage() {
       const res = await apiRequest("POST", "/api/budgets", data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/budget-summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/budgets"] });
       toast({ title: t("budgetAdded") });
+      captureEvent("budget_created", { category: variables.category, limit_amount: Number(variables.amount) });
       resetForm();
     },
   });
@@ -124,10 +126,11 @@ export default function BudgetPage() {
       const res = await apiRequest("PATCH", `/api/budgets/${id}`, data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/budget-summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/budgets"] });
       toast({ title: t("budgetUpdated") });
+      captureEvent("budget_edited", { category: variables.data.category });
       resetForm();
     },
   });
@@ -136,7 +139,7 @@ export default function BudgetPage() {
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/budgets/${id}`);
     },
-    onSuccess: () => {
+    onSuccess: (_data, _variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/budget-summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/budgets"] });
       toast({ title: t("budgetDeleted") });
@@ -195,12 +198,14 @@ export default function BudgetPage() {
   }
 
   function toggleThreshold(value: string) {
+    const enabled = !form.thresholds.includes(value);
     setForm(f => ({
       ...f,
       thresholds: f.thresholds.includes(value)
         ? f.thresholds.filter(t => t !== value)
         : [...f.thresholds, value],
     }));
+    captureEvent("budget_threshold_toggled", { threshold: value, enabled });
   }
 
   const budgetedCategories = summary?.budgets.map(b => b.category) || [];
@@ -305,7 +310,12 @@ export default function BudgetPage() {
                   <CardContent className="p-4">
                     <div
                       className="flex items-center gap-3 cursor-pointer"
-                      onClick={() => setExpandedCategory(isExpanded ? null : budget.category)}
+                      onClick={() => {
+                        setExpandedCategory(isExpanded ? null : budget.category);
+                        if (!isExpanded) {
+                          captureEvent("budget_category_expanded", { category: budget.category, was_over_budget: budget.percentUsed >= 100 });
+                        }
+                      }}
                       data-testid={`toggle-budget-${budget.category.toLowerCase()}`}
                     >
                       <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-muted-foreground">
@@ -377,7 +387,11 @@ export default function BudgetPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => deleteMutation.mutate(budget.id)}
+                            onClick={() => {
+                              deleteMutation.mutate(budget.id, {
+                                onSuccess: () => captureEvent("budget_deleted", { category: budget.category }),
+                              });
+                            }}
                             disabled={deleteMutation.isPending}
                             data-testid={`button-delete-budget-${budget.category.toLowerCase()}`}
                           >

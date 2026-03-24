@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { captureEvent } from "@/lib/analytics";
 import { useTutorial } from "@/contexts/TutorialContext";
 import { subscribeToPush, unsubscribeFromPush } from "@/lib/notifications";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,6 +74,7 @@ export default function SettingsPage() {
     },
     onSuccess: () => {
       setFeedbackSent(true);
+      captureEvent("settings_feedback_sent");
     },
     onError: (err: Error) => {
       toast({
@@ -110,6 +112,7 @@ export default function SettingsPage() {
         title: t("accountDeleted") || "Account Deleted",
         description: t("accountDeletedMessage") || "Your account has been permanently deleted.",
       });
+      captureEvent("settings_account_deleted");
       setLocation("/auth");
     },
     onError: () => {
@@ -132,6 +135,7 @@ export default function SettingsPage() {
         title: t("profileUpdated"),
         description: t("changesSaved"),
       });
+      captureEvent("settings_profile_saved");
     },
     onError: () => {
       toast({
@@ -186,6 +190,7 @@ export default function SettingsPage() {
 
   const requestNotificationPermission = async () => {
     if (typeof Notification === "undefined") return;
+    captureEvent("settings_notification_permission_requested");
     const permission = await Notification.requestPermission();
     setNotificationPermission(permission);
     if (permission === "granted") {
@@ -240,6 +245,7 @@ export default function SettingsPage() {
       setCategories(updated);
       setNewCategory("");
       updateCategoriesMutation.mutate(updated);
+      captureEvent("settings_category_added");
     }
   };
 
@@ -248,6 +254,7 @@ export default function SettingsPage() {
       const updated = categories.filter((_, i) => i !== index);
       setCategories(updated);
       updateCategoriesMutation.mutate(updated);
+      captureEvent("settings_category_removed");
     }
   };
 
@@ -271,6 +278,7 @@ export default function SettingsPage() {
   const handleResetCategories = () => {
     setCategories(DEFAULT_CATEGORIES);
     updateCategoriesMutation.mutate(DEFAULT_CATEGORIES);
+    captureEvent("settings_categories_reset");
   };
 
   const updateRecurringCategoriesMutation = useMutation({
@@ -301,6 +309,7 @@ export default function SettingsPage() {
       setRecurringCategories(updated);
       setNewRecurringCategory("");
       updateRecurringCategoriesMutation.mutate(updated);
+      captureEvent("settings_recurring_category_added");
     }
   };
 
@@ -309,6 +318,7 @@ export default function SettingsPage() {
       const updated = recurringCategories.filter((_, i) => i !== index);
       setRecurringCategories(updated);
       updateRecurringCategoriesMutation.mutate(updated);
+      captureEvent("settings_recurring_category_removed");
     }
   };
 
@@ -805,7 +815,7 @@ export default function SettingsPage() {
           <Button
             variant="outline"
             className="w-full gap-2"
-            onClick={startTutorial}
+            onClick={() => { startTutorial(); captureEvent("settings_tutorial_replayed"); }}
             data-testid="button-take-tour"
           >
             <Sparkles className="w-4 h-4" />

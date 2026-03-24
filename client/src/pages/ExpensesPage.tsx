@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useExpenses, useCreateExpense, useUpdateExpense, useUpload, useFamily } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
+import { captureEvent } from "@/lib/analytics";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -95,9 +96,10 @@ export default function ExpensesPage() {
       const res = await apiRequest("POST", "/api/recurring-expenses", data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ["/api/recurring-expenses"] });
       toast({ title: t("recurringAdded") });
+      captureEvent("recurring_expense_created", { category: variables.category, frequency: variables.frequency });
       resetRecurringForm();
     },
   });
@@ -110,6 +112,7 @@ export default function ExpensesPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/recurring-expenses"] });
       toast({ title: t("recurringUpdated") });
+      captureEvent("recurring_expense_edited");
       resetRecurringForm();
     },
   });
@@ -121,6 +124,7 @@ export default function ExpensesPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/recurring-expenses"] });
       toast({ title: t("recurringDeleted") });
+      captureEvent("recurring_expense_deleted");
     },
   });
 
@@ -129,8 +133,9 @@ export default function ExpensesPage() {
       const res = await apiRequest("PATCH", `/api/recurring-expenses/${id}`, { isActive });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ["/api/recurring-expenses"] });
+      captureEvent("recurring_expense_toggled", { is_active: variables.isActive });
     },
   });
 
@@ -294,7 +299,7 @@ export default function ExpensesPage() {
         <Button
           variant={view === "everyday" ? "default" : "outline"}
           size="sm"
-          onClick={() => setView("everyday")}
+          onClick={() => { setView("everyday"); captureEvent("expenses_tab_switched", { tab: "everyday" }); }}
           data-testid="button-everyday-view"
           className="flex-1"
         >
@@ -304,7 +309,7 @@ export default function ExpensesPage() {
         <Button
           variant={view === "recurring" ? "default" : "outline"}
           size="sm"
-          onClick={() => setView("recurring")}
+          onClick={() => { setView("recurring"); captureEvent("expenses_tab_switched", { tab: "recurring" }); }}
           data-testid="button-recurring-view"
           data-tutorial="recurring-tab"
           className="flex-1"
@@ -376,7 +381,9 @@ export default function ExpensesPage() {
                       onClick={(e) => {
                         e.stopPropagation();
                         if (confirm("Are you sure you want to delete this expense?")) {
-                          deleteMutation.mutate(expense.id);
+                          deleteMutation.mutate(expense.id, {
+                            onSuccess: () => captureEvent("expense_deleted"),
+                          });
                         }
                       }}
                       data-testid={`button-delete-expense-${expense.id}`}
@@ -748,12 +755,22 @@ function CreateExpenseDialog({
       setExtractedData(data.extracted);
       setReceiptPreviewUrl(data.imageUrl);
       setShowReceiptConfirm(true);
+      captureEvent("receipt_scan_succeeded", {
+        has_amount: !!data.extracted?.amount,
+        has_category: !!data.extracted?.category,
+        has_date: !!data.extracted?.date,
+        has_merchant: !!data.extracted?.note,
+      });
+    },
+    onError: () => {
+      captureEvent("receipt_scan_failed");
     },
   });
 
   const handleReceiptUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = e.target.files?.[0];
     if (uploadedFile) {
+      captureEvent("receipt_scan_started");
       scanReceiptMutation.mutate(uploadedFile);
       setFile(uploadedFile);
     }
@@ -771,10 +788,12 @@ function CreateExpenseDialog({
         setNote(extractedData.note);
       }
     }
+    captureEvent("receipt_data_confirmed");
     setShowReceiptConfirm(false);
   };
 
   const handleCancelExtractedData = () => {
+    captureEvent("receipt_data_cancelled");
     setShowReceiptConfirm(false);
     setExtractedData(null);
     setReceiptPreviewUrl(null);
@@ -849,12 +868,20 @@ function CreateExpenseDialog({
     if (editingExpense) {
       updateMutation.mutate({ ...expenseData, id: editingExpense.id }, {
         onSuccess: () => {
+          captureEvent("expense_edited", { category, payment_source: paymentSource });
           onOpenChange(false);
         }
       });
     } else {
       createMutation.mutate(expenseData as any, {
         onSuccess: () => {
+          captureEvent("expense_added", {
+            category,
+            amount: Number(amount),
+            payment_source: paymentSource,
+            is_shared: isPublic || paymentSource === "family",
+            has_note: !!note,
+          });
           onOpenChange(false);
         }
       });

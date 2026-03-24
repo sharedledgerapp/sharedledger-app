@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useExpenses, useGoals } from "@/hooks/use-data";
+import { captureEvent } from "@/lib/analytics";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -401,7 +402,7 @@ export default function HomePage() {
           ))}
           <Card
             className="flex-shrink-0 w-36 border-dashed border-border/50 shadow-sm cursor-pointer hover:border-primary/30 transition-all active:scale-[0.98]"
-            onClick={() => setShowCreateGroup(true)}
+            onClick={() => { setShowCreateGroup(true); captureEvent("home_group_setup_started"); }}
             data-testid="button-new-group-home"
           >
             <CardContent className="p-3 flex flex-col items-center justify-center h-full min-h-[80px] text-muted-foreground">
@@ -451,7 +452,7 @@ export default function HomePage() {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => setupMutation.mutate("remind_week")}
+                onClick={() => { setupMutation.mutate("remind_week"); captureEvent("home_payment_reminder_set", { timing: "week" }); }}
                 disabled={setupMutation.isPending}
                 data-testid="button-remind-week"
               >
@@ -461,7 +462,7 @@ export default function HomePage() {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => setupMutation.mutate("remind_month")}
+                onClick={() => { setupMutation.mutate("remind_month"); captureEvent("home_payment_reminder_set", { timing: "month" }); }}
                 disabled={setupMutation.isPending}
                 data-testid="button-remind-month"
               >

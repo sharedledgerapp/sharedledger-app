@@ -28,3 +28,7 @@ export function identifyUser(user: {
 export function resetAnalytics() {
   window.posthog?.reset();
 }
+
+export function captureEvent(name: string, properties?: Record<string, unknown>) {
+  window.posthog?.capture(name, properties);
+}

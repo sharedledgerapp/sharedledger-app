@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useFamily } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
+import { captureEvent } from "@/lib/analytics";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -48,6 +49,7 @@ export default function FamilyPage() {
         title: variables.role === "parent" ? t("adminPromoted") : t("adminDemoted"),
         description: t("changesSaved"),
       });
+      captureEvent("group_member_role_changed", { action: variables.role === "parent" ? "promote" : "demote" });
     },
     onError: (error: Error) => {
       toast({
@@ -68,6 +70,7 @@ export default function FamilyPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/family"] });
       toast({ title: "Left group", description: "You have left the group." });
+      captureEvent("group_left");
     },
   });
 
@@ -94,6 +97,7 @@ export default function FamilyPage() {
     if (family?.code) {
       navigator.clipboard.writeText(family.code);
       toast({ title: "Copied!", description: "Invite code copied to clipboard" });
+      captureEvent("group_invite_code_copied");
     }
   };
 
@@ -120,7 +124,7 @@ export default function FamilyPage() {
               variant="ghost"
               size="sm"
               className="gap-2 text-muted-foreground"
-              onClick={() => setShowQr(!showQr)}
+              onClick={() => { if (!showQr) captureEvent("group_qr_shown"); setShowQr(!showQr); }}
               data-testid="button-toggle-qr"
             >
               <QrCode className="w-4 h-4" />

@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useExpenses } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
+import { captureEvent } from "@/lib/analytics";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -96,6 +97,7 @@ export default function ReportsPage() {
 
   const navigatePeriod = (direction: "prev" | "next") => {
     setSelectedBarIndex(null);
+    captureEvent("reports_period_navigated", { direction });
     if (periodType === "month") {
       setCurrentDate(direction === "prev" ? subMonths(currentDate, 1) : addMonths(currentDate, 1));
     } else {
@@ -114,11 +116,13 @@ export default function ReportsPage() {
   const handleCategoryClick = (category: string) => {
     setSelectedCategory(category);
     setViewMode("category");
+    captureEvent("reports_category_filtered", { category });
   };
 
   const handleBackToOverview = () => {
     setSelectedCategory(null);
     setViewMode("overview");
+    captureEvent("reports_category_filter_cleared");
   };
 
   const getCategoryIcon = (category: string) => {
@@ -135,8 +139,9 @@ export default function ReportsPage() {
     return map[category] || <Package className="w-5 h-5" />;
   };
 
-  const handleBarClick = (_data: { label: string; total: number; date?: string; weekStart?: string; weekEnd?: string }, index: number) => {
+  const handleBarClick = (data: { label: string; total: number; date?: string; weekStart?: string; weekEnd?: string }, index: number) => {
     setSelectedBarIndex(prev => prev === index ? null : index);
+    captureEvent("reports_bar_selected", { date: data.date || data.weekStart || data.label });
   };
 
   const selectedBarData = selectedBarIndex !== null ? activityData?.data?.[selectedBarIndex] : null;
@@ -227,7 +232,7 @@ export default function ReportsPage() {
           <div className="flex gap-2">
             <Button
               variant={periodType === "month" ? "default" : "outline"}
-              onClick={() => { setPeriodType("month"); setSelectedBarIndex(null); }}
+              onClick={() => { setPeriodType("month"); setSelectedBarIndex(null); captureEvent("reports_period_changed", { period: "month" }); }}
               className="flex-1"
               data-testid="button-period-month"
             >
@@ -235,7 +240,7 @@ export default function ReportsPage() {
             </Button>
             <Button
               variant={periodType === "week" ? "default" : "outline"}
-              onClick={() => { setPeriodType("week"); setSelectedBarIndex(null); }}
+              onClick={() => { setPeriodType("week"); setSelectedBarIndex(null); captureEvent("reports_period_changed", { period: "week" }); }}
               className="flex-1"
               data-testid="button-period-week"
             >

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useGoals, useCreateGoal, useUpdateGoal, useDeleteGoal, useUpload } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
+import { captureEvent } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -141,7 +142,9 @@ export default function GoalsPage() {
                         const amount = prompt("Enter amount to add:");
                         if (amount && !isNaN(Number(amount))) {
                           const newAmount = Number(goal.currentAmount) + Number(amount);
-                          updateMutation.mutate({ id: goal.id, currentAmount: newAmount.toString() });
+                          updateMutation.mutate({ id: goal.id, currentAmount: newAmount.toString() }, {
+                            onSuccess: () => captureEvent("goal_funds_added", { amount_added: Number(amount) }),
+                          });
                         }
                      }}
                    >
@@ -244,6 +247,7 @@ function CreateGoalDialog({
         id: editingGoal.id,
       } as any, {
         onSuccess: () => {
+          captureEvent("goal_edited");
           onOpenChange(false);
         }
       });
@@ -254,6 +258,11 @@ function CreateGoalDialog({
         userId: 1, // Ignored by backend, will be overwritten
       } as any, {
         onSuccess: () => {
+          captureEvent("goal_created", {
+            has_deadline: !!deadline,
+            has_photo: !!file,
+            target_amount: Number(target),
+          });
           onOpenChange(false);
           setTitle("");
           setTarget("");
@@ -374,7 +383,11 @@ function CreateGoalDialog({
                 type="file" 
                 accept="image/*" 
                 className="hidden" 
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                onChange={(e) => {
+                  const f = e.target.files?.[0] || null;
+                  setFile(f);
+                  if (f) captureEvent("goal_photo_uploaded");
+                }}
               />
             </div>
           </div>
