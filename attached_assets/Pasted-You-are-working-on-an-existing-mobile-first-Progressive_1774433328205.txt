@@ -1,0 +1,294 @@
+You are working on an existing mobile-first Progressive Web App called **SharedLedger**.
+
+## 🎯 OBJECTIVE
+
+Create a high-converting landing page at route `/` and move the existing app to `/app` without breaking any current functionality.
+
+The landing page should:
+
+* Explain the app clearly in seconds
+* Guide users to open or install the app (PWA)
+* Highlight key features without overwhelming users
+* Emphasize that the app is in beta
+* Encourage feedback
+
+---
+
+## 🧱 ROUTING REQUIREMENTS
+
+1. Create a new route:
+
+   * `/` → Landing Page
+2. Move the existing app:
+
+   * `/app` → Current app (dashboard + all features)
+
+Ensure:
+
+* No existing functionality breaks
+* Navigation between `/` and `/app` works seamlessly
+
+---
+
+## 🎨 DESIGN REQUIREMENTS
+
+* Mobile-first design (priority)
+* Clean, modern UI
+* Large touch-friendly buttons
+* Soft shadows, rounded corners
+* Card-based layout for sections
+* Consistent spacing and typography
+
+---
+
+## 🧩 LANDING PAGE STRUCTURE
+
+### 🔵 1. HERO SECTION
+
+Include:
+
+* App name: **SharedLedger**
+
+Headline:
+“Split expenses simply, with anyone”
+
+Subtext:
+“Track expenses, manage group spending, and stay in control — together.”
+
+⚠️ Beta Notice (high visibility banner or card):
+“SharedLedger is currently in beta and runs as a web app (PWA), not through the App Store or Play Store.”
+
+CTA Buttons:
+
+* Primary: **Open App** → `/app`
+* Secondary: **Install App** → scroll to install section
+
+Supporting line:
+“Free to use. No bank integration required.”
+
+---
+
+### 🟢 2. QUICK VISUAL / MOCK UI
+
+Create a simple mock UI or placeholder cards showing:
+
+* Adding an expense
+* Splitting it
+* Viewing balances
+
+Caption:
+“Everything you need to manage shared finances in one place.”
+
+---
+
+### 🟡 3. TRUST & SIMPLICITY SECTION
+
+Title:
+“Built for simplicity and trust”
+
+Points:
+
+* No bank connections
+* No sensitive data required
+* Manual tracking for full control
+* Free during beta
+
+---
+
+### 🟣 4. USE CASES (REUSABLE CARD COMPONENT)
+
+Title:
+“Built for how you share money”
+
+Create reusable card components for:
+
+* Friends → Trips, dinners, outings
+* Couples → Shared spending
+* Roommates → Rent, bills
+* Families → Household expenses
+
+IMPORTANT:
+
+* Cards must be reusable so more can be added later
+
+---
+
+### 🟠 5. HOW IT WORKS
+
+Title:
+“Get started in seconds”
+
+Steps:
+
+1. Create an account or start without a group
+2. Add expenses
+3. See who owes what instantly
+
+Add note:
+“Start on your own, then create or join a group anytime.”
+
+---
+
+### 🟣 6. POWER FEATURES SECTION
+
+Title:
+“More than just expense splitting”
+
+Display as grid/cards:
+
+* AI Receipt Scanning → Extract amount, date, category
+* Recurring Expenses → Track subscriptions and bills
+* Flexible Splitting → Equal, exact, percentage
+* Budgets & Goals → Track spending and savings
+
+---
+
+### 🟢 7. PROGRESSIVE EXPERIENCE SECTION
+
+Title:
+“Designed to grow with you”
+
+Content:
+“Start simple and unlock more features as you go. SharedLedger adapts to your usage so you’re never overwhelmed.”
+
+---
+
+### 🔴 8. INSTALLATION GUIDE (PWA)
+
+Title:
+“Install SharedLedger on your device”
+
+Intro:
+“You can install SharedLedger directly from your browser in seconds.”
+
+#### iPhone (Safari):
+
+1. Tap Share
+2. Tap “Add to Home Screen”
+3. Confirm
+
+#### Android (Chrome):
+
+1. Tap menu (⋮)
+2. Tap “Install App”
+3. Confirm
+
+---
+
+### 🟠 9. WHY INSTALL
+
+Title:
+“Why install SharedLedger?”
+
+Points:
+
+* Works offline
+* Opens like a native app
+* No app store required
+* Fast and lightweight
+
+Add note:
+“Available in English and French.”
+
+---
+
+### ⚫ 10. WHY NOT APP STORE
+
+Title:
+“Why isn’t this on the App Store?”
+
+Content:
+“SharedLedger is currently in beta and distributed as a Progressive Web App (PWA). This allows instant access and faster improvements based on user feedback.”
+
+---
+
+### 🟤 11. CURRENCY SUPPORT
+
+Title:
+“Currency support”
+
+Content:
+“Supports multiple currencies. Cross-currency group balancing is still being improved.”
+
+---
+
+### 🟢 12. FEEDBACK SECTION
+
+Title:
+“Help shape SharedLedger”
+
+Content:
+“We’re actively improving the app based on user feedback.”
+
+Include:
+
+* Simple feedback form (name optional, message required)
+* Submit button
+
+Also include:
+“Or reach us via email: [INSERT EMAIL HERE]”
+
+Add:
+“You can also send feedback directly from within the app settings.”
+
+---
+
+### 🔵 13. UPCOMING FEATURES
+
+Title:
+“What’s coming next”
+
+List with tags:
+
+* Smart insights (Planned)
+* Advanced analytics (Exploring)
+* Multi-currency improvements (Planned)
+* Improved onboarding (In progress)
+
+---
+
+### ⚫ 14. FINAL CTA
+
+Text:
+“Ready to start?”
+
+Buttons:
+
+* Open App → `/app`
+* Install App → scroll to install section
+
+---
+
+## ⚙️ FUNCTIONAL REQUIREMENTS
+
+* “Install App” button scrolls to install section
+* Smooth scrolling enabled
+* Responsive design (mobile, tablet, desktop)
+* Keep performance lightweight
+* Ensure PWA install prompt still works
+
+---
+
+## 🧠 IMPORTANT NOTES
+
+* Do NOT overwhelm the user with too much detail upfront
+* Prioritize clarity and usability
+* Keep sections modular and reusable
+* Maintain consistency with existing app styling where possible
+
+---
+
+## 🚫 DO NOT
+
+* Do not break existing app logic
+* Do not remove current features
+* Do not force account creation on landing page
+
+---
+
+## ✅ OUTPUT
+
+* Fully functional landing page at `/`
+* Existing app accessible at `/app`
+* Clean, modern UI with reusable components
+* Ready for iteration and future feature additions
