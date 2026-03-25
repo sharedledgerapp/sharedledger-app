@@ -614,7 +614,7 @@ export default function ExpensesPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Link href="/settings" className="text-xs text-muted-foreground hover:underline mt-1 inline-block" data-testid="link-customize-recurring-groups">
+              <Link href="/app/settings" className="text-xs text-muted-foreground hover:underline mt-1 inline-block" data-testid="link-customize-recurring-groups">
                 {t("customizeRecurringCategoriesHint")}
               </Link>
             </div>
@@ -994,7 +994,7 @@ function CreateExpenseDialog({
               ))}
             </div>
             
-            <Link href="/settings" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors">
+            <Link href="/app/settings" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors">
               <Settings className="w-3 h-3" />
               <span>{t("customizeCategoriesHint")}</span>
             </Link>

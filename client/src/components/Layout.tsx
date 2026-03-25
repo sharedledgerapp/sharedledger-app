@@ -19,12 +19,12 @@ export function BottomNav() {
   const hasExpenses = (expensesData?.length ?? 0) > 0;
 
   const routes = [
-    { href: "/", label: t("home"), icon: Home },
-    { href: "/expenses", label: t("expenses"), icon: Wallet },
-    { href: "/budget", label: t("budget"), icon: PieChart },
-    { href: "/goals", label: t("goals"), icon: Trophy },
-    { href: "/family", label: t("group"), icon: Users },
-    ...(hasExpenses ? [{ href: "/reports", label: t("reports"), icon: BarChart3 }] : []),
+    { href: "/app", label: t("home"), icon: Home },
+    { href: "/app/expenses", label: t("expenses"), icon: Wallet },
+    { href: "/app/budget", label: t("budget"), icon: PieChart },
+    { href: "/app/goals", label: t("goals"), icon: Trophy },
+    { href: "/app/family", label: t("group"), icon: Users },
+    ...(hasExpenses ? [{ href: "/app/reports", label: t("reports"), icon: BarChart3 }] : []),
   ];
 
   return (
@@ -32,7 +32,7 @@ export function BottomNav() {
       <div className="flex justify-around items-center h-16">
         {routes.map((route) => {
           const Icon = route.icon;
-          const isActive = location === route.href;
+          const isActive = location === route.href || (route.href === "/app" && location === "/app");
           return (
             <Link key={route.href} href={route.href} className="w-full h-full">
               <div
@@ -80,7 +80,7 @@ export function Layout({ children }: { children: ReactNode }) {
         {user && (
           <div className="flex items-center gap-3">
             {hasGroup && (
-              <Link href="/messages">
+              <Link href="/app/messages">
                 <div className="relative cursor-pointer" data-testid="button-messages-mobile">
                   <MessageCircle className="w-6 h-6 text-muted-foreground hover:text-foreground transition-colors" />
                   {unreadCount > 0 && (
@@ -91,7 +91,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 </div>
               </Link>
             )}
-            <Link href="/settings">
+            <Link href="/app/settings">
               <Avatar className="w-9 h-9 border-2 border-primary/20 cursor-pointer hover:border-primary/50 transition-colors" data-testid="button-profile-mobile">
                 <AvatarImage src={user.profileImageUrl || undefined} alt={user.name} />
                 <AvatarFallback className="text-sm bg-primary/10 text-primary font-bold">
@@ -106,32 +106,32 @@ export function Layout({ children }: { children: ReactNode }) {
       <div className="hidden lg:flex flex-col w-64 fixed inset-y-0 left-0 border-r border-border bg-card p-6">
         <h1 className="font-display font-bold text-2xl text-primary mb-10">SharedLedger</h1>
         <nav className="space-y-2 flex-1">
-          <Link href="/" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
+          <Link href="/app" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
             <Home className="w-5 h-5" /> {t("home")}
           </Link>
-          <Link href="/expenses" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
+          <Link href="/app/expenses" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
             <Wallet className="w-5 h-5" /> {t("expenses")}
           </Link>
-          <Link href="/budget" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
+          <Link href="/app/budget" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
             <PieChart className="w-5 h-5" /> {t("budget")}
           </Link>
-          <Link href="/goals" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
+          <Link href="/app/goals" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
             <Trophy className="w-5 h-5" /> {t("goals")}
           </Link>
-          <Link href="/groups" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors" data-testid="link-groups-desktop">
+          <Link href="/app/groups" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors" data-testid="link-groups-desktop">
             <Globe className="w-5 h-5" /> Groups
           </Link>
-          <Link href="/family" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
+          <Link href="/app/family" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
             <Users className="w-5 h-5" /> {t("group")}
           </Link>
-          <Link href="/family-dashboard" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
+          <Link href="/app/family-dashboard" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
             <Shield className="w-5 h-5" /> {t("dashboard")}
           </Link>
-          <Link href="/reports" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors" data-testid="link-reports-desktop">
+          <Link href="/app/reports" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors" data-testid="link-reports-desktop">
             <BarChart3 className="w-5 h-5" /> {t("reports")}
           </Link>
           {hasGroup && (
-            <Link href="/messages" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors" data-testid="link-messages-desktop">
+            <Link href="/app/messages" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors" data-testid="link-messages-desktop">
               <div className="relative">
                 <MessageCircle className="w-5 h-5" />
                 {unreadCount > 0 && (
@@ -145,7 +145,7 @@ export function Layout({ children }: { children: ReactNode }) {
           )}
         </nav>
         <div className="pt-6 border-t border-border">
-          <Link href="/settings">
+          <Link href="/app/settings">
             <div className="flex items-center gap-3 px-2 mb-4 cursor-pointer hover:bg-muted rounded-xl py-2 transition-colors" data-testid="button-profile-desktop">
               <Avatar className="w-10 h-10 border-2 border-primary/20">
                 <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.name} />

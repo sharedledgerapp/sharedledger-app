@@ -167,7 +167,7 @@ function GroupCard({ group, currentUserId }: { group: FriendGroup; currentUserId
   })();
 
   return (
-    <Link href={`/groups/${group.id}`}>
+    <Link href={`/app/groups/${group.id}`}>
       <Card
         className="border-border/50 shadow-sm hover:border-primary/30 transition-all active:scale-[0.99] cursor-pointer"
         data-testid={`group-card-${group.id}`}

@@ -66,7 +66,7 @@ export function RoommatesDashboardView({ summary, recentExpenses }: RoommatesDas
             </Badge>
           </div>
         </div>
-        <Link href="/expenses">
+        <Link href="/app/expenses">
           <Button size="sm" className="gap-1.5" data-testid="button-add-expense">
             <Plus className="w-4 h-4" />
             + {t("expense")}

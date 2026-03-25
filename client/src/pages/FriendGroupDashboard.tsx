@@ -128,7 +128,7 @@ export default function FriendGroupDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/friend-groups"] });
       toast({ title: "Left group" });
-      navigate("/groups");
+      navigate("/app/groups");
     },
     onError: (e: Error) => {
       toast({ title: "Error", description: e.message, variant: "destructive" });
@@ -171,7 +171,7 @@ export default function FriendGroupDashboard() {
     return (
       <div className="text-center py-16 text-muted-foreground">
         <p>Group not found.</p>
-        <Link href="/groups">
+        <Link href="/app/groups">
           <Button variant="outline" className="mt-4">Back to Groups</Button>
         </Link>
       </div>
@@ -183,7 +183,7 @@ export default function FriendGroupDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/groups">
+          <Link href="/app/groups">
             <Button variant="ghost" size="icon" data-testid="button-back-to-groups">
               <ArrowLeft className="w-5 h-5" />
             </Button>

@@ -202,7 +202,7 @@ export default function HomePage() {
           </h1>
           <p className="text-muted-foreground mt-1">{t("financialSnapshot")}</p>
         </div>
-        <Link href="/expenses">
+        <Link href="/app/expenses">
           <Button size="icon" className="rounded-full shadow-lg shadow-primary/25" data-tutorial="add-expense-button">
             <Plus className="w-6 h-6" />
           </Button>
@@ -307,7 +307,7 @@ export default function HomePage() {
                     {daysUntilDeadline === 0 ? t("dueToday") : `${daysUntilDeadline} ${t("daysLeft")}`}
                   </div>
                 )}
-                <Link href="/goals">
+                <Link href="/app/goals">
                   <Button variant="outline" size="sm" className="w-full mt-2" data-testid="button-view-all-goals">
                     {t("viewAllGoals")} <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
@@ -322,7 +322,7 @@ export default function HomePage() {
             <CardContent className="p-6 text-center">
               <Target className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
               <p className="text-sm text-muted-foreground mb-3">{t("noGoalsYet")}</p>
-              <Link href="/goals">
+              <Link href="/app/goals">
                 <Button variant="outline" size="sm" data-testid="button-create-first-goal">
                   <Plus className="w-4 h-4 mr-1" /> {t("setGoal")}
                 </Button>
@@ -333,7 +333,7 @@ export default function HomePage() {
       </div>
 
       <section>
-        <Link href="/reports">
+        <Link href="/app/reports">
           <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2 cursor-pointer hover:text-primary transition-colors group" data-testid="link-reports">
             <TrendingUp className="w-5 h-5 text-primary" />
             {t("spendingBreakdown")}
@@ -341,7 +341,7 @@ export default function HomePage() {
           </h3>
         </Link>
 
-        <Link href="/reports">
+        <Link href="/app/reports">
           <Card className="border-border/50 shadow-sm cursor-pointer hover:border-primary/50 transition-colors">
             <CardContent className="p-4 h-[250px]">
               {categoryData.length > 0 ? (
@@ -376,7 +376,7 @@ export default function HomePage() {
       </section>
 
       <section>
-        <Link href="/budget">
+        <Link href="/app/budget">
           <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2 cursor-pointer hover:text-primary transition-colors group" data-testid="link-budget-planning">
             <PiggyBank className="w-5 h-5 text-primary" />
             {t("budgetPlanning")}
@@ -384,7 +384,7 @@ export default function HomePage() {
           </h3>
         </Link>
 
-        <Link href="/budget">
+        <Link href="/app/budget">
           <Card className="border-border/50 shadow-sm cursor-pointer hover:border-primary/50 transition-colors" data-testid="card-budget-summary-home">
             <CardContent className="p-4">
               {budgetSummary && budgetSummary.budgets.length > 0 ? (
@@ -435,7 +435,7 @@ export default function HomePage() {
       {/* My Groups section */}
       <section>
         <div className="flex items-center justify-between mb-4">
-          <Link href="/groups">
+          <Link href="/app/groups">
             <h3 className="font-display font-bold text-lg flex items-center gap-2 cursor-pointer hover:text-primary transition-colors group" data-testid="link-my-groups">
               <Globe className="w-5 h-5 text-primary" />
               My Groups
@@ -445,7 +445,7 @@ export default function HomePage() {
         </div>
         <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
           {(friendGroups || []).slice(0, 5).map((g) => (
-            <Link href={`/groups/${g.id}`} key={g.id}>
+            <Link href={`/app/groups/${g.id}`} key={g.id}>
               <Card
                 className="flex-shrink-0 w-36 border-border/50 shadow-sm cursor-pointer hover:border-primary/30 transition-all active:scale-[0.98]"
                 data-testid={`home-group-card-${g.id}`}
@@ -567,7 +567,7 @@ export default function HomePage() {
                 className="w-full"
                 onClick={() => {
                   setupMutation.mutate("completed");
-                  navigate("/budget");
+                  navigate("/app/budget");
                 }}
                 data-testid="button-setup-now"
               >

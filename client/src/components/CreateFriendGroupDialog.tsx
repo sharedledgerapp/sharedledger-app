@@ -62,7 +62,7 @@ export function CreateFriendGroupDialog({ open, onOpenChange }: Props) {
       queryClient.invalidateQueries({ queryKey: ["/api/friend-groups"] });
       onOpenChange(false);
       createForm.reset();
-      navigate(`/groups/${group.id}?code=${group.code}`);
+      navigate(`/app/groups/${group.id}?code=${group.code}`);
     },
     onError: (e: Error) => {
       toast({ title: "Error creating group", description: e.message, variant: "destructive" });
@@ -78,7 +78,7 @@ export function CreateFriendGroupDialog({ open, onOpenChange }: Props) {
       queryClient.invalidateQueries({ queryKey: ["/api/friend-groups"] });
       toast({ title: "Joined group!", description: `You joined ${group.name}` });
       onOpenChange(false);
-      navigate(`/groups/${group.id}`);
+      navigate(`/app/groups/${group.id}`);
     },
     onError: (e: Error) => {
       toast({ title: "Error joining group", description: e.message, variant: "destructive" });

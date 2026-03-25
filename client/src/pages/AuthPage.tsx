@@ -243,7 +243,7 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (user && !showGroupSetup) {
-      setLocation("/");
+      setLocation("/app");
     }
   }, [user, setLocation, showGroupSetup]);
 

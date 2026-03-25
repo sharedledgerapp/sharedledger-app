@@ -196,7 +196,7 @@ export default function FamilyDashboard() {
             The group dashboard shows shared spending, member breakdowns, and shared goals. Create a group to get started.
           </p>
           <Button
-            onClick={() => navigate("/family")}
+            onClick={() => navigate("/app/family")}
             className="h-12 px-8 rounded-xl shadow-lg shadow-primary/25"
             data-testid="button-create-group-dashboard"
           >
@@ -571,7 +571,7 @@ export default function FamilyDashboard() {
                   : null;
                 
                 return (
-                  <Link key={goal.id} href="/goals">
+                  <Link key={goal.id} href="/app/goals">
                     <Card 
                       className="border-border/50 shadow-sm cursor-pointer hover:border-primary/50 transition-colors"
                       data-testid={`goal-card-${goal.id}`}

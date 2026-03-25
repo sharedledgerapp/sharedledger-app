@@ -231,7 +231,7 @@ export default function BudgetPage() {
   return (
     <div className="space-y-6 pb-20">
       <div className="flex items-center gap-3">
-        <Link href="/">
+        <Link href="/app">
           <Button variant="ghost" size="icon" data-testid="button-back-home">
             <ArrowLeft className="w-5 h-5" />
           </Button>

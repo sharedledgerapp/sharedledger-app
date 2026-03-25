@@ -217,7 +217,7 @@ export function setupAuth(app: Express) {
       if (!user.familyId) {
         res.redirect("/auth?setup=group");
       } else {
-        res.redirect("/");
+        res.redirect("/app");
       }
     }
   );
@@ -238,7 +238,7 @@ export function setupAuth(app: Express) {
       if (!user.familyId) {
         res.redirect("/auth?setup=group");
       } else {
-        res.redirect("/");
+        res.redirect("/app");
       }
     }
   );

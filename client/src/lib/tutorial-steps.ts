@@ -20,7 +20,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     description: "Tap this button to record any purchase. Choose the amount, category, date, and whether to share it with your group.",
     target: "add-expense-button",
     placement: "bottom",
-    page: "/",
+    page: "/app",
   },
   {
     id: "budget-card",
@@ -28,7 +28,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     description: "Set spending limits per category here. Colour-coded progress bars alert you as you get close to your limit — green is on track, red means over budget.",
     target: "budget-card",
     placement: "bottom",
-    page: "/budget",
+    page: "/app/budget",
   },
   {
     id: "goals-list",
@@ -36,7 +36,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     description: "Create personal savings goals with targets and deadlines. Add funds over time and track your progress toward anything you are saving for.",
     target: "goals-list",
     placement: "bottom",
-    page: "/goals",
+    page: "/app/goals",
   },
   {
     id: "settings-currency",
@@ -44,7 +44,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     description: "You can change your currency here at any time. SharedLedger supports dozens of currencies — pick the one that matches your location.",
     target: "settings-currency",
     placement: "bottom",
-    page: "/settings",
+    page: "/app/settings",
   },
 ];
 

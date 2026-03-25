@@ -9,6 +9,7 @@ import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { Layout } from "@/components/Layout";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/AuthPage";
+import LandingPage from "@/pages/LandingPage";
 import HomePage from "@/pages/HomePage";
 import ExpensesPage from "@/pages/ExpensesPage";
 import GoalsPage from "@/pages/GoalsPage";
@@ -91,48 +92,70 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
   );
 }
 
+function LandingRedirect() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (user) {
+    return <Redirect to="/app" />;
+  }
+
+  return <LandingPage />;
+}
+
 function Router() {
   return (
     <Switch>
       <Route path="/auth" component={AuthPage} />
-      
-      {/* Protected Routes */}
-      <Route path="/">
-        {() => <ProtectedRoute component={HomePage} />}
-      </Route>
-      <Route path="/expenses">
+
+      {/* Specific /app/* routes must come before /app to avoid prefix-match shadowing */}
+      <Route path="/app/expenses">
         {() => <ProtectedRoute component={ExpensesPage} />}
       </Route>
-      <Route path="/goals">
+      <Route path="/app/goals">
         {() => <ProtectedRoute component={GoalsPage} />}
       </Route>
-      <Route path="/family">
-        {() => <ProtectedRoute component={FamilyPage} />}
-      </Route>
-      <Route path="/family-dashboard">
+      <Route path="/app/family-dashboard">
         {() => <ProtectedRoute component={FamilyDashboard} />}
       </Route>
-      <Route path="/settings">
+      <Route path="/app/family">
+        {() => <ProtectedRoute component={FamilyPage} />}
+      </Route>
+      <Route path="/app/settings">
         {() => <ProtectedRoute component={SettingsPage} />}
       </Route>
-      <Route path="/spending-reflections">
+      <Route path="/app/spending-reflections">
         {() => <ProtectedRoute component={SpendingReflectionsPage} />}
       </Route>
-      <Route path="/reports">
+      <Route path="/app/reports">
         {() => <ProtectedRoute component={ReportsPage} />}
       </Route>
-      <Route path="/messages">
+      <Route path="/app/messages">
         {() => <ProtectedRoute component={MessagesPage} />}
       </Route>
-      <Route path="/budget">
+      <Route path="/app/budget">
         {() => <ProtectedRoute component={BudgetPage} />}
       </Route>
-      <Route path="/groups">
-        {() => <ProtectedRoute component={FriendGroupsPage} />}
-      </Route>
-      <Route path="/groups/:id">
+      <Route path="/app/groups/:id">
         {() => <ProtectedRoute component={FriendGroupDashboard} />}
       </Route>
+      <Route path="/app/groups">
+        {() => <ProtectedRoute component={FriendGroupsPage} />}
+      </Route>
+      {/* /app home route comes after all /app/* specifics */}
+      <Route path="/app">
+        {() => <ProtectedRoute component={HomePage} />}
+      </Route>
+
+      {/* Public landing page — must be last to avoid catching /app or /auth */}
+      <Route path="/" component={LandingRedirect} />
 
       <Route component={NotFound} />
     </Switch>

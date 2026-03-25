@@ -270,15 +270,15 @@ function TutorialCard({
   onPrev: () => void;
 }) {
   const pageNames: Record<string, string> = {
-    "/": "Home",
-    "/expenses": "Expenses",
-    "/budget": "Budget",
-    "/goals": "Goals",
-    "/family": "Group",
-    "/family-dashboard": "Dashboard",
-    "/reports": "Reports",
-    "/messages": "Messages",
-    "/settings": "Settings",
+    "/app": "Home",
+    "/app/expenses": "Expenses",
+    "/app/budget": "Budget",
+    "/app/goals": "Goals",
+    "/app/family": "Group",
+    "/app/family-dashboard": "Dashboard",
+    "/app/reports": "Reports",
+    "/app/messages": "Messages",
+    "/app/settings": "Settings",
   };
 
   return (
