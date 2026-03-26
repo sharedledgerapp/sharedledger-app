@@ -14,7 +14,7 @@ import {
   Users, Wallet, TrendingUp, ChevronLeft, ChevronRight, 
   Target, Calendar, Utensils, Bus, Gamepad2, ShoppingBag, 
   Lightbulb, GraduationCap, Heart, Package, Home as HomeIcon,
-  Flag
+  Flag, PiggyBank
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, addWeeks, subMonths, subWeeks, differenceInDays } from "date-fns";
 import { getCurrencySymbol, toFixedAmount } from "@/lib/currency";
@@ -168,6 +168,22 @@ export default function FamilyDashboard() {
     },
     staleTime: 5_000,
     refetchInterval: 10_000,
+  });
+
+  type SharedBudgetSummary = {
+    id: number;
+    category: string;
+    amount: string;
+    periodType: string;
+    spent: number;
+    remaining: number;
+    percentUsed: number;
+  };
+
+  const { data: sharedBudgetsData } = useQuery<{ budgets: SharedBudgetSummary[] }>({
+    queryKey: ["/api/family/shared-budgets"],
+    enabled: !!user?.familyId,
+    staleTime: 10_000,
   });
 
   const navigatePeriod = (direction: "prev" | "next") => {
@@ -648,6 +664,63 @@ export default function FamilyDashboard() {
         )}
       </section>
 
+
+      {user?.familyId && (
+        <section data-testid="section-shared-budgets">
+          <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2">
+            <PiggyBank className="w-5 h-5 text-primary" />
+            Shared Budgets
+          </h3>
+          {sharedBudgetsData?.budgets.length ? (
+            <div className="space-y-3">
+              {sharedBudgetsData.budgets.map((budget) => {
+                const pct = Math.min(100, budget.percentUsed);
+                const isOver = budget.percentUsed >= 100;
+                const isNear = budget.percentUsed >= 80 && !isOver;
+                return (
+                  <Card key={budget.id} className="border-border/50 shadow-sm" data-testid={`shared-budget-card-${budget.id}`}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-lg bg-secondary/50 flex items-center justify-center">
+                            {getCategoryIcon(budget.category)}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-sm">{budget.category}</p>
+                            <p className="text-xs text-muted-foreground capitalize">{budget.periodType}</p>
+                          </div>
+                        </div>
+                        <Badge
+                          variant={isOver ? "destructive" : isNear ? "outline" : "secondary"}
+                          className={`text-xs ${isNear ? "border-orange-400 text-orange-600" : ""}`}
+                        >
+                          {pct}%
+                        </Badge>
+                      </div>
+                      <Progress
+                        value={pct}
+                        className={`h-2 mb-2 ${isOver ? "[&>div]:bg-destructive" : isNear ? "[&>div]:bg-orange-500" : ""}`}
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>{currencySymbol}{toFixedAmount(budget.spent, user?.currency)} spent</span>
+                        <span>{currencySymbol}{toFixedAmount(Number(budget.amount), user?.currency)} limit</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <Link href="/app/budget">
+              <div className="text-center py-6 bg-muted/30 rounded-xl border border-dashed border-border hover:border-primary/40 transition-colors cursor-pointer" data-testid="shared-budget-empty-cta">
+                <PiggyBank className="w-8 h-8 mx-auto mb-2 text-muted-foreground opacity-50" />
+                <p className="text-sm text-muted-foreground">No shared budgets yet</p>
+                <p className="text-xs text-primary mt-1">Tap to set one up in Budget</p>
+              </div>
+            </Link>
+          )}
+        </section>
+      )}
 
       {viewingMember && (
         <MemberDetailsDialog

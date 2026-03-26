@@ -91,6 +91,7 @@ export interface IStorage {
   // Budgets
   createBudget(budget: InsertBudget): Promise<Budget>;
   getBudgets(userId: number): Promise<Budget[]>;
+  getSharedBudgets(familyId: number): Promise<Budget[]>;
   getBudget(id: number): Promise<Budget | undefined>;
   updateBudget(id: number, updates: Partial<InsertBudget>): Promise<Budget>;
   deleteBudget(id: number): Promise<void>;
@@ -656,6 +657,12 @@ export class DatabaseStorage implements IStorage {
   async getBudgets(userId: number): Promise<Budget[]> {
     return db.select().from(budgets)
       .where(eq(budgets.userId, userId))
+      .orderBy(budgets.category);
+  }
+
+  async getSharedBudgets(familyId: number): Promise<Budget[]> {
+    return db.select().from(budgets)
+      .where(and(eq(budgets.familyId, familyId), eq(budgets.budgetScope, "shared")))
       .orderBy(budgets.category);
   }
 

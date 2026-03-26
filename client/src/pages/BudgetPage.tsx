@@ -84,6 +84,7 @@ export default function BudgetPage() {
     notificationsEnabled: false,
     thresholds: [] as string[],
     note: "",
+    scope: "personal" as "personal" | "shared",
   });
 
   const { data: summary, isLoading } = useQuery<SummaryResponse>({
@@ -115,8 +116,9 @@ export default function BudgetPage() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/budget-summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/family/shared-budgets"] });
       toast({ title: t("budgetAdded") });
-      captureEvent("budget_created", { category: variables.category, limit_amount: Number(variables.amount) });
+      captureEvent("budget_created", { category: variables.category, limit_amount: Number(variables.amount), scope: variables.scope ?? "personal" });
       resetForm();
     },
   });
@@ -156,6 +158,7 @@ export default function BudgetPage() {
       notificationsEnabled: false,
       thresholds: [],
       note: "",
+      scope: "personal",
     });
   }
 
@@ -193,7 +196,7 @@ export default function BudgetPage() {
     if (editingBudget) {
       updateMutation.mutate({ id: editingBudget.id, data: payload });
     } else {
-      createMutation.mutate(payload);
+      createMutation.mutate({ ...payload, scope: form.scope });
     }
   }
 
@@ -493,6 +496,20 @@ export default function BudgetPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {!editingBudget && !!(user as any)?.familyId && (
+              <div className="flex items-center justify-between rounded-lg border border-border/50 p-3">
+                <div>
+                  <Label className="text-sm font-medium">Shared with Group</Label>
+                  <p className="text-xs text-muted-foreground">Track this budget across all members</p>
+                </div>
+                <Switch
+                  checked={form.scope === "shared"}
+                  onCheckedChange={(v) => setForm(f => ({ ...f, scope: v ? "shared" : "personal" }))}
+                  data-testid="switch-budget-scope"
+                />
+              </div>
+            )}
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">

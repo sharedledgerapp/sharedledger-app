@@ -1215,15 +1215,48 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       notificationsEnabled: z.boolean().default(false),
       thresholds: z.array(z.string()).optional().nullable(),
       note: z.string().max(500).optional().nullable(),
+      scope: z.enum(["personal", "shared"]).default("personal"),
     });
     const data = schema.parse(req.body);
+    const isShared = data.scope === "shared" && !!user.familyId;
     const budget = await storage.createBudget({
-      ...data,
+      category: data.category,
+      amount: data.amount,
+      periodType: data.periodType,
+      startDate: data.startDate,
+      notificationsEnabled: data.notificationsEnabled,
+      thresholds: data.thresholds,
+      note: data.note,
       userId: user.id,
-      familyId: user.familyId,
-      budgetScope: "personal",
+      familyId: isShared ? user.familyId : (user.familyId ?? null),
+      budgetScope: isShared ? "shared" : "personal",
     });
     res.status(201).json(budget);
+  });
+
+  app.get("/api/family/shared-budgets", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    if (!user.familyId) return res.json({ budgets: [] });
+
+    const sharedBudgets = await storage.getSharedBudgets(user.familyId);
+    if (sharedBudgets.length === 0) return res.json({ budgets: [] });
+
+    const now = new Date();
+    const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const periodEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+    const sharedExpenses = await storage.getSharedExpenses(user.familyId, periodStart, periodEnd);
+
+    const summaries = sharedBudgets.map(budget => {
+      const spent = sharedExpenses
+        .filter(e => e.category === budget.category)
+        .reduce((sum, e) => sum + Number(e.amount), 0);
+      const budgetAmount = Number(budget.amount);
+      const remaining = budgetAmount - spent;
+      const percentUsed = budgetAmount > 0 ? Math.round((spent / budgetAmount) * 100) : 0;
+      return { ...budget, spent, remaining, percentUsed };
+    });
+
+    res.json({ budgets: summaries });
   });
 
   app.patch("/api/budgets/:id", requireAuth, async (req, res) => {
