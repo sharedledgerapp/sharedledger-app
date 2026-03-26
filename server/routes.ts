@@ -37,6 +37,40 @@ export async function registerRoutes(
 ): Promise<Server> {
   const { hashPassword } = setupAuth(app);
 
+  // === POSTHOG REVERSE PROXY ===
+  // Forwards /ingest/* to us.i.posthog.com so ad-blockers can't intercept events
+  app.all("/ingest/*", async (req: Request, res: Response) => {
+    const suffix = req.path.slice("/ingest".length);
+    const queryString = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+    const targetUrl = `https://us.i.posthog.com${suffix}${queryString}`;
+
+    try {
+      const headers: Record<string, string> = {};
+      if (req.headers["content-type"]) headers["content-type"] = req.headers["content-type"] as string;
+      if (req.headers["user-agent"]) headers["user-agent"] = req.headers["user-agent"] as string;
+
+      const fetchOptions: RequestInit = {
+        method: req.method,
+        headers,
+      };
+
+      if (req.method !== "GET" && req.method !== "HEAD") {
+        fetchOptions.body = req.rawBody instanceof Buffer ? req.rawBody : JSON.stringify(req.body);
+      }
+
+      const upstream = await fetch(targetUrl, fetchOptions);
+      const contentType = upstream.headers.get("content-type") || "";
+      res.status(upstream.status);
+      if (contentType) res.setHeader("Content-Type", contentType);
+
+      const buffer = await upstream.arrayBuffer();
+      res.send(Buffer.from(buffer));
+    } catch (err) {
+      console.error("[posthog-proxy] error:", err);
+      res.status(502).json({ message: "PostHog proxy error" });
+    }
+  });
+
   // === AUTH ROUTES ===
 
   app.post(api.auth.register.path, async (req, res, next) => {
