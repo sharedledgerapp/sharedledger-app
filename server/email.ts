@@ -21,6 +21,9 @@ export async function sendFeedbackEmail(payload: FeedbackPayload): Promise<void>
     host: "smtp.gmail.com",
     port: 465,
     secure: true,
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 10000,
     auth: {
       user: SUPPORT_EMAIL,
       pass: process.env.GMAIL_APP_PASSWORD,

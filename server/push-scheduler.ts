@@ -95,19 +95,23 @@ async function checkDailyReminders() {
   const allUsers = await db.select().from(users).where(eq(users.dailyReminderEnabled, true));
 
   for (const user of allUsers) {
-    if (await wasNotifiedToday(user.id, "daily")) continue;
+    try {
+      if (await wasNotifiedToday(user.id, "daily")) continue;
 
-    const [reminderHour, reminderMinute] = (user.dailyReminderTime || "19:00").split(":").map(Number);
-    const currentTotalMinutes = currentHour * 60 + currentMinute;
-    const reminderTotalMinutes = reminderHour * 60 + reminderMinute;
-    if (currentTotalMinutes >= reminderTotalMinutes && currentTotalMinutes < reminderTotalMinutes + 30) {
-      const sent = await sendPushToUser(user.id, {
-        title: "Time to log expenses",
-        body: "Don't forget to record today's expenses in SharedLedger!",
-        tag: "daily-reminder",
-        url: "/expenses",
-      });
-      if (sent) await markNotified(user.id, "daily");
+      const [reminderHour, reminderMinute] = (user.dailyReminderTime || "19:00").split(":").map(Number);
+      const currentTotalMinutes = currentHour * 60 + currentMinute;
+      const reminderTotalMinutes = reminderHour * 60 + reminderMinute;
+      if (currentTotalMinutes >= reminderTotalMinutes && currentTotalMinutes < reminderTotalMinutes + 30) {
+        const sent = await sendPushToUser(user.id, {
+          title: "Time to log expenses",
+          body: "Don't forget to record today's expenses in SharedLedger!",
+          tag: "daily-reminder",
+          url: "/expenses",
+        });
+        if (sent) await markNotified(user.id, "daily");
+      }
+    } catch (err) {
+      console.error(`[Push] checkDailyReminders failed for user ${user.id}:`, err);
     }
   }
 }
@@ -127,29 +131,33 @@ async function checkLateReminders() {
   tomorrow.setDate(tomorrow.getDate() + 1);
 
   for (const user of allUsers) {
-    const hadPrimaryReminder = await wasNotifiedToday(user.id, "daily");
-    if (!hadPrimaryReminder) continue;
+    try {
+      const hadPrimaryReminder = await wasNotifiedToday(user.id, "daily");
+      if (!hadPrimaryReminder) continue;
 
-    if (await wasNotifiedToday(user.id, "daily_late")) continue;
+      if (await wasNotifiedToday(user.id, "daily_late")) continue;
 
-    const [expenseRow] = await db.select({ id: expenses.id })
-      .from(expenses)
-      .where(and(
-        eq(expenses.userId, user.id),
-        gte(expenses.date, today),
-        lt(expenses.date, tomorrow)
-      ))
-      .limit(1);
+      const [expenseRow] = await db.select({ id: expenses.id })
+        .from(expenses)
+        .where(and(
+          eq(expenses.userId, user.id),
+          gte(expenses.date, today),
+          lt(expenses.date, tomorrow)
+        ))
+        .limit(1);
 
-    if (expenseRow) continue;
+      if (expenseRow) continue;
 
-    const sent = await sendPushToUser(user.id, {
-      title: "Evening Reminder",
-      body: "Hey, it's getting late! Remember to log your expenses for the day — but if you haven't spent anything, kudos on the financial discipline 💪",
-      tag: "daily-late-reminder",
-      url: "/expenses",
-    });
-    if (sent) await markNotified(user.id, "daily_late");
+      const sent = await sendPushToUser(user.id, {
+        title: "Evening Reminder",
+        body: "Hey, it's getting late! Remember to log your expenses for the day — but if you haven't spent anything, kudos on the financial discipline 💪",
+        tag: "daily-late-reminder",
+        url: "/expenses",
+      });
+      if (sent) await markNotified(user.id, "daily_late");
+    } catch (err) {
+      console.error(`[Push] checkLateReminders failed for user ${user.id}:`, err);
+    }
   }
 }
 
@@ -161,15 +169,19 @@ async function checkWeeklyReminders() {
   const allUsers = await db.select().from(users).where(eq(users.weeklyReminderEnabled, true));
 
   for (const user of allUsers) {
-    if (await wasNotifiedThisWeek(user.id, "weekly")) continue;
+    try {
+      if (await wasNotifiedThisWeek(user.id, "weekly")) continue;
 
-    const sent = await sendPushToUser(user.id, {
-      title: "Weekly Spending Review",
-      body: "Your weekly summary is ready. Check your spending breakdown in SharedLedger!",
-      tag: "weekly-reminder",
-      url: "/reports",
-    });
-    if (sent) await markNotified(user.id, "weekly");
+      const sent = await sendPushToUser(user.id, {
+        title: "Weekly Spending Review",
+        body: "Your weekly summary is ready. Check your spending breakdown in SharedLedger!",
+        tag: "weekly-reminder",
+        url: "/reports",
+      });
+      if (sent) await markNotified(user.id, "weekly");
+    } catch (err) {
+      console.error(`[Push] checkWeeklyReminders failed for user ${user.id}:`, err);
+    }
   }
 }
 
@@ -182,15 +194,19 @@ async function checkMonthlyReminders() {
   const allUsers = await db.select().from(users).where(eq(users.monthlyReminderEnabled, true));
 
   for (const user of allUsers) {
-    if (await wasNotifiedThisMonth(user.id, "monthly")) continue;
+    try {
+      if (await wasNotifiedThisMonth(user.id, "monthly")) continue;
 
-    const sent = await sendPushToUser(user.id, {
-      title: "Monthly Spending Review",
-      body: "Your monthly summary is ready. Review your spending in SharedLedger!",
-      tag: "monthly-reminder",
-      url: "/reports",
-    });
-    if (sent) await markNotified(user.id, "monthly");
+      const sent = await sendPushToUser(user.id, {
+        title: "Monthly Spending Review",
+        body: "Your monthly summary is ready. Review your spending in SharedLedger!",
+        tag: "monthly-reminder",
+        url: "/reports",
+      });
+      if (sent) await markNotified(user.id, "monthly");
+    } catch (err) {
+      console.error(`[Push] checkMonthlyReminders failed for user ${user.id}:`, err);
+    }
   }
 }
 
@@ -203,6 +219,7 @@ async function checkBudgetAlerts() {
   const allBudgets = await db.select().from(budgets);
 
   for (const budget of allBudgets) {
+    try {
     if (!budget.notificationsEnabled) continue;
 
     const user = userMap.get(budget.userId);
@@ -277,16 +294,24 @@ async function checkBudgetAlerts() {
         if (escalationSent) await markNotified(budget.userId, escalationKey);
       }
     }
+    } catch (err) {
+      console.error(`[Push] checkBudgetAlerts failed for budget ${budget.id}:`, err);
+    }
   }
 }
 
 let schedulerInterval: ReturnType<typeof setInterval> | null = null;
+let schedulerStarted = false;
 
 export function startPushScheduler() {
+  if (schedulerStarted) return;
+
   if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
     console.log("[Push] VAPID keys not configured, push notifications disabled");
     return;
   }
+
+  schedulerStarted = true;
 
   webpush.setVapidDetails(
     "mailto:noreply@sharedledger.app",
@@ -297,14 +322,19 @@ export function startPushScheduler() {
   console.log("[Push] Push notification scheduler started");
 
   async function runChecks() {
-    try {
-      await checkDailyReminders();
-      await checkLateReminders();
-      await checkWeeklyReminders();
-      await checkMonthlyReminders();
-      await checkBudgetAlerts();
-    } catch (err) {
-      console.error("[Push] Scheduler error:", err);
+    const checks = [
+      { name: "dailyReminders", fn: checkDailyReminders },
+      { name: "lateReminders", fn: checkLateReminders },
+      { name: "weeklyReminders", fn: checkWeeklyReminders },
+      { name: "monthlyReminders", fn: checkMonthlyReminders },
+      { name: "budgetAlerts", fn: checkBudgetAlerts },
+    ];
+    for (const { name, fn } of checks) {
+      try {
+        await fn();
+      } catch (err) {
+        console.error(`[Push] ${name} tick failed:`, err);
+      }
     }
   }
 
