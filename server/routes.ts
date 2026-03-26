@@ -242,7 +242,7 @@ export async function registerRoutes(
   // === RECEIPT OCR ROUTE ===
 
   const receiptScanCounts = new Map<number, { count: number; date: string }>();
-  const RECEIPT_DAILY_LIMIT = 20;
+  const RECEIPT_DAILY_LIMIT = 10;
 
   const ai = new GoogleGenAI({
     apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
