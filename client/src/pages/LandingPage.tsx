@@ -482,7 +482,7 @@ export default function LandingPage() {
             {[
               "Improved receipt scanning with smarter AI categorisation",
               "Optional bank account integration for automatic expense import",
-              "Virtual card payment system",
+              "Smart shared spending",
               "Support for multiple groups per user",
               "Smart analytics for personalised financial suggestions and planning",
               "iOS & Android native apps",
