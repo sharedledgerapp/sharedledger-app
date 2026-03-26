@@ -515,10 +515,10 @@ function RegisterForm() {
   };
 
   const groupTypePlaceholders: Record<string, string> = {
-    family: "The Smith Family",
-    roommates: "Apartment 4B",
-    couple: "Our Finances",
-    friends: "The Weekend Squad",
+    family: "",
+    roommates: "",
+    couple: "",
+    friends: "",
     solo: "",
   };
 
@@ -567,7 +567,7 @@ function RegisterForm() {
                   <FormItem>
                     <FormLabel>Full Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="John Doe" {...field} className="h-11 rounded-xl" data-testid="input-name" />
+                      <Input {...field} className="h-11 rounded-xl" data-testid="input-name" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -580,7 +580,7 @@ function RegisterForm() {
                   <FormItem>
                     <FormLabel>Username</FormLabel>
                     <FormControl>
-                      <Input placeholder="johndoe" {...field} className="h-11 rounded-xl" data-testid="input-username" />
+                      <Input {...field} className="h-11 rounded-xl" data-testid="input-username" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
