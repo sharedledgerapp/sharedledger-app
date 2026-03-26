@@ -514,15 +514,6 @@ function RegisterForm() {
     registerMutation.mutate(data, { onSuccess: () => setLocation("/app") });
   };
 
-  const onSkipGroup = () => {
-    const values = form.getValues();
-    if (!values.name || !values.username || !values.password) {
-      form.trigger(["name", "username", "password"]);
-      return;
-    }
-    registerWithoutGroup(values);
-  };
-
   const groupTypePlaceholders: Record<string, string> = {
     family: "The Smith Family",
     roommates: "Apartment 4B",
@@ -765,15 +756,6 @@ function RegisterForm() {
                 <span className="flex items-center">Get Started <ArrowRight className="ml-2 w-4 h-4" /></span>
               )}
             </Button>
-            <button
-              type="button"
-              onClick={onSkipGroup}
-              className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors py-1"
-              disabled={registerMutation.isPending}
-              data-testid="button-skip-group"
-            >
-              Skip for now — I'll set up a group later
-            </button>
           </form>
         </Form>
       </CardContent>
