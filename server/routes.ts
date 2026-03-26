@@ -240,7 +240,10 @@ export async function registerRoutes(
   });
 
   // === RECEIPT OCR ROUTE ===
-  
+
+  const receiptScanCounts = new Map<number, { count: number; date: string }>();
+  const RECEIPT_DAILY_LIMIT = 20;
+
   const ai = new GoogleGenAI({
     apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
     httpOptions: {
@@ -255,11 +258,25 @@ export async function registerRoutes(
         return res.status(400).json({ message: "No receipt image uploaded" });
       }
 
+      const user = req.user as any;
+      const today = new Date().toISOString().slice(0, 10);
+      const record = receiptScanCounts.get(user.id);
+      if (record && record.date === today && record.count >= RECEIPT_DAILY_LIMIT) {
+        return res.status(429).json({ message: `Daily scan limit of ${RECEIPT_DAILY_LIMIT} reached. Try again tomorrow.` });
+      }
+      receiptScanCounts.set(user.id, {
+        count: record && record.date === today ? record.count + 1 : 1,
+        date: today,
+      });
+
       const b64 = Buffer.from(req.file.buffer).toString('base64');
       const mimeType = req.file.mimetype;
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
+        config: {
+          thinkingConfig: { thinkingBudget: 0 },
+        },
         contents: [
           {
             role: "user",
