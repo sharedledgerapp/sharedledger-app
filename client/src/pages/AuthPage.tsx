@@ -464,8 +464,9 @@ function QrScannerDialog({ open, onClose, onScan }: { open: boolean; onClose: ()
 
 function RegisterForm() {
   const { registerMutation } = useAuth();
+  const [, setLocation] = useLocation();
   const [mode, setMode] = useState<"create" | "join">("create");
-  const [groupType, setGroupType] = useState<"family" | "roommates" | "couple">("family");
+  const [groupType, setGroupType] = useState<"family" | "roommates" | "couple" | "friends" | "solo">("family");
   const [showPassword, setShowPassword] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   
@@ -484,6 +485,13 @@ function RegisterForm() {
     },
   });
 
+  const registerWithoutGroup = (data: z.infer<typeof registerSchema>) => {
+    registerMutation.mutate(
+      { ...data, groupName: "", groupCode: "", familyName: "", familyCode: "" },
+      { onSuccess: () => setLocation("/app") }
+    );
+  };
+
   const onSubmit = (data: z.infer<typeof registerSchema>) => {
     if (mode === "join") {
       if (!data.groupCode && !data.familyCode) {
@@ -492,6 +500,10 @@ function RegisterForm() {
       }
       data.role = "member";
     } else if (mode === "create") {
+      if (groupType === "solo") {
+        registerWithoutGroup(data);
+        return;
+      }
       data.groupType = groupType;
       data.role = groupType === "family" ? "parent" : "member";
       if (!data.groupName && !data.familyName) {
@@ -499,7 +511,7 @@ function RegisterForm() {
         return;
       }
     }
-    registerMutation.mutate(data);
+    registerMutation.mutate(data, { onSuccess: () => setLocation("/app") });
   };
 
   const onSkipGroup = () => {
@@ -508,13 +520,15 @@ function RegisterForm() {
       form.trigger(["name", "username", "password"]);
       return;
     }
-    registerMutation.mutate({ ...values, groupName: "", groupCode: "", familyName: "", familyCode: "" });
+    registerWithoutGroup(values);
   };
 
   const groupTypePlaceholders: Record<string, string> = {
     family: "The Smith Family",
     roommates: "Apartment 4B",
     couple: "Our Finances",
+    friends: "The Weekend Squad",
+    solo: "",
   };
 
   return (
@@ -618,7 +632,7 @@ function RegisterForm() {
               <>
                 <div>
                   <Label className="text-sm font-medium mb-2 block">Group Type</Label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-2 mb-2">
                     {(["family", "roommates", "couple"] as const).map((type) => (
                       <button
                         key={type}
@@ -626,6 +640,7 @@ function RegisterForm() {
                         onClick={() => {
                           setGroupType(type);
                           form.setValue("groupType", type);
+                          form.clearErrors("groupName");
                         }}
                         className={`py-2.5 px-3 rounded-xl border text-xs font-medium transition-all capitalize ${
                           groupType === type
@@ -638,26 +653,55 @@ function RegisterForm() {
                       </button>
                     ))}
                   </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["friends", "solo"] as const).map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => {
+                          setGroupType(type);
+                          if (type !== "solo") form.setValue("groupType", type as "friends");
+                          form.clearErrors("groupName");
+                        }}
+                        className={`py-2.5 px-3 rounded-xl border text-xs font-medium transition-all capitalize ${
+                          groupType === type
+                            ? "bg-primary text-primary-foreground border-primary shadow-md"
+                            : "bg-background border-border hover:bg-muted"
+                        }`}
+                        data-testid={`button-group-type-${type}`}
+                      >
+                        {type === "friends" ? "Friends" : "Solo (No Group)"}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <FormField
-                  control={form.control}
-                  name="groupName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Group Name</FormLabel>
-                      <FormControl>
-                        <Input 
-                          placeholder={groupTypePlaceholders[groupType]} 
-                          {...field} 
-                          className="h-11 rounded-xl" 
-                          data-testid="input-group-name"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {groupType !== "solo" && (
+                  <FormField
+                    control={form.control}
+                    name="groupName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Group Name</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder={groupTypePlaceholders[groupType]} 
+                            {...field} 
+                            className="h-11 rounded-xl" 
+                            data-testid="input-group-name"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {groupType === "solo" && (
+                  <p className="text-xs text-muted-foreground bg-muted/50 rounded-xl px-4 py-3">
+                    You'll use SharedLedger as a personal finance tracker. You can always join or create a group later.
+                  </p>
+                )}
               </>
             )}
 

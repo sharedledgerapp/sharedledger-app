@@ -20,11 +20,12 @@ const groupTypeIcons: Record<string, any> = {
   family: Users,
   roommates: Home,
   couple: Heart,
+  friends: Users,
 };
 
 const groupTypeLabels: Record<string, Record<string, string>> = {
-  en: { family: "Family", roommates: "Roommates", couple: "Couple" },
-  fr: { family: "Famille", roommates: "Colocataires", couple: "Couple" },
+  en: { family: "Family", roommates: "Roommates", couple: "Couple", friends: "Friends" },
+  fr: { family: "Famille", roommates: "Colocataires", couple: "Couple", friends: "Amis" },
 };
 
 export default function FamilyPage() {
@@ -87,7 +88,7 @@ export default function FamilyPage() {
 
   const [createDialog, setCreateDialog] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
-  const [newGroupType, setNewGroupType] = useState<"family" | "roommates" | "couple">("family");
+  const [newGroupType, setNewGroupType] = useState<"family" | "roommates" | "couple" | "friends">("family");
 
   const createGroupMutation = useMutation({
     mutationFn: async () => {
@@ -160,8 +161,8 @@ export default function FamilyPage() {
             <div className="space-y-4 py-2">
               <div>
                 <Label className="text-sm font-medium mb-2 block">Group Type</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(["family", "roommates", "couple"] as const).map((type) => (
+                <div className="grid grid-cols-2 gap-2">
+                  {(["family", "roommates", "couple", "friends"] as const).map((type) => (
                     <button
                       key={type}
                       type="button"
@@ -173,7 +174,7 @@ export default function FamilyPage() {
                       }`}
                       data-testid={`button-new-group-type-${type}`}
                     >
-                      {type === "roommates" ? "Roommates" : type === "couple" ? "Couple" : "Family"}
+                      {type === "roommates" ? "Roommates" : type === "couple" ? "Couple" : type === "friends" ? "Friends" : "Family"}
                     </button>
                   ))}
                 </div>
@@ -181,7 +182,12 @@ export default function FamilyPage() {
               <div>
                 <Label className="text-sm font-medium mb-2 block">Group Name</Label>
                 <Input
-                  placeholder={newGroupType === "family" ? "The Smith Family" : newGroupType === "roommates" ? "Apartment 4B" : "Our Finances"}
+                  placeholder={
+                    newGroupType === "family" ? "The Smith Family"
+                    : newGroupType === "roommates" ? "Apartment 4B"
+                    : newGroupType === "friends" ? "The Weekend Squad"
+                    : "Our Finances"
+                  }
                   value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}
                   className="h-11 rounded-xl"

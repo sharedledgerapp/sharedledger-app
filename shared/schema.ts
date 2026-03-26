@@ -429,13 +429,13 @@ export const registerSchema = insertUserSchema.extend({
   familyName: z.string().optional(),
   groupCode: z.string().optional(),
   groupName: z.string().optional(),
-  groupType: z.enum(["family", "roommates", "couple"]).optional(),
+  groupType: z.enum(["family", "roommates", "couple", "friends"]).optional(),
 });
 
 export const oauthGroupSetupSchema = z.object({
   groupCode: z.string().optional(),
   groupName: z.string().optional(),
-  groupType: z.enum(["family", "roommates", "couple"]).optional(),
+  groupType: z.enum(["family", "roommates", "couple", "friends"]).optional(),
   role: z.enum(["parent", "child", "member"]).optional(),
 });
 

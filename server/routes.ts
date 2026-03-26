@@ -111,7 +111,7 @@ export async function registerRoutes(
         if (newGroupType === "family" && role !== 'parent' && role !== 'member') {
              return res.status(400).json({ message: "Only parents can create new family groups." });
         }
-        const prefix = newGroupType === "family" ? "FAM" : newGroupType === "roommates" ? "GRP" : "CPL";
+        const prefix = newGroupType === "family" ? "FAM" : newGroupType === "roommates" ? "GRP" : newGroupType === "friends" ? "FRD" : "CPL";
         const code = `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
         const family = await storage.createFamily({ name: newGroupName, code, groupType: newGroupType });
         familyId = family.id;
@@ -200,7 +200,7 @@ export async function registerRoutes(
         }
       } else if (groupName) {
         const newGroupType = groupType || "family";
-        const prefix = newGroupType === "family" ? "FAM" : newGroupType === "roommates" ? "GRP" : "CPL";
+        const prefix = newGroupType === "family" ? "FAM" : newGroupType === "roommates" ? "GRP" : newGroupType === "friends" ? "FRD" : "CPL";
         const code = `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
         const family = await storage.createFamily({ name: groupName, code, groupType: newGroupType });
         familyId = family.id;
