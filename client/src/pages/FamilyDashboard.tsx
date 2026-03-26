@@ -530,8 +530,12 @@ export default function FamilyDashboard() {
                   </div>
                 </div>
               ) : (
-                <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
-                  {t("noSharedExpenses")}
+                <div className="h-[200px] flex flex-col items-center justify-center gap-2 text-center px-6">
+                  <TrendingUp className="w-8 h-8 text-muted-foreground opacity-30" />
+                  <p className="text-sm text-muted-foreground font-medium">{t("noSharedExpenses")}</p>
+                  <p className="text-xs text-muted-foreground opacity-70">
+                    Share expenses with your group to see the breakdown here — use the &ldquo;Share with group&rdquo; toggle when adding an expense.
+                  </p>
                 </div>
               )}
             </CardContent>

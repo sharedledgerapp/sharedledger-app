@@ -12,19 +12,13 @@ export function BottomNav() {
   const { user } = useAuth();
   const { t } = useLanguage();
 
-  const { data: expensesData } = useQuery<any[]>({
-    queryKey: ["/api/expenses"],
-    enabled: !!user,
-  });
-  const hasExpenses = (expensesData?.length ?? 0) > 0;
+  const groupHref = user?.familyId ? "/app/family-dashboard" : "/app/family";
 
   const routes = [
-    { href: "/app", label: t("home"), icon: Home },
-    { href: "/app/expenses", label: t("expenses"), icon: Wallet },
-    { href: "/app/budget", label: t("budget"), icon: PieChart },
-    { href: "/app/goals", label: t("goals"), icon: Trophy },
-    { href: "/app/family", label: t("group"), icon: Users },
-    ...(hasExpenses ? [{ href: "/app/reports", label: t("reports"), icon: BarChart3 }] : []),
+    { href: "/app", label: t("home"), icon: Home, groupTab: false },
+    { href: "/app/expenses", label: t("expenses"), icon: Wallet, groupTab: false },
+    { href: "/app/goals", label: t("goals"), icon: Trophy, groupTab: false },
+    { href: groupHref, label: t("group"), icon: Users, groupTab: true },
   ];
 
   return (
@@ -32,7 +26,9 @@ export function BottomNav() {
       <div className="flex justify-around items-center h-16">
         {routes.map((route) => {
           const Icon = route.icon;
-          const isActive = location === route.href || (route.href === "/app" && location === "/app");
+          const isActive = route.groupTab
+            ? location.startsWith("/app/family")
+            : location === route.href || (route.href === "/app" && location === "/app");
           return (
             <Link key={route.href} href={route.href} className="w-full h-full">
               <div
