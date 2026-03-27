@@ -168,9 +168,10 @@ function App() {
     const token = import.meta.env.VITE_POSTHOG_TOKEN;
     const host = import.meta.env.VITE_POSTHOG_HOST;
     console.log("[PostHog] Initializing — token:", token ? token.slice(0, 10) + "..." : "MISSING", "host:", host ?? "MISSING");
-    if (token && host) {
+    if (token) {
       posthog.init(token, {
-        api_host: host,
+        api_host: window.location.origin + "/ingest",
+        ui_host: host ?? "https://us.posthog.com",
         defaults: "2026-01-30",
         capture_pageview: "history_change",
         autocapture: true,
