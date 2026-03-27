@@ -55,7 +55,13 @@ export async function registerRoutes(
       };
 
       if (req.method !== "GET" && req.method !== "HEAD") {
-        fetchOptions.body = req.rawBody instanceof Buffer ? req.rawBody : JSON.stringify(req.body);
+        if (req.rawBody instanceof Buffer) {
+          fetchOptions.body = req.rawBody;
+        } else if (typeof req.body === "string") {
+          fetchOptions.body = req.body;
+        } else if (req.body && typeof req.body === "object" && Object.keys(req.body).length > 0) {
+          fetchOptions.body = JSON.stringify(req.body);
+        }
       }
 
       const upstream = await fetch(targetUrl, fetchOptions);
