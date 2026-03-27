@@ -25,6 +25,7 @@ import FriendGroupDashboard from "@/pages/FriendGroupDashboard";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { startNotificationScheduler, stopNotificationScheduler, checkBudgetThresholdNotifications, subscribeToPush } from "@/lib/notifications";
+import { posthog } from "@/lib/posthog";
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
@@ -163,6 +164,24 @@ function Router() {
 }
 
 function App() {
+  useEffect(() => {
+    const token = import.meta.env.VITE_POSTHOG_TOKEN;
+    const host = import.meta.env.VITE_POSTHOG_HOST;
+    console.log("[PostHog] Initializing — token:", token ? token.slice(0, 10) + "..." : "MISSING", "host:", host ?? "MISSING");
+    if (token && host) {
+      posthog.init(token, {
+        api_host: host,
+        defaults: "2026-01-30",
+        capture_pageview: "history_change",
+        autocapture: true,
+        capture_exceptions: true,
+        debug: true,
+        person_profiles: "always",
+      });
+      posthog.capture("app_loaded");
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

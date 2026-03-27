@@ -1,12 +1,4 @@
-declare global {
-  interface Window {
-    posthog?: {
-      identify: (id: string, properties?: Record<string, unknown>) => void;
-      reset: () => void;
-      capture: (event: string, properties?: Record<string, unknown>) => void;
-    };
-  }
-}
+import { posthog } from "./posthog";
 
 export function identifyUser(user: {
   id: number;
@@ -16,7 +8,7 @@ export function identifyUser(user: {
   language: string;
   role: string;
 }) {
-  window.posthog?.identify(String(user.id), {
+  posthog.identify(String(user.id), {
     name: user.name,
     username: user.username,
     currency: user.currency,
@@ -26,9 +18,9 @@ export function identifyUser(user: {
 }
 
 export function resetAnalytics() {
-  window.posthog?.reset();
+  posthog.reset();
 }
 
 export function captureEvent(name: string, properties?: Record<string, unknown>) {
-  window.posthog?.capture(name, properties);
+  posthog.capture(name, properties);
 }
