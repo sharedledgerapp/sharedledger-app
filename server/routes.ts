@@ -236,7 +236,7 @@ export async function registerRoutes(
     const updateSchema = z.object({
       name: z.string().min(1).optional(),
       profileImageUrl: z.string().url().optional().nullable(),
-      language: z.enum(["en", "fr"]).optional(),
+      language: z.enum(["en", "fr", "nl"]).optional(),
       currency: z.string().optional(),
       categories: z.array(z.string().min(1).max(30)).max(20).optional(),
       recurringCategories: z.array(z.string().min(1).max(30)).max(20).optional(),

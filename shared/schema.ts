@@ -29,7 +29,7 @@ export const users = pgTable("users", {
   appleId: text("apple_id").unique(),
   shareTotalsConsent: boolean("share_totals_consent").default(true).notNull(),
   profileImageUrl: text("profile_image_url"),
-  language: text("language", { enum: ["en", "fr"] }).default("en").notNull(),
+  language: text("language", { enum: ["en", "fr", "nl"] }).default("en").notNull(),
   currency: text("currency").default("EUR").notNull(),
   categories: text("categories").array(),
   recurringCategories: text("recurring_categories").array(),

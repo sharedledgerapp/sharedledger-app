@@ -465,7 +465,7 @@ export default function SettingsPage() {
         <CardContent>
           <Select 
             value={language} 
-            onValueChange={(val) => setLanguage(val as "en" | "fr")}
+            onValueChange={(val) => setLanguage(val as "en" | "fr" | "nl")}
             disabled={isLanguageUpdating}
           >
             <SelectTrigger className="w-full" data-testid="select-language">
@@ -477,6 +477,9 @@ export default function SettingsPage() {
               </SelectItem>
               <SelectItem value="fr" data-testid="option-french">
                 {t("french")}
+              </SelectItem>
+              <SelectItem value="nl" data-testid="option-dutch">
+                {t("dutch")}
               </SelectItem>
             </SelectContent>
           </Select>
