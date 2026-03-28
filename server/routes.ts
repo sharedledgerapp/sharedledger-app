@@ -370,6 +370,74 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
   });
 
+  // === CATEGORY ICON SUGGESTION ROUTE ===
+
+  const ALLOWED_LUCIDE_ICONS = [
+    "Home", "Car", "Plane", "Train", "Bus", "Bike", "ShoppingCart", "ShoppingBag",
+    "Coffee", "Pizza", "Utensils", "Wine", "Music", "Film", "Gamepad", "Book",
+    "GraduationCap", "Heart", "HeartPulse", "Stethoscope", "Pill", "Dumbbell",
+    "TreePine", "Sun", "Moon", "Star", "Cloud", "Umbrella", "Flame", "Droplets",
+    "Smartphone", "Laptop", "Tv", "Wifi", "Phone", "Mail", "Globe",
+    "Dog", "Cat", "PawPrint", "Baby", "User", "Users", "Gift", "PartyPopper",
+    "Briefcase", "Building", "Store", "Scissors", "Shirt", "Gem", "Watch",
+    "Camera", "Palette", "Brush", "Wrench", "Hammer", "Leaf", "Flower", "Banana",
+    "Apple", "Fuel", "CreditCard", "DollarSign", "Wallet", "TrendingUp",
+    "Package", "Box", "Archive", "Truck", "Ship", "Rocket", "Map", "Compass",
+  ];
+
+  app.post("/api/suggest-category-icon", requireAuth, async (req, res) => {
+    try {
+      const schema = z.object({
+        category: z.string().min(1).max(50),
+        type: z.enum(["emoji", "icon"]),
+      });
+      const { category, type } = schema.parse(req.body);
+
+      let prompt: string;
+      if (type === "emoji") {
+        prompt = `You are a JSON API. Given the expense category name "${category}", return a JSON object with a single "value" key containing exactly one relevant emoji character. Example: {"value":"🏋️"}. Respond ONLY with valid JSON, no markdown.`;
+      } else {
+        const iconList = ALLOWED_LUCIDE_ICONS.join(", ");
+        prompt = `You are a JSON API. Given the expense category name "${category}", choose the single most relevant icon name from this list: ${iconList}. Return a JSON object with a single "value" key containing the icon name exactly as written. Example: {"value":"Dumbbell"}. Respond ONLY with valid JSON, no markdown.`;
+      }
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        config: {
+          thinkingConfig: { thinkingBudget: 0 },
+          responseMimeType: "application/json",
+        },
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+      });
+
+      const raw = (response.text || "").trim();
+      let parsed: { value?: string };
+      try {
+        const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+        parsed = JSON.parse(cleaned);
+      } catch {
+        parsed = {};
+      }
+
+      if (type === "emoji") {
+        const candidate = typeof parsed.value === "string" ? parsed.value.trim() : "";
+        const chars = Array.from(candidate);
+        const emoji = chars.find((ch: string) => (ch.codePointAt(0) ?? 0) > 127) || "💸";
+        res.json({ value: emoji });
+      } else {
+        const candidate = typeof parsed.value === "string" ? parsed.value.trim() : "";
+        const iconName = ALLOWED_LUCIDE_ICONS.find((n) => n.toLowerCase() === candidate.toLowerCase()) || "Package";
+        res.json({ value: iconName });
+      }
+    } catch (error) {
+      console.error("Icon suggestion error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Failed to suggest icon" });
+    }
+  });
+
   // === SPENDING SUMMARY ROUTES ===
 
   app.get("/api/spending/summary", requireAuth, async (req, res) => {

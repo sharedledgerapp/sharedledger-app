@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useCategoryEmoji as useAICategoryEmoji, useCategoryIconName, getLucideIcon } from "@/hooks/use-category-icon";
 import { useExpenses, useCreateExpense, useUpdateExpense, useUpload, useFamily } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
 import { captureEvent } from "@/lib/analytics";
@@ -9,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, ScanLine, Check, X, DollarSign, Trash2, Wallet, Repeat, CreditCard, Zap, Building, Shield, Package, Pause, Play, Settings, Search } from "lucide-react";
+import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, ScanLine, Check, X, DollarSign, Trash2, Wallet, Repeat, Pause, Play, Settings, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Keypad } from "@/components/Keypad";
 import { format } from "date-fns";
@@ -27,16 +28,6 @@ import type { RecurringExpense } from "@shared/schema";
 
 const FREQUENCIES = ["monthly", "quarterly", "yearly"] as const;
 
-function getCategoryIcon(category: string) {
-  const icons: Record<string, any> = {
-    Subscriptions: CreditCard,
-    Utilities: Zap,
-    Taxes: Building,
-    Insurance: Shield,
-    Other: Package,
-  };
-  return icons[category] || Package;
-}
 
 function getCategoryColor(category: string) {
   const colors: Record<string, string> = {
@@ -55,6 +46,25 @@ function toMonthlyAmount(amount: number, frequency: string): number {
     case "quarterly": return amount / 3;
     default: return amount;
   }
+}
+
+function CategoryEmojiDisplay({ category }: { category: string }) {
+  const emoji = useAICategoryEmoji(category);
+  return <>{emoji}</>;
+}
+
+function RecurringCategoryIconDisplay({
+  category,
+  className,
+  style,
+}: {
+  category: string;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const iconName = useCategoryIconName(category);
+  const Icon = getLucideIcon(iconName);
+  return <Icon className={className} style={style} />;
 }
 
 export default function ExpensesPage() {
@@ -347,7 +357,7 @@ export default function ExpensesPage() {
                     onClick={() => setEditingExpense(expense)}
                   >
                     <div className="w-12 h-12 rounded-2xl bg-secondary/50 flex items-center justify-center text-2xl group-hover:scale-105 transition-transform">
-                      {getCategoryEmoji(expense.category)}
+                      <CategoryEmojiDisplay category={expense.category} />
                     </div>
                     <div>
                       <p className="font-semibold text-foreground">{expense.note || expense.category}</p>
@@ -427,7 +437,6 @@ export default function ExpensesPage() {
               </Card>
 
               {groupedRecurring.map((group) => {
-                const CategoryIcon = getCategoryIcon(group.category);
                 return (
                   <div key={group.category} data-testid={`group-${group.category.toLowerCase()}`}>
                     <div className="flex items-center justify-between mb-2">
@@ -436,7 +445,7 @@ export default function ExpensesPage() {
                           className="w-8 h-8 rounded-full flex items-center justify-center"
                           style={{ backgroundColor: getCategoryColor(group.category) + "20" }}
                         >
-                          <CategoryIcon className="w-4 h-4" style={{ color: getCategoryColor(group.category) }} />
+                          <RecurringCategoryIconDisplay category={group.category} className="w-4 h-4" style={{ color: getCategoryColor(group.category) }} />
                         </div>
                         <span className="font-semibold text-sm">{categoryLabel(group.category)}</span>
                         <Badge variant="secondary" className="text-xs">
@@ -1012,7 +1021,7 @@ function CreateExpenseDialog({
                       : "bg-background border-border hover:bg-muted text-muted-foreground"
                   )}
                 >
-                  <span className="text-xl">{getCategoryEmoji(cat)}</span>
+                  <span className="text-xl"><CategoryEmojiDisplay category={cat} /></span>
                   <span className="truncate w-full text-center">{cat}</span>
                 </button>
               ))}
@@ -1262,16 +1271,3 @@ function CreateExpenseDialog({
   );
 }
 
-function getCategoryEmoji(category: string) {
-  const map: Record<string, string> = {
-    Food: "🍔",
-    Transport: "🚌",
-    Entertainment: "🎮",
-    Shopping: "🛍️",
-    Utilities: "💡",
-    Education: "📚",
-    Health: "🏥",
-    Other: "📦"
-  };
-  return map[category] || "💸";
-}
