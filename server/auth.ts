@@ -214,8 +214,8 @@ export function setupAuth(app: Express) {
     },
     (req, res) => {
       const user = req.user as User;
-      if (!user.familyId) {
-        res.redirect("/auth?setup=group");
+      if (!user.onboardingCompleted) {
+        res.redirect("/onboarding");
       } else {
         res.redirect("/app");
       }
@@ -235,8 +235,8 @@ export function setupAuth(app: Express) {
     },
     (req, res) => {
       const user = req.user as User;
-      if (!user.familyId) {
-        res.redirect("/auth?setup=group");
+      if (!user.onboardingCompleted) {
+        res.redirect("/onboarding");
       } else {
         res.redirect("/app");
       }

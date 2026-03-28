@@ -10,6 +10,7 @@ import { Layout } from "@/components/Layout";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/AuthPage";
 import LandingPage from "@/pages/LandingPage";
+import OnboardingPage from "@/pages/OnboardingPage";
 import HomePage from "@/pages/HomePage";
 import ExpensesPage from "@/pages/ExpensesPage";
 import GoalsPage from "@/pages/GoalsPage";
@@ -33,10 +34,10 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
   useEffect(() => {
     if (user) {
       const prefs = {
-        dailyReminderEnabled: (user as any).dailyReminderEnabled ?? true,
-        dailyReminderTime: (user as any).dailyReminderTime || "19:00",
-        weeklyReminderEnabled: (user as any).weeklyReminderEnabled ?? true,
-        monthlyReminderEnabled: (user as any).monthlyReminderEnabled ?? true,
+        dailyReminderEnabled: user.dailyReminderEnabled ?? true,
+        dailyReminderTime: user.dailyReminderTime || "19:00",
+        weeklyReminderEnabled: user.weeklyReminderEnabled ?? true,
+        monthlyReminderEnabled: user.monthlyReminderEnabled ?? true,
       };
       startNotificationScheduler(prefs);
       subscribeToPush().catch(() => {});
@@ -86,6 +87,10 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
     return <Redirect to="/auth" />;
   }
 
+  if (!user.onboardingCompleted) {
+    return <Redirect to="/onboarding" />;
+  }
+
   return (
     <Layout>
       <Component />
@@ -105,6 +110,9 @@ function LandingRedirect() {
   }
 
   if (user) {
+    if (!user.onboardingCompleted) {
+      return <Redirect to="/onboarding" />;
+    }
     return <Redirect to="/app" />;
   }
 
@@ -115,6 +123,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/auth" component={AuthPage} />
+      <Route path="/onboarding" component={OnboardingPage} />
 
       {/* Specific /app/* routes must come before /app to avoid prefix-match shadowing */}
       <Route path="/app/expenses">

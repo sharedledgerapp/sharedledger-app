@@ -46,12 +46,15 @@ Preferred communication style: Simple, everyday language.
 - **PWA**: Progressive Web App capabilities for offline use and installability.
 
 ### Registration & Onboarding
-- Registration supports two modes: "Create Group" (pick type + name) and "Join Group" (enter invite code or scan QR code).
+- After registering, new users are redirected to `/onboarding` (a 10-step onboarding wizard) before accessing the dashboard.
+- The `onboardingCompleted` boolean on the `users` table controls wizard access. Existing users default to `true`; new registrations start at `false`.
+- The onboarding wizard collects: language, goal, name, currency, financial personality, spending insights opt-in, first budgets, group setup, notification preferences, and ends with a celebration screen.
+- PostHog events are captured for goal selection (`onboarding_goal_selected`), personality (`onboarding_personality_selected`), and spending insights acceptance (`onboarding_spending_insights_accepted`).
+- After the wizard completes, `tutorial_completed` is set in localStorage so the tutorial overlay is suppressed for new-onboarding users.
 - Social sign-in: "Continue with Google" and "Continue with Apple" buttons on both login and register forms. Google OAuth is fully functional when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set. Apple Sign In routes are stubbed, awaiting Apple Developer credentials.
 - OAuth users who sign in without a group are redirected to a group setup form (create or join) before accessing the dashboard.
 - Group types: Family, Roommates, Couple — each generates different invite code prefixes.
 - QR code scanning on registration uses the device camera to auto-fill the invite code.
-- Onboarding screens introduce the app's privacy model and group concept.
 
 ### Privacy Model
 - Personal expenses, budgets, savings goals, and reports are private to each user.

@@ -242,10 +242,14 @@ export default function AuthPage() {
   const showGroupSetup = searchParams.get("setup") === "group";
 
   useEffect(() => {
-    if (user && !showGroupSetup) {
-      setLocation("/app");
+    if (user) {
+      if (user.onboardingCompleted) {
+        setLocation("/app");
+      } else {
+        setLocation("/onboarding");
+      }
     }
-  }, [user, setLocation, showGroupSetup]);
+  }, [user, setLocation]);
 
   if (user) {
     return null;
@@ -465,18 +469,15 @@ function QrScannerDialog({ open, onClose, onScan }: { open: boolean; onClose: ()
 function RegisterForm() {
   const { registerMutation } = useAuth();
   const [, setLocation] = useLocation();
-  const [mode, setMode] = useState<"create" | "join">("create");
-  const [groupType, setGroupType] = useState<"family" | "roommates" | "couple" | "friends" | "solo">("family");
   const [showPassword, setShowPassword] = useState(false);
-  const [scannerOpen, setScannerOpen] = useState(false);
-  
+
   const form = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
       username: "",
       password: "",
       name: "",
-      role: "parent",
+      role: "member",
       familyName: "",
       familyCode: "",
       groupName: "",
@@ -485,41 +486,11 @@ function RegisterForm() {
     },
   });
 
-  const registerWithoutGroup = (data: z.infer<typeof registerSchema>) => {
-    registerMutation.mutate(
-      { ...data, groupName: "", groupCode: "", familyName: "", familyCode: "" },
-      { onSuccess: () => setLocation("/app") }
-    );
-  };
-
   const onSubmit = (data: z.infer<typeof registerSchema>) => {
-    if (mode === "join") {
-      if (!data.groupCode && !data.familyCode) {
-        form.setError("groupCode", { message: "Invite code is required to join a group" });
-        return;
-      }
-      data.role = "member";
-    } else if (mode === "create") {
-      if (groupType === "solo") {
-        registerWithoutGroup(data);
-        return;
-      }
-      data.groupType = groupType;
-      data.role = groupType === "family" ? "parent" : "member";
-      if (!data.groupName && !data.familyName) {
-        form.setError("groupName", { message: "Group name is required" });
-        return;
-      }
-    }
-    registerMutation.mutate(data, { onSuccess: () => setLocation("/app") });
-  };
-
-  const groupTypePlaceholders: Record<string, string> = {
-    family: "",
-    roommates: "",
-    couple: "",
-    friends: "",
-    solo: "",
+    registerMutation.mutate(
+      { ...data, groupName: "", groupCode: "", familyName: "", familyCode: "", role: "member" },
+      { onSuccess: () => setLocation("/onboarding") }
+    );
   };
 
   return (
@@ -530,33 +501,6 @@ function RegisterForm() {
       </CardHeader>
       <CardContent>
         <OAuthButtons />
-        <div className="flex gap-2 mb-6">
-          <button
-            type="button"
-            onClick={() => { setMode("create"); form.clearErrors(); }}
-            className={`flex-1 py-3 px-4 rounded-xl border text-sm font-medium transition-all ${
-              mode === "create" 
-                ? "bg-primary text-primary-foreground border-primary shadow-md" 
-                : "bg-background border-border hover:bg-muted"
-            }`}
-            data-testid="button-mode-create"
-          >
-            Create Group
-          </button>
-          <button
-            type="button"
-            onClick={() => { setMode("join"); form.clearErrors(); }}
-            className={`flex-1 py-3 px-4 rounded-xl border text-sm font-medium transition-all ${
-              mode === "join" 
-                ? "bg-accent text-accent-foreground border-accent shadow-md" 
-                : "bg-background border-border hover:bg-muted"
-            }`}
-            data-testid="button-mode-join"
-          >
-            Join Group
-          </button>
-        </div>
-
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -587,7 +531,7 @@ function RegisterForm() {
                 )}
               />
             </div>
-            
+
             <FormField
               control={form.control}
               name="password"
@@ -596,11 +540,11 @@ function RegisterForm() {
                   <FormLabel>Password</FormLabel>
                   <FormControl>
                     <div className="relative">
-                      <Input 
-                        type={showPassword ? "text" : "password"} 
-                        placeholder="••••••••" 
-                        {...field} 
-                        className="h-11 rounded-xl pr-12" 
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        {...field}
+                        className="h-11 rounded-xl pr-12"
                         data-testid="input-password"
                       />
                       <button
@@ -619,135 +563,8 @@ function RegisterForm() {
               )}
             />
 
-            {mode === "create" && (
-              <>
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">Group Type</Label>
-                  <div className="grid grid-cols-3 gap-2 mb-2">
-                    {(["family", "roommates", "couple"] as const).map((type) => (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => {
-                          setGroupType(type);
-                          form.setValue("groupType", type);
-                          form.clearErrors("groupName");
-                        }}
-                        className={`py-2.5 px-3 rounded-xl border text-xs font-medium transition-all capitalize ${
-                          groupType === type
-                            ? "bg-primary text-primary-foreground border-primary shadow-md"
-                            : "bg-background border-border hover:bg-muted"
-                        }`}
-                        data-testid={`button-group-type-${type}`}
-                      >
-                        {type === "roommates" ? "Roommates" : type === "couple" ? "Couple" : "Family"}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {(["friends", "solo"] as const).map((type) => (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => {
-                          setGroupType(type);
-                          if (type !== "solo") form.setValue("groupType", type as "friends");
-                          form.clearErrors("groupName");
-                        }}
-                        className={`py-2.5 px-3 rounded-xl border text-xs font-medium transition-all capitalize ${
-                          groupType === type
-                            ? "bg-primary text-primary-foreground border-primary shadow-md"
-                            : "bg-background border-border hover:bg-muted"
-                        }`}
-                        data-testid={`button-group-type-${type}`}
-                      >
-                        {type === "friends" ? "Friends" : "Solo (No Group)"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {groupType !== "solo" && (
-                  <FormField
-                    control={form.control}
-                    name="groupName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Group Name</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder={groupTypePlaceholders[groupType]} 
-                            {...field} 
-                            className="h-11 rounded-xl" 
-                            data-testid="input-group-name"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                {groupType === "solo" && (
-                  <p className="text-xs text-muted-foreground bg-muted/50 rounded-xl px-4 py-3">
-                    You'll use SharedLedger as a personal finance tracker. You can always join or create a group later.
-                  </p>
-                )}
-              </>
-            )}
-
-            {mode === "join" && (
-              <>
-                <FormField
-                  control={form.control}
-                  name="groupCode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Invite Code</FormLabel>
-                      <FormControl>
-                        <div className="flex gap-2">
-                          <Input 
-                            placeholder="GRP-1234" 
-                            {...field} 
-                            className="h-11 rounded-xl font-mono flex-1" 
-                            autoComplete="off"
-                            data-testid="input-invite-code"
-                            onChange={(e) => {
-                              field.onChange(e);
-                              form.clearErrors("groupCode");
-                            }}
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            className="h-11 w-11 rounded-xl shrink-0"
-                            onClick={() => setScannerOpen(true)}
-                            data-testid="button-scan-qr"
-                            title="Scan QR Code"
-                          >
-                            <Camera className="w-5 h-5" />
-                          </Button>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <QrScannerDialog
-                  open={scannerOpen}
-                  onClose={() => setScannerOpen(false)}
-                  onScan={(code) => {
-                    form.setValue("groupCode", code);
-                    form.clearErrors("groupCode");
-                    setScannerOpen(false);
-                  }}
-                />
-              </>
-            )}
-
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className="w-full h-12 rounded-xl text-md font-semibold mt-4 shadow-lg bg-primary hover:bg-primary/90 shadow-primary/25"
               disabled={registerMutation.isPending}
               data-testid="button-register-submit"

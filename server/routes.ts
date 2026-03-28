@@ -6,7 +6,7 @@ import { storage } from "./storage";
 import { api, errorSchemas } from "@shared/routes";
 import { z } from "zod";
 import { randomBytes } from "crypto";
-import { insertUserSchema, families, oauthGroupSetupSchema } from "@shared/schema";
+import { insertUserSchema, families, oauthGroupSetupSchema, type User } from "@shared/schema";
 import multer from "multer";
 import passport from "passport";
 import { db } from "./db";
@@ -171,11 +171,21 @@ export async function registerRoutes(
     });
   });
 
-  app.get(api.auth.me.path, (req, res) => {
+  app.get(api.auth.me.path, async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    res.status(200).json(sanitizeUser(req.user));
+    const user = req.user as User;
+    // Safety net for legacy users: if onboardingCompleted is still false but the user
+    // was created before the onboarding feature rollout (2026-03-28), auto-complete it.
+    // This covers both group users (familyId set) and solo users (no familyId) who
+    // registered before this feature was introduced.
+    const featureRolloutDate = new Date("2026-03-28T00:00:00Z");
+    if (!user.onboardingCompleted && user.createdAt && user.createdAt < featureRolloutDate) {
+      const updated = await storage.updateUser(user.id, { onboardingCompleted: true });
+      return res.status(200).json(sanitizeUser(updated));
+    }
+    res.status(200).json(sanitizeUser(user));
   });
 
   app.post("/api/auth/setup-group", requireAuth, async (req, res, next) => {
@@ -250,6 +260,12 @@ export async function registerRoutes(
     const updates = updateSchema.parse(req.body);
     const updated = await storage.updateUser(user.id, updates);
     res.json(updated);
+  });
+
+  app.post("/api/auth/complete-onboarding", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const updated = await storage.updateUser(user.id, { onboardingCompleted: true });
+    res.json(sanitizeUser(updated));
   });
 
   // === DELETE ACCOUNT ===
