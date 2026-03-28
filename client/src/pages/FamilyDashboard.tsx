@@ -756,6 +756,7 @@ function MemberDetailsDialog({
   periodLabel: string;
 }) {
   const { t } = useLanguage();
+  const { user } = useAuth();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
