@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useGoals, useCreateGoal, useUpdateGoal, useDeleteGoal, useUpload } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
+import { useQueryClient } from "@tanstack/react-query";
+import { api } from "@shared/routes";
 import { captureEvent } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -194,9 +196,12 @@ function CreateGoalDialog({
   const [priority, setPriority] = useState<GoalPriority>("medium");
   const [visibility, setVisibility] = useState<"private" | "shared" | "family">("private");
   const [file, setFile] = useState<File | null>(null);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const createMutation = useCreateGoal();
   const updateMutation = useUpdateGoal();
   const uploadMutation = useUpload();
+  const currencySymbol = getCurrencySymbol(user?.currency);
 
   useEffect(() => {
     if (editingGoal) {
@@ -258,6 +263,7 @@ function CreateGoalDialog({
         userId: 1, // Ignored by backend, will be overwritten
       } as any, {
         onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: [api.goals.list.path] });
           captureEvent("goal_created", {
             has_deadline: !!deadline,
             has_photo: !!file,
@@ -294,7 +300,7 @@ function CreateGoalDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>Target Amount ($)</Label>
+            <Label>Target Amount ({currencySymbol})</Label>
             <Input 
               type="number" 
               placeholder="500" 

@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { captureEvent } from "@/lib/analytics";
-import { CURRENCIES } from "@/lib/currency";
+import { CURRENCIES, getCurrencySymbol } from "@/lib/currency";
 import { TUTORIAL_STORAGE_KEY } from "@/lib/tutorial-steps";
 import { api } from "@shared/routes";
 import { Button } from "@/components/ui/button";
@@ -445,6 +445,7 @@ export default function OnboardingPage() {
                 onContinue={handleStep7Continue}
                 onBack={goPrev}
                 isPending={createBudgetsMutation.isPending}
+                currency={currency}
               />
             )}
             {step === 8 && (
@@ -603,7 +604,7 @@ function Step2Goal({
 }) {
   const options = [
     { key: "save", label: "Save more money", description: "Build savings habits and reach financial goals.", icon: <PiggyBank className="w-5 h-5" /> },
-    { key: "track", label: "Track where my money goes", description: "See exactly where every euro or dollar ends up.", icon: <TrendingUp className="w-5 h-5" /> },
+    { key: "track", label: "Track where my money goes", description: "See exactly where everything ends up.", icon: <TrendingUp className="w-5 h-5" /> },
     { key: "split", label: "Split bills with others", description: "Manage shared expenses with flatmates, family or friends.", icon: <Users className="w-5 h-5" /> },
     { key: "all", label: "All of the above", description: "I want the full package.", icon: <Sparkles className="w-5 h-5" /> },
   ];
@@ -723,7 +724,7 @@ function Step4Currency({
                 : "border-border hover:border-primary/30 hover:bg-muted/50"
             }`}
           >
-            <span className={`font-mono font-bold text-sm w-10 ${currency === c.code ? "text-primary" : "text-muted-foreground"}`}>
+            <span className={`font-mono font-bold text-sm min-w-10 ${currency === c.code ? "text-primary" : "text-muted-foreground"}`}>
               {c.symbol}
             </span>
             <span className="flex-1 text-sm font-medium">{c.name}</span>
@@ -871,6 +872,7 @@ function Step7Budget({
   onContinue,
   onBack,
   isPending,
+  currency,
 }: {
   suggestedBudgets: string[];
   selectedBudgets: string[];
@@ -878,6 +880,7 @@ function Step7Budget({
   onContinue: () => void;
   onBack: () => void;
   isPending: boolean;
+  currency: string;
 }) {
   const toggle = (cat: string) => {
     setSelectedBudgets(
@@ -917,7 +920,7 @@ function Step7Budget({
               {selectedBudgets.includes(cat) && <Check className="w-3 h-3 text-white" />}
             </div>
             <span className="font-medium text-sm">{cat}</span>
-            <span className="ml-auto text-xs text-muted-foreground">€500/mo</span>
+            <span className="ml-auto text-xs text-muted-foreground">{getCurrencySymbol(currency)}500/mo</span>
           </button>
         ))}
       </div>

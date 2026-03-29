@@ -938,7 +938,7 @@ function CreateExpenseDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md w-full h-[90vh] md:h-auto overflow-y-auto rounded-t-3xl md:rounded-2xl p-0 gap-0">
+      <DialogContent className="max-w-md w-full max-h-[90vh] overflow-y-auto rounded-2xl p-0 gap-0">
         <div className="sticky top-0 bg-background z-10 px-6 py-4 border-b">
           <DialogHeader>
             <DialogTitle>{editingExpense ? "Edit Expense" : "Add Expense"}</DialogTitle>

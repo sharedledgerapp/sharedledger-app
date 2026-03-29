@@ -30,7 +30,7 @@ export const CURRENCIES = [
   { code: "TZS", symbol: "TSh", name: "Tanzanian Shilling" },
 ];
 
-const ZERO_DECIMAL_CURRENCIES = new Set(["UGX", "JPY", "KRW", "VND", "BIF", "GNF", "MGA", "PYG", "RWF", "XAF", "XOF"]);
+const ZERO_DECIMAL_CURRENCIES = new Set(["UGX", "KES", "TZS", "JPY", "KRW", "VND", "BIF", "GNF", "MGA", "PYG", "RWF", "XAF", "XOF"]);
 
 export function isZeroDecimalCurrency(currencyCode?: string | null): boolean {
   return ZERO_DECIMAL_CURRENCIES.has(currencyCode || "");
