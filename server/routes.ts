@@ -12,7 +12,7 @@ import passport from "passport";
 import { db } from "./db";
 import { GoogleGenAI } from "@google/genai";
 import { startPushScheduler } from "./push-scheduler";
-import { sendFeedbackEmail } from "./email";
+import { sendFeedbackEmail, sendWelcomeEmail } from "./email";
 
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (req.isAuthenticated()) {
@@ -133,6 +133,10 @@ export async function registerRoutes(
           familyId: null,
         });
 
+        if (userData.username.includes("@")) {
+          sendWelcomeEmail(userData.username, userData.name).catch(() => {});
+        }
+
         req.login(user, (err) => {
           if (err) return next(err);
           res.status(201).json(sanitizeUser(user));
@@ -147,6 +151,10 @@ export async function registerRoutes(
         role,
         familyId
       });
+
+      if (userData.username.includes("@")) {
+        sendWelcomeEmail(userData.username, userData.name).catch(() => {});
+      }
 
       req.login(user, (err) => {
         if (err) return next(err);

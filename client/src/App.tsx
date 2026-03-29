@@ -184,7 +184,7 @@ function App() {
         capture_pageview: "history_change",
         autocapture: true,
         capture_exceptions: true,
-        debug: true,
+        debug: import.meta.env.DEV,
         person_profiles: "always",
       });
       posthog.capture("app_loaded");

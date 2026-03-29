@@ -9,6 +9,7 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User, users } from "@shared/schema";
+import { sendWelcomeEmail } from "./email";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 
@@ -59,7 +60,7 @@ async function findOrCreateOAuthUser(
     ? { googleId: providerId }
     : { appleId: providerId };
 
-  return storage.createUser({
+  const newUser = await storage.createUser({
     username,
     password: null,
     name: displayName,
@@ -67,6 +68,12 @@ async function findOrCreateOAuthUser(
     profileImageUrl,
     ...providerFields,
   });
+
+  if (email) {
+    sendWelcomeEmail(email, displayName).catch(() => {});
+  }
+
+  return newUser;
 }
 
 export function setupAuth(app: Express) {
