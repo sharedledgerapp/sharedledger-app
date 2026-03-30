@@ -27,9 +27,14 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByGoogleId(googleId: string): Promise<User | undefined>;
   getUserByAppleId(appleId: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser & { familyId?: number; googleId?: string | null; appleId?: string | null }): Promise<User>;
-  updateUser(id: number, updates: Partial<Pick<User, 'name' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId' | 'onboardingCompleted' | 'includeQuickGroupInSummary'>>): Promise<User>;
+  updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId' | 'onboardingCompleted' | 'includeQuickGroupInSummary'>>): Promise<User>;
   deleteUser(id: number): Promise<void>;
+  setPasswordResetToken(userId: number, token: string, expiry: Date): Promise<void>;
+  getUserByResetToken(token: string): Promise<User | undefined>;
+  clearPasswordResetToken(userId: number): Promise<void>;
+  updatePassword(userId: number, hashedPassword: string): Promise<void>;
   
   // Group (formerly Family)
   createFamily(family: InsertFamily): Promise<Family>;
@@ -154,12 +159,40 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async setPasswordResetToken(userId: number, token: string, expiry: Date): Promise<void> {
+    await db.update(users)
+      .set({ passwordResetToken: token, passwordResetExpiry: expiry })
+      .where(eq(users.id, userId));
+  }
+
+  async getUserByResetToken(token: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.passwordResetToken, token));
+    return user;
+  }
+
+  async clearPasswordResetToken(userId: number): Promise<void> {
+    await db.update(users)
+      .set({ passwordResetToken: null, passwordResetExpiry: null })
+      .where(eq(users.id, userId));
+  }
+
+  async updatePassword(userId: number, hashedPassword: string): Promise<void> {
+    await db.update(users)
+      .set({ password: hashedPassword })
+      .where(eq(users.id, userId));
+  }
+
   async createUser(insertUser: InsertUser & { familyId?: number | null; googleId?: string | null; appleId?: string | null }): Promise<User> {
     const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
-  async updateUser(id: number, updates: Partial<Pick<User, 'name' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId' | 'onboardingCompleted' | 'includeQuickGroupInSummary'>>): Promise<User> {
+  async updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId' | 'onboardingCompleted' | 'includeQuickGroupInSummary'>>): Promise<User> {
     const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
     return user;
   }

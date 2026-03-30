@@ -10,12 +10,13 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useLocation } from "wouter";
 import { Loader2, Users, ArrowRight, Eye, EyeOff, Camera } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { SiGoogle } from "react-icons/si";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@shared/routes";
 import type { Html5Qrcode } from "html5-qrcode";
@@ -288,77 +289,162 @@ export default function AuthPage() {
   );
 }
 
+const forgotSchema = z.object({ email: z.string().email("Please enter a valid email") });
+
 function LoginForm() {
   const { loginMutation } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: { username: "", password: "" },
   });
 
+  const forgotForm = useForm<z.infer<typeof forgotSchema>>({
+    resolver: zodResolver(forgotSchema),
+    defaultValues: { email: "" },
+  });
+
+  const forgotMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof forgotSchema>) => {
+      const res = await apiRequest("POST", "/api/auth/forgot-password", data);
+      if (!res.ok) throw new Error("Failed to send reset link.");
+    },
+    onSuccess: () => setForgotSent(true),
+  });
+
   return (
-    <Card className="border-border/50 shadow-xl shadow-black/5">
-      <CardHeader>
-        <CardTitle>Welcome Back</CardTitle>
-        <CardDescription>Enter your credentials to access your account</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <OAuthButtons />
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit((data) => loginMutation.mutate(data))} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="username"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Username</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter your username" {...field} className="h-12 rounded-xl" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <Input 
-                        type={showPassword ? "text" : "password"} 
-                        placeholder="••••••••" 
-                        {...field} 
-                        className="h-12 rounded-xl pr-12" 
-                      />
+    <>
+      <Card className="border-border/50 shadow-xl shadow-black/5">
+        <CardHeader>
+          <CardTitle>Welcome Back</CardTitle>
+          <CardDescription>Enter your credentials to access your account</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <OAuthButtons />
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit((data) => loginMutation.mutate(data))} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Username</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter your username" {...field} className="h-12 rounded-xl" data-testid="input-username-login" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-center justify-between">
+                      <FormLabel>Password</FormLabel>
                       <button
                         type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                        data-testid="button-toggle-password-login"
-                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        onClick={() => { setShowForgot(true); setForgotSent(false); forgotForm.reset(); }}
+                        className="text-xs text-primary hover:underline"
+                        data-testid="link-forgot-password"
                       >
-                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        Forgot password?
                       </button>
                     </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button 
-              type="submit" 
-              className="w-full h-12 rounded-xl text-md font-semibold mt-4 shadow-lg shadow-primary/25"
-              disabled={loginMutation.isPending}
-            >
-              {loginMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sign In"}
-            </Button>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+                    <FormControl>
+                      <div className="relative">
+                        <Input 
+                          type={showPassword ? "text" : "password"} 
+                          placeholder="••••••••" 
+                          {...field} 
+                          className="h-12 rounded-xl pr-12" 
+                          data-testid="input-password-login"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                          data-testid="button-toggle-password-login"
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                        >
+                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button 
+                type="submit" 
+                className="w-full h-12 rounded-xl text-md font-semibold mt-4 shadow-lg shadow-primary/25"
+                disabled={loginMutation.isPending}
+                data-testid="button-signin"
+              >
+                {loginMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sign In"}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+
+      <Dialog open={showForgot} onOpenChange={(v) => { setShowForgot(v); if (!v) setForgotSent(false); }}>
+        <DialogContent className="sm:max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Forgot password?</DialogTitle>
+            <DialogDescription>
+              Enter the email address linked to your account and we'll send you a reset link.
+            </DialogDescription>
+          </DialogHeader>
+          {forgotSent ? (
+            <div className="space-y-4 pt-2">
+              <p className="text-sm text-muted-foreground">
+                If that email is on file, a reset link is on its way. Check your inbox (and spam folder).
+              </p>
+              <Button className="w-full" onClick={() => setShowForgot(false)} data-testid="button-forgot-close">
+                Done
+              </Button>
+            </div>
+          ) : (
+            <Form {...forgotForm}>
+              <form onSubmit={forgotForm.handleSubmit((d) => forgotMutation.mutate(d))} className="space-y-4 pt-2">
+                <FormField
+                  control={forgotForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email address</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="you@example.com"
+                          {...field}
+                          className="h-11 rounded-xl"
+                          data-testid="input-forgot-email"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button
+                  type="submit"
+                  className="w-full h-11 rounded-xl font-semibold shadow-lg shadow-primary/25"
+                  disabled={forgotMutation.isPending}
+                  data-testid="button-forgot-submit"
+                >
+                  {forgotMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send reset link"}
+                </Button>
+              </form>
+            </Form>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -477,6 +563,7 @@ function RegisterForm() {
       username: "",
       password: "",
       name: "",
+      email: "",
       role: "member",
       familyName: "",
       familyCode: "",
@@ -557,6 +644,27 @@ function RegisterForm() {
                         {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
                     </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email address <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
+                  <FormControl>
+                    <Input
+                      type="email"
+                      placeholder="you@example.com"
+                      {...field}
+                      value={field.value ?? ""}
+                      className="h-11 rounded-xl"
+                      data-testid="input-email-register"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

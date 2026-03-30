@@ -78,6 +78,67 @@ export async function sendWelcomeEmail(toEmail: string, name: string): Promise<v
   }
 }
 
+export async function sendPasswordResetEmail(toEmail: string, name: string, resetUrl: string): Promise<void> {
+  if (!process.env.GMAIL_APP_PASSWORD) {
+    console.warn("[email] GMAIL_APP_PASSWORD is not set — password reset email not sent.");
+    return;
+  }
+
+  const textBody = [
+    `Hi ${name},`,
+    ``,
+    `We received a request to reset your SharedLedger password.`,
+    ``,
+    `Click the link below to set a new password (valid for 1 hour):`,
+    `${resetUrl}`,
+    ``,
+    `If you didn't request this, you can safely ignore this email.`,
+    ``,
+    `— The SharedLedger Team`,
+  ].join("\n");
+
+  const htmlBody = `
+<div style="font-family:sans-serif;max-width:600px;margin:auto;padding:32px 24px;background:#ffffff">
+  <div style="text-align:center;margin-bottom:32px">
+    <h1 style="font-size:24px;font-weight:700;color:#1d1d1f;margin:0">Reset your password</h1>
+    <p style="color:#6b7280;font-size:15px;margin-top:8px">SharedLedger account recovery</p>
+  </div>
+  <p style="font-size:15px;color:#374151;line-height:1.6">Hi <strong>${name}</strong>,</p>
+  <p style="font-size:15px;color:#374151;line-height:1.6">
+    We received a request to reset the password for your account. Click the button below to choose a new one.
+    This link is valid for <strong>1 hour</strong>.
+  </p>
+  <div style="text-align:center;margin:32px 0">
+    <a href="${resetUrl}"
+       style="display:inline-block;background:#4f46e5;color:#ffffff;font-size:15px;font-weight:600;
+              padding:12px 28px;border-radius:8px;text-decoration:none">
+      Reset Password
+    </a>
+  </div>
+  <p style="font-size:14px;color:#9ca3af;line-height:1.6">
+    If you didn't request a password reset, you can safely ignore this email — your password won't change.
+  </p>
+  <p style="font-size:14px;color:#9ca3af;line-height:1.6;border-top:1px solid #f3f4f6;padding-top:20px;margin-top:8px">
+    <strong style="color:#6b7280">The SharedLedger Team</strong>
+  </p>
+</div>
+`.trim();
+
+  try {
+    await createTransporter().sendMail({
+      from: `SharedLedger <${SUPPORT_EMAIL}>`,
+      to: toEmail,
+      subject: "Reset your SharedLedger password",
+      text: textBody,
+      html: htmlBody,
+    });
+    console.log(`[email] Password reset email sent to ${toEmail}`);
+  } catch (err) {
+    console.error("[email] Failed to send password reset email:", err);
+    throw err;
+  }
+}
+
 export interface FeedbackPayload {
   group: string;
   message: string;

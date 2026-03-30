@@ -5,14 +5,22 @@ import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { api, errorSchemas } from "@shared/routes";
 import { z } from "zod";
-import { randomBytes } from "crypto";
+import { randomBytes, scrypt } from "crypto";
+import { promisify } from "util";
+
+const scryptAsync = promisify(scrypt);
+async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString("hex");
+  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${buf.toString("hex")}.${salt}`;
+}
 import { insertUserSchema, families, oauthGroupSetupSchema, type User } from "@shared/schema";
 import multer from "multer";
 import passport from "passport";
 import { db } from "./db";
 import { GoogleGenAI } from "@google/genai";
 import { startPushScheduler } from "./push-scheduler";
-import { sendFeedbackEmail, sendWelcomeEmail } from "./email";
+import { sendFeedbackEmail, sendWelcomeEmail, sendPasswordResetEmail } from "./email";
 import rateLimit from "express-rate-limit";
 
 // Rate limiters
@@ -119,6 +127,19 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Username already exists" });
       }
 
+      // Normalise email — coerce empty string to null to avoid unique constraint issues
+      if (userData.email !== undefined && userData.email !== null) {
+        if (userData.email.trim() === "") {
+          userData.email = null;
+        } else {
+          userData.email = userData.email.toLowerCase().trim();
+          const emailTaken = await storage.getUserByEmail(userData.email);
+          if (emailTaken) {
+            return res.status(400).json({ message: "That email address is already linked to another account." });
+          }
+        }
+      }
+
       let familyId: number;
       let role = userData.role;
 
@@ -204,6 +225,63 @@ export async function registerRoutes(
       if (err) return next(err);
       res.status(200).json();
     });
+  });
+
+  // POST /api/auth/forgot-password — send a password reset link
+  app.post("/api/auth/forgot-password", authLimiter, async (req, res, next) => {
+    try {
+      const { email } = z.object({ email: z.string().email() }).parse(req.body);
+      const user = await storage.getUserByEmail(email.toLowerCase().trim());
+
+      // Always respond 200 to avoid confirming whether an email exists
+      if (!user || !user.email) {
+        return res.status(200).json({ message: "If that email is on file, a reset link is on its way." });
+      }
+      if (!user.password) {
+        // OAuth-only account — no password to reset
+        return res.status(200).json({ message: "If that email is on file, a reset link is on its way." });
+      }
+
+      const token = randomBytes(32).toString("hex");
+      const expiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      await storage.setPasswordResetToken(user.id, token, expiry);
+
+      const resetUrl = `${process.env.APP_URL || "https://sharedledger.app"}/reset-password?token=${token}`;
+      await sendPasswordResetEmail(user.email, user.name, resetUrl);
+
+      res.status(200).json({ message: "If that email is on file, a reset link is on its way." });
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid email address." });
+      next(err);
+    }
+  });
+
+  // POST /api/auth/reset-password — set a new password using a valid token
+  app.post("/api/auth/reset-password", authLimiter, async (req, res, next) => {
+    try {
+      const { token, password } = z.object({
+        token: z.string().min(1),
+        password: z.string().min(8, "Password must be at least 8 characters"),
+      }).parse(req.body);
+
+      const user = await storage.getUserByResetToken(token);
+      if (!user || !user.passwordResetExpiry) {
+        return res.status(400).json({ message: "Invalid or expired reset link." });
+      }
+      if (user.passwordResetExpiry < new Date()) {
+        await storage.clearPasswordResetToken(user.id);
+        return res.status(400).json({ message: "This reset link has expired. Please request a new one." });
+      }
+
+      const hashed = await hashPassword(password);
+      await storage.updatePassword(user.id, hashed);
+      await storage.clearPasswordResetToken(user.id);
+
+      res.status(200).json({ message: "Password updated successfully. You can now sign in." });
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      next(err);
+    }
   });
 
   app.get(api.auth.me.path, async (req, res) => {
