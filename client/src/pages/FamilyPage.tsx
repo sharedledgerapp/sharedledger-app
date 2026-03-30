@@ -6,7 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Users, Shield, ShieldOff, LogOut, Home, Heart, QrCode, ChevronDown, ChevronUp, Plus, Camera } from "lucide-react";
+import { Copy, Users, Shield, ShieldOff, LogOut, Home, Heart, QrCode, ChevronDown, ChevronUp, Plus, Camera, Share2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { QrScannerDialog } from "@/components/QrScannerDialog";
+import { shareOrCopy, canNativeShare } from "@/lib/share";
 
 const APP_URL = "https://sharedledger.app";
 
@@ -184,13 +185,20 @@ export default function FamilyPage() {
   const isAdmin = user?.role === "parent";
   const GroupIcon = groupTypeIcons[familyGroupType] || Users;
 
-  const copyCode = () => {
-    if (family?.code) {
-      const url = `${APP_URL}/join?code=${family.code}`;
-      navigator.clipboard.writeText(url);
-      toast({ title: "Copied!", description: "Invite link copied to clipboard" });
-      captureEvent("group_invite_code_copied", { type: "url" });
-    }
+  const shareInvite = async () => {
+    if (!family?.code) return;
+    const url = `${APP_URL}/join?code=${family.code}`;
+    const result = await shareOrCopy({
+      url,
+      title: "Join my group on SharedLedger",
+      text: `Join "${family.name}" on SharedLedger — shared finances made easy.`,
+      onShared: () => captureEvent("group_invite_code_copied", { type: "url", method: "share_sheet" }),
+      onCopied: () => {
+        toast({ title: "Copied!", description: "Invite link copied to clipboard" });
+        captureEvent("group_invite_code_copied", { type: "url", method: "clipboard" });
+      },
+    });
+    return result;
   };
 
   const noGroupUI = !user?.familyId && !isLoading;
@@ -213,19 +221,27 @@ export default function FamilyPage() {
                 size="icon"
                 variant="outline"
                 className="h-8 w-8 flex-shrink-0"
-                onClick={() => {
+                onClick={async () => {
                   if (!inviteRevealCode) return;
                   const url = `${APP_URL}/join?code=${inviteRevealCode}`;
-                  navigator.clipboard.writeText(url).then(() => {
-                    setInviteCodeCopied(true);
-                    setTimeout(() => setInviteCodeCopied(false), 2000);
+                  await shareOrCopy({
+                    url,
+                    title: "Join my group on SharedLedger",
+                    text: "You've been invited to join a group on SharedLedger.",
+                    onShared: () => captureEvent("group_invite_code_copied", { type: "url", method: "share_sheet", source: "reveal_dialog" }),
+                    onCopied: () => {
+                      setInviteCodeCopied(true);
+                      setTimeout(() => setInviteCodeCopied(false), 2000);
+                      captureEvent("group_invite_code_copied", { type: "url", method: "clipboard", source: "reveal_dialog" });
+                    },
                   });
-                  captureEvent("group_invite_code_copied", { type: "url", source: "reveal_dialog" });
                 }}
                 data-testid="button-copy-family-invite-code"
               >
                 {inviteCodeCopied ? (
                   <svg viewBox="0 0 24 24" className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5"/></svg>
+                ) : canNativeShare() ? (
+                  <Share2 className="w-4 h-4" />
                 ) : (
                   <Copy className="w-4 h-4" />
                 )}
@@ -405,8 +421,20 @@ export default function FamilyPage() {
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
               <span>{t("inviteCode")}:</span>
               <code className="bg-muted px-2 py-1 rounded font-mono font-bold" data-testid="text-invite-code">{family?.code}</code>
-              <Button variant="ghost" size="icon" onClick={copyCode} data-testid="button-copy-code">
-                <Copy className="w-3 h-3" />
+              <Button variant="ghost" size="icon" onClick={shareInvite} data-testid="button-copy-code">
+                {canNativeShare() ? <Share2 className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+              </Button>
+            </div>
+            <div className="mt-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 rounded-xl"
+                onClick={shareInvite}
+                data-testid="button-share-invite"
+              >
+                <Share2 className="w-4 h-4" />
+                {canNativeShare() ? "Share invite" : "Copy invite link"}
               </Button>
             </div>
             {family?.code && (

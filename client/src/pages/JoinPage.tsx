@@ -4,9 +4,10 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { captureEvent } from "@/lib/analytics";
+import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Users, Home, Heart, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, Users, Home, Heart, CheckCircle2, AlertCircle, Download, Share } from "lucide-react";
 
 const groupTypeIcons: Record<string, any> = {
   family: Users,
@@ -21,6 +22,68 @@ const groupTypeLabels: Record<string, string> = {
   couple: "Couple",
   friends: "Friends Group",
 };
+
+function InstallNudge({ code }: { code: string }) {
+  const { isInstallable, isInstalled, promptInstall, showIosInstructions } = usePwaInstall();
+
+  if (isInstalled) return null;
+
+  const handleInstall = async () => {
+    captureEvent("join_page_install_tapped", { code_prefix: code.split("-")[0], platform: "android" });
+    await promptInstall();
+  };
+
+  if (showIosInstructions) {
+    return (
+      <div className="rounded-2xl border border-border/60 bg-muted/40 p-4 space-y-3" data-testid="install-nudge-ios">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <Download className="w-4 h-4 text-primary" />
+          </div>
+          <div>
+            <p className="font-semibold text-sm">Get the app for the best experience</p>
+            <p className="text-xs text-muted-foreground">Works offline, faster, and feels native</p>
+          </div>
+        </div>
+        <div className="bg-background rounded-xl border border-border/50 p-3 space-y-2 text-xs text-muted-foreground">
+          <p className="font-medium text-foreground">Add to Home Screen on iPhone:</p>
+          <ol className="list-decimal list-inside space-y-1">
+            <li>Tap the <Share className="w-3 h-3 inline mx-0.5 text-blue-500" /> Share button in Safari</li>
+            <li>Scroll down and tap <strong>"Add to Home Screen"</strong></li>
+            <li>Tap <strong>"Add"</strong> — done!</li>
+          </ol>
+        </div>
+      </div>
+    );
+  }
+
+  if (isInstallable) {
+    return (
+      <div className="rounded-2xl border border-border/60 bg-muted/40 p-4 space-y-3" data-testid="install-nudge-android">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <Download className="w-4 h-4 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm">Get the app for the best experience</p>
+            <p className="text-xs text-muted-foreground">Works offline, faster, and feels native</p>
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          className="w-full gap-2 rounded-xl"
+          onClick={handleInstall}
+          data-testid="button-pwa-install"
+        >
+          <Download className="w-4 h-4" />
+          Install SharedLedger
+        </Button>
+      </div>
+    );
+  }
+
+  return null;
+}
 
 export default function JoinPage() {
   const [, setLocation] = useLocation();
@@ -244,6 +307,9 @@ export default function JoinPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Install nudge — only shown to unauthenticated users who don't have the app */}
+        {!user && !lookupError && <InstallNudge code={code} />}
       </div>
     </div>
   );

@@ -10,8 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, User, Users, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat, Sparkles, ChevronDown, MessageCircle, CheckCircle, QrCode, Copy } from "lucide-react";
+import { LogOut, User, Users, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat, Sparkles, ChevronDown, MessageCircle, CheckCircle, QrCode, Copy, Share2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { shareOrCopy, canNativeShare } from "@/lib/share";
 import { Switch } from "@/components/ui/switch";
 import { Link, useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
@@ -48,12 +49,18 @@ export default function SettingsPage() {
     captureEvent("app_share_qr_viewed");
   }, []);
 
-  const handleCopyAppLink = () => {
-    navigator.clipboard.writeText(APP_URL).then(() => {
-      setAppShareCopied(true);
-      setTimeout(() => setAppShareCopied(false), 2000);
+  const handleShareAppLink = async () => {
+    await shareOrCopy({
+      url: APP_URL,
+      title: "SharedLedger — shared finances made easy",
+      text: "Track expenses, split bills, and manage budgets together with SharedLedger.",
+      onShared: () => captureEvent("app_share_link_copied", { method: "share_sheet" }),
+      onCopied: () => {
+        setAppShareCopied(true);
+        setTimeout(() => setAppShareCopied(false), 2000);
+        captureEvent("app_share_link_copied", { method: "clipboard" });
+      },
     });
-    captureEvent("app_share_link_copied");
   };
   
   const userCategories = (user as any)?.categories as string[] | null;
@@ -473,13 +480,18 @@ export default function SettingsPage() {
           <Button
             variant="outline"
             className="w-full gap-2"
-            onClick={handleCopyAppLink}
+            onClick={handleShareAppLink}
             data-testid="button-copy-app-link"
           >
             {appShareCopied ? (
               <>
                 <CheckCircle className="w-4 h-4 text-green-500" />
                 Copied!
+              </>
+            ) : canNativeShare() ? (
+              <>
+                <Share2 className="w-4 h-4" />
+                Share
               </>
             ) : (
               <>
