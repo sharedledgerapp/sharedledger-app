@@ -6,7 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Users, Shield, ShieldOff, LogOut, Home, Heart, QrCode, ChevronDown, ChevronUp, Plus } from "lucide-react";
+import { Copy, Users, Shield, ShieldOff, LogOut, Home, Heart, QrCode, ChevronDown, ChevronUp, Plus, Camera } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -15,6 +15,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { QrScannerDialog } from "@/components/QrScannerDialog";
 
 const groupTypeIcons: Record<string, any> = {
   family: Users,
@@ -90,6 +91,34 @@ export default function FamilyPage() {
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupType, setNewGroupType] = useState<"family" | "roommates" | "couple" | "friends">("family");
 
+  const [joinDialog, setJoinDialog] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+  const [joinScannerOpen, setJoinScannerOpen] = useState(false);
+
+  const joinGroupMutation = useMutation({
+    mutationFn: async () => {
+      const code = joinCode.toUpperCase().trim();
+      if (!code) throw new Error("Please enter an invite code");
+      const res = await apiRequest("POST", "/api/auth/setup-group", { groupCode: code });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to join group");
+      }
+      return res.json();
+    },
+    onSuccess: (updatedUser) => {
+      queryClient.setQueryData(["/api/user"], updatedUser);
+      queryClient.invalidateQueries({ queryKey: ["/api/family"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      setJoinDialog(false);
+      setJoinCode("");
+      toast({ title: "Joined!", description: "You have joined the group." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
   const createGroupMutation = useMutation({
     mutationFn: async () => {
       if (!newGroupName.trim()) return;
@@ -142,15 +171,80 @@ export default function FamilyPage() {
           <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
             Groups let you track shared finances with family, roommates, or a partner. Create one to get started, or join an existing group with an invite code.
           </p>
-          <Button
-            onClick={() => setCreateDialog(true)}
-            className="h-12 px-8 rounded-xl shadow-lg shadow-primary/25"
-            data-testid="button-create-group-empty"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Create a Group
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button
+              onClick={() => setCreateDialog(true)}
+              className="h-12 px-8 rounded-xl shadow-lg shadow-primary/25"
+              data-testid="button-create-group-empty"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Create a Group
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setJoinDialog(true)}
+              className="h-12 px-8 rounded-xl"
+              data-testid="button-join-group-empty"
+            >
+              Join a Group
+            </Button>
+          </div>
         </div>
+
+        {/* Join Group Dialog */}
+        <Dialog open={joinDialog} onOpenChange={setJoinDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Join a Group</DialogTitle>
+              <DialogDescription>Enter the invite code shared by a group member.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Invite Code</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="e.g. FAM-ABCD"
+                    value={joinCode}
+                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                    className="font-mono tracking-widest text-center text-lg h-11 rounded-xl flex-1"
+                    data-testid="input-join-group-code"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-11 w-11 shrink-0 rounded-xl"
+                    onClick={() => setJoinScannerOpen(true)}
+                    title="Scan QR Code"
+                    data-testid="button-scan-qr-family-join"
+                  >
+                    <Camera className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setJoinDialog(false)} data-testid="button-cancel-join-group">Cancel</Button>
+              <Button
+                onClick={() => joinGroupMutation.mutate()}
+                disabled={joinGroupMutation.isPending || !joinCode.trim()}
+                data-testid="button-confirm-join-group"
+              >
+                {joinGroupMutation.isPending ? "Joining..." : "Join Group"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <QrScannerDialog
+          open={joinScannerOpen}
+          onClose={() => setJoinScannerOpen(false)}
+          scannerId="family-join-qr-scanner"
+          onScan={(code) => {
+            setJoinCode(code.toUpperCase().trim());
+            setJoinScannerOpen(false);
+          }}
+        />
 
         <Dialog open={createDialog} onOpenChange={setCreateDialog}>
           <DialogContent className="sm:max-w-md">

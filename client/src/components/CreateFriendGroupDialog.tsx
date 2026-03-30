@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -14,6 +14,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { CURRENCIES } from "@/lib/currency";
+import { Camera } from "lucide-react";
+import { QrScannerDialog } from "./QrScannerDialog";
 
 const createSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(60),
@@ -33,6 +35,7 @@ export function CreateFriendGroupDialog({ open, onOpenChange }: Props) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   const createForm = useForm<z.infer<typeof createSchema>>({
     resolver: zodResolver(createSchema),
@@ -154,13 +157,26 @@ export function CreateFriendGroupDialog({ open, onOpenChange }: Props) {
                     <FormItem>
                       <FormLabel>Invite Code</FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder="FRD-XXXX"
-                          {...field}
-                          onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                          className="font-mono tracking-widest text-center text-lg"
-                          data-testid="input-invite-code"
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="FRD-XXXX"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                            className="font-mono tracking-widest text-center text-lg flex-1"
+                            data-testid="input-invite-code"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-10 w-10 shrink-0"
+                            onClick={() => setScannerOpen(true)}
+                            title="Scan QR Code"
+                            data-testid="button-scan-qr-friend-group"
+                          >
+                            <Camera className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -171,6 +187,15 @@ export function CreateFriendGroupDialog({ open, onOpenChange }: Props) {
                 </Button>
               </form>
             </Form>
+            <QrScannerDialog
+              open={scannerOpen}
+              onClose={() => setScannerOpen(false)}
+              scannerId="friend-group-join-qr-scanner"
+              onScan={(code) => {
+                joinForm.setValue("code", code.toUpperCase().trim());
+                setScannerOpen(false);
+              }}
+            />
           </TabsContent>
         </Tabs>
       </DialogContent>

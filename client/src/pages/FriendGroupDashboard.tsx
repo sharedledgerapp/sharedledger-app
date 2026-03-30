@@ -25,7 +25,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { getCurrencySymbol, toFixedAmount } from "@/lib/currency";
 import { format } from "date-fns";
-import { MoreVertical, Plus, ArrowLeft, CheckCircle2, Archive, Copy, Check, X } from "lucide-react";
+import { MoreVertical, Plus, ArrowLeft, CheckCircle2, Archive, Copy, Check, X, QrCode, ChevronDown, ChevronUp } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { AddFriendExpenseDialog } from "@/components/AddFriendExpenseDialog";
@@ -84,6 +85,7 @@ export default function FriendGroupDashboard() {
   const newGroupCode = new URLSearchParams(location.split("?")[1] || "").get("code");
   const [showInviteCode, setShowInviteCode] = useState(!!newGroupCode);
   const [codeCopied, setCodeCopied] = useState(false);
+  const [showQr, setShowQr] = useState(false);
 
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<GroupExpense | null>(null);
@@ -256,7 +258,28 @@ export default function FriendGroupDashboard() {
               >
                 {codeCopied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
               </Button>
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-8 w-8 flex-shrink-0"
+                onClick={() => setShowQr((v) => !v)}
+                title="Show QR code"
+                data-testid="button-toggle-qr-friend-group"
+              >
+                {showQr ? <ChevronUp className="w-4 h-4" /> : <QrCode className="w-4 h-4" />}
+              </Button>
             </div>
+            {showQr && (
+              <div className="flex flex-col items-center gap-2 mt-3 pt-3 border-t border-primary/20">
+                <QRCodeSVG
+                  value={newGroupCode}
+                  size={180}
+                  className="rounded-lg"
+                  data-testid="qr-code-friend-group"
+                />
+                <p className="text-xs text-muted-foreground">Scan to join this group</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
