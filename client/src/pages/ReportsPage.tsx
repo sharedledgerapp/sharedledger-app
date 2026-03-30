@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useExpenses } from "@/hooks/use-data";
+import { useExpenses, useFamily, useDeleteExpense } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
 import { captureEvent } from "@/lib/analytics";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
-import { ChevronLeft, ChevronRight, Calendar, TrendingDown, ArrowLeft, Users, Wallet, BarChart3, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, TrendingDown, ArrowLeft, Users, Wallet, BarChart3, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, X, Trash2 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths, addMonths, subWeeks, addWeeks, isWithinInterval, parseISO } from "date-fns";
 import { getCurrencySymbol, formatAmount, toFixedAmount } from "@/lib/currency";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,11 @@ export default function ReportsPage() {
   const { data: expenses, isLoading } = useExpenses();
   const { user } = useAuth();
   const { t } = useLanguage();
+  const { data: familyData } = useFamily();
+  const deleteMutation = useDeleteExpense();
+  const { data: friendGroups } = useQuery<Array<{ id: number; name: string; currency: string }>>({
+    queryKey: ["/api/friend-groups"],
+  });
   
   const [currentDate, setCurrentDate] = useState(new Date());
   const [periodType, setPeriodType] = useState<"month" | "week">("month");
@@ -30,6 +35,27 @@ export default function ReportsPage() {
   const [selectedBarIndex, setSelectedBarIndex] = useState<number | null>(null);
   
   const currencySymbol = getCurrencySymbol(user?.currency);
+
+  const friendGroupCurrencyMap = useMemo(
+    () => new Map<number, string>((friendGroups || []).map(g => [g.id, g.currency || "EUR"])),
+    [friendGroups]
+  );
+  const establishedFamilyCurrency = familyData?.family?.currency || null;
+  const userCurrency = user?.currency || "EUR";
+
+  const getExpenseCurrency = (expense: any): string => {
+    const expFamilyId = expense.familyId as number | null | undefined;
+    if (expFamilyId != null) {
+      const gc = friendGroupCurrencyMap.get(expFamilyId)
+        ?? (expFamilyId === user?.familyId ? establishedFamilyCurrency : null);
+      if (gc) return gc;
+    }
+    return userCurrency;
+  };
+
+  const isCrossCurrency = (expense: any): boolean => {
+    return getExpenseCurrency(expense) !== userCurrency;
+  };
 
   const activityView = periodType === "month" ? "monthly" : "weekly";
   const activityYear = currentDate.getFullYear();
@@ -71,7 +97,11 @@ export default function ReportsPage() {
 
   const { start, end } = getPeriodRange();
 
-  const personalExpenses = expenses?.filter(e => e.paymentSource === "personal") || [];
+  const personalExpenses = (expenses || []).filter(e => {
+    if (e.paymentSource !== "personal") return false;
+    if (isCrossCurrency(e)) return false;
+    return true;
+  });
 
   const filteredExpenses = personalExpenses.filter((expense) => {
     const expenseDate = new Date(expense.date);
@@ -535,13 +565,16 @@ export default function ReportsPage() {
           </Card>
 
           <div className="space-y-3">
-            {categoryExpenses.map((expense) => (
+            {categoryExpenses.map((expense) => {
+              const expCurrencyCode = getExpenseCurrency(expense);
+              const expCurrencySymbol = getCurrencySymbol(expCurrencyCode);
+              return (
               <Card key={expense.id} className="overflow-hidden">
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className="font-semibold">{expense.note || expense.category}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold truncate">{(expense as any).note || expense.category}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1 flex-wrap">
                         <span>{format(new Date(expense.date), "MMM d, h:mm a")}</span>
                         {(expense as any).paymentSource === "family" && (
                           <Badge variant="outline" className="gap-1">
@@ -557,13 +590,31 @@ export default function ReportsPage() {
                         )}
                       </div>
                     </div>
-                    <span className="font-bold text-lg">
-                      -{currencySymbol}{toFixedAmount(Number(expense.amount), user?.currency)}
-                    </span>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <span className="font-bold text-lg">
+                        -{expCurrencySymbol}{toFixedAmount(Number(expense.amount), expCurrencyCode)}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => {
+                          if (confirm("Delete this expense?")) {
+                            deleteMutation.mutate((expense as any).id, {
+                              onSuccess: () => captureEvent("expense_deleted"),
+                            });
+                          }
+                        }}
+                        data-testid={`button-delete-report-expense-${(expense as any).id}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
 
           {categoryExpenses.length === 0 && (

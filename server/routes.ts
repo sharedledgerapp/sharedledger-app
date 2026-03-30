@@ -759,7 +759,29 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
 
     const allExpenses = await storage.getExpenses(user.id);
-    const personalExpenses = allExpenses.filter(e => e.paymentSource === "personal");
+
+    // Build a currency map so cross-currency group expenses are excluded from the totals
+    const friendGroupsList = await storage.getFriendGroupsForUser(user.id);
+    const fgCurrencyMap = new Map<number, string>(
+      friendGroupsList.map(g => [g.id, g.currency || "EUR"])
+    );
+    let establishedFamilyCurrency: string | null = null;
+    if (user.familyId) {
+      const fam = await storage.getFamily(user.familyId);
+      if (fam) establishedFamilyCurrency = fam.currency || null;
+    }
+    const activityUserCurrency = user.currency || "EUR";
+
+    const personalExpenses = allExpenses.filter(e => {
+      if (e.paymentSource !== "personal") return false;
+      const expFamilyId = (e as any).familyId as number | null | undefined;
+      if (expFamilyId != null) {
+        const groupCurrency = fgCurrencyMap.get(expFamilyId)
+          ?? (expFamilyId === user.familyId ? establishedFamilyCurrency : null);
+        if (groupCurrency && groupCurrency !== activityUserCurrency) return false;
+      }
+      return true;
+    });
 
     if (view === "weekly") {
       const dayOfWeek = anchor.getDay();
