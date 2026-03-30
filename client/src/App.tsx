@@ -181,6 +181,7 @@ function App() {
       posthog.init(token, {
         api_host: window.location.origin + "/ingest",
         ui_host: host ?? "https://us.posthog.com",
+        asset_host: "https://us-assets.i.posthog.com",
         capture_pageview: "history_change",
         autocapture: true,
         capture_exceptions: true,

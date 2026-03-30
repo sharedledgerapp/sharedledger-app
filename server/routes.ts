@@ -55,12 +55,18 @@ export async function registerRoutes(
       };
 
       if (req.method !== "GET" && req.method !== "HEAD") {
-        if (req.rawBody instanceof Buffer) {
-          fetchOptions.body = req.rawBody;
-        } else if (typeof req.body === "string") {
-          fetchOptions.body = req.body;
+        let bodyBuffer: Buffer | undefined;
+        if (req.rawBody instanceof Buffer && req.rawBody.length > 0) {
+          bodyBuffer = req.rawBody;
+        } else if (typeof req.body === "string" && req.body.length > 0) {
+          bodyBuffer = Buffer.from(req.body, "utf-8");
         } else if (req.body && typeof req.body === "object" && Object.keys(req.body).length > 0) {
-          fetchOptions.body = JSON.stringify(req.body);
+          bodyBuffer = Buffer.from(JSON.stringify(req.body), "utf-8");
+          if (!headers["content-type"]) headers["content-type"] = "application/json";
+        }
+        if (bodyBuffer) {
+          fetchOptions.body = bodyBuffer;
+          headers["content-length"] = String(bodyBuffer.length);
         }
       }
 
