@@ -117,7 +117,7 @@ export interface IStorage {
   isFriendGroupMember(groupId: number, userId: number): Promise<boolean>;
   getFriendGroupMembers(groupId: number): Promise<(User & { memberRole: string })[]>;
   getFriendGroupNetBalances(groupId: number): Promise<{ fromUserId: number; fromName: string; toUserId: number; toName: string; amount: number }[]>;
-  getFriendGroupCurrenciesForIds(groupIds: number[]): Promise<Map<number, string>>;
+  getFriendGroupCurrenciesForIds(groupIds: number[]): Promise<Map<number, { currency: string; groupType: string }>>;
   deleteUserExpensesForGroup(groupId: number, userId: number): Promise<void>;
 
   sessionStore: session.Store;
@@ -888,16 +888,14 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async getFriendGroupCurrenciesForIds(groupIds: number[]): Promise<Map<number, string>> {
+  async getFriendGroupCurrenciesForIds(groupIds: number[]): Promise<Map<number, { currency: string; groupType: string }>> {
     if (groupIds.length === 0) return new Map();
     const groups = await db.select({ id: families.id, currency: families.currency, groupType: families.groupType })
       .from(families)
       .where(inArray(families.id, groupIds));
-    const result = new Map<number, string>();
+    const result = new Map<number, { currency: string; groupType: string }>();
     for (const g of groups) {
-      if (g.groupType === "friends") {
-        result.set(g.id, (g.currency as string) || "EUR");
-      }
+      result.set(g.id, { currency: (g.currency as string) || "EUR", groupType: g.groupType || "family" });
     }
     return result;
   }

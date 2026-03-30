@@ -534,15 +534,19 @@ If any field cannot be determined, use null. Be precise with the total amount. R
             }
             return e;
           } else {
-            // Orphaned friend group expense (group left or deleted).
-            // Safe default: exclude if group record is missing entirely.
-            const orphanCurrency = orphanedGroupCurrencies.get(e.familyId);
-            if (orphanCurrency === undefined) {
-              // Group row no longer exists — exclude to be safe
+            // familyId exists but is not in the active friend-group map.
+            const orphanEntry = orphanedGroupCurrencies.get(e.familyId);
+            if (orphanEntry === undefined) {
+              // Group row no longer exists — exclude as safe default
               crossCurrencyGroupExpenseCount++;
               return null;
             }
-            if (orphanCurrency !== userCurrency) {
+            if (orphanEntry.groupType !== "friends") {
+              // Non-friend group expense (family/couple/roommates) — include normally
+              return e;
+            }
+            // Orphaned friend group: apply currency exclusion
+            if (orphanEntry.currency !== userCurrency) {
               crossCurrencyGroupExpenseCount++;
               return null;
             }
@@ -1746,6 +1750,14 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       const user = req.user as any;
       const groupId = parseInt(req.params.id);
       if (isNaN(groupId)) return res.status(400).json({ message: "Invalid group ID" });
+
+      // Validate the target is a friend group and the caller is a member
+      const group = await storage.getFriendGroup(groupId);
+      if (!group) return res.status(404).json({ message: "Group not found" });
+      if (group.groupType !== "friends") return res.status(400).json({ message: "Not a friend group" });
+
+      const isMember = await storage.isFriendGroupMember(groupId, user.id);
+      if (!isMember) return res.status(403).json({ message: "Forbidden" });
 
       await storage.deleteUserExpensesForGroup(groupId, user.id);
       res.json({ message: "Your expenses in this group have been deleted" });
