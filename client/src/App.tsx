@@ -27,6 +27,7 @@ import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { startNotificationScheduler, stopNotificationScheduler, checkBudgetThresholdNotifications, subscribeToPush } from "@/lib/notifications";
 import { posthog } from "@/lib/posthog";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
@@ -193,17 +194,19 @@ function App() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <LanguageProvider>
-          <TutorialProvider>
-            <Router />
-            <TutorialOverlay />
-            <Toaster />
-          </TutorialProvider>
-        </LanguageProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <LanguageProvider>
+            <TutorialProvider>
+              <Router />
+              <TutorialOverlay />
+              <Toaster />
+            </TutorialProvider>
+          </LanguageProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

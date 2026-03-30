@@ -13,6 +13,26 @@ import { db } from "./db";
 import { GoogleGenAI } from "@google/genai";
 import { startPushScheduler } from "./push-scheduler";
 import { sendFeedbackEmail, sendWelcomeEmail } from "./email";
+import rateLimit from "express-rate-limit";
+
+// Rate limiters
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many attempts, please try again in 15 minutes." },
+  skip: () => process.env.NODE_ENV === "test",
+});
+
+const receiptScanLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many scan requests, please slow down." },
+  skip: () => process.env.NODE_ENV === "test",
+});
 
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (req.isAuthenticated()) {
@@ -86,7 +106,7 @@ export async function registerRoutes(
 
   // === AUTH ROUTES ===
 
-  app.post(api.auth.register.path, async (req, res, next) => {
+  app.post(api.auth.register.path, authLimiter, async (req, res, next) => {
     try {
       const { familyCode, familyName, groupCode, groupName, groupType, ...userData } = api.auth.register.input.parse(req.body);
 
@@ -175,7 +195,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post(api.auth.login.path, passport.authenticate("local"), (req, res) => {
+  app.post(api.auth.login.path, authLimiter, passport.authenticate("local"), (req, res) => {
     res.status(200).json(sanitizeUser(req.user));
   });
 
@@ -330,7 +350,7 @@ export async function registerRoutes(
     },
   });
 
-  app.post("/api/receipts/scan", requireAuth, upload.single('receipt'), async (req, res) => {
+  app.post("/api/receipts/scan", requireAuth, receiptScanLimiter, upload.single('receipt'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No receipt image uploaded" });
