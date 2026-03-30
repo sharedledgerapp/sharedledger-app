@@ -238,7 +238,13 @@ export async function registerRoutes(
       }
 
       const updated = await storage.updateUser(user.id, { familyId, role });
-      res.json(sanitizeUser(updated));
+      const sanitized = sanitizeUser(updated);
+      if (groupCode) {
+        res.json(sanitized);
+      } else {
+        const createdFamily = await storage.getFamily(familyId);
+        res.json({ ...sanitized, inviteCode: createdFamily?.code ?? null });
+      }
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });

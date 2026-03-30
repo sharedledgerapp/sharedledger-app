@@ -94,6 +94,8 @@ export default function FamilyPage() {
   const [joinDialog, setJoinDialog] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [joinScannerOpen, setJoinScannerOpen] = useState(false);
+  const [inviteRevealCode, setInviteRevealCode] = useState<string | null>(null);
+  const [inviteCodeCopied, setInviteCodeCopied] = useState(false);
 
   const joinGroupMutation = useMutation({
     mutationFn: async () => {
@@ -129,13 +131,17 @@ export default function FamilyPage() {
       });
       return res.json();
     },
-    onSuccess: (updatedUser) => {
-      queryClient.setQueryData(["/api/user"], updatedUser);
+    onSuccess: (result: any) => {
+      queryClient.setQueryData(["/api/user"], result);
       queryClient.invalidateQueries({ queryKey: ["/api/family"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       setCreateDialog(false);
       setNewGroupName("");
-      toast({ title: "Group created!", description: "You can now invite others to join." });
+      if (result?.inviteCode) {
+        setInviteRevealCode(result.inviteCode);
+      } else {
+        toast({ title: "Group created!", description: "You can now invite others to join." });
+      }
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -245,6 +251,58 @@ export default function FamilyPage() {
             setJoinScannerOpen(false);
           }}
         />
+
+        {/* Invite Reveal Dialog — shown after group creation */}
+        <Dialog open={!!inviteRevealCode} onOpenChange={(v) => { if (!v) setInviteRevealCode(null); }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Group Created!</DialogTitle>
+              <DialogDescription>Share this invite code or QR with others so they can join.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="flex items-center gap-2 bg-muted rounded-xl p-3">
+                <span className="flex-1 text-lg font-mono font-bold tracking-widest text-center" data-testid="text-family-invite-code">
+                  {inviteRevealCode}
+                </span>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-8 w-8 flex-shrink-0"
+                  onClick={() => {
+                    if (!inviteRevealCode) return;
+                    navigator.clipboard.writeText(inviteRevealCode).then(() => {
+                      setInviteCodeCopied(true);
+                      setTimeout(() => setInviteCodeCopied(false), 2000);
+                    });
+                  }}
+                  data-testid="button-copy-family-invite-code"
+                >
+                  {inviteCodeCopied ? (
+                    <svg viewBox="0 0 24 24" className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5"/></svg>
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+              <div className="flex flex-col items-center gap-2">
+                {inviteRevealCode && (
+                  <QRCodeSVG
+                    value={inviteRevealCode}
+                    size={180}
+                    className="rounded-lg"
+                    data-testid="qr-code-family-invite"
+                  />
+                )}
+                <p className="text-xs text-muted-foreground">Scan to join this group</p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setInviteRevealCode(null)} className="w-full" data-testid="button-close-invite-reveal">
+                Done
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={createDialog} onOpenChange={setCreateDialog}>
           <DialogContent className="sm:max-w-md">

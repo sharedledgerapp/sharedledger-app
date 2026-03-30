@@ -85,7 +85,7 @@ export default function FriendGroupDashboard() {
   const newGroupCode = new URLSearchParams(location.split("?")[1] || "").get("code");
   const [showInviteCode, setShowInviteCode] = useState(!!newGroupCode);
   const [codeCopied, setCodeCopied] = useState(false);
-  const [showQr, setShowQr] = useState(false);
+  const [showQr, setShowQr] = useState(!!newGroupCode);
 
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<GroupExpense | null>(null);
