@@ -72,6 +72,7 @@ export async function registerRoutes(
 
       const upstream = await fetch(targetUrl, fetchOptions);
       const contentType = upstream.headers.get("content-type") || "";
+      console.log(`[posthog-proxy] ${req.method} ${suffix} → ${upstream.status}`);
       res.status(upstream.status);
       if (contentType) res.setHeader("Content-Type", contentType);
 

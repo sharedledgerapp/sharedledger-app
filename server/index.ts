@@ -12,17 +12,19 @@ declare module "http" {
   }
 }
 
+const captureRawBody = (req: any, _res: any, buf: Buffer) => {
+  req.rawBody = buf;
+};
+
 app.use(
   express.json({
     limit: "10mb",
-    verify: (req, _res, buf) => {
-      req.rawBody = buf;
-    },
+    verify: captureRawBody,
   }),
 );
 
-app.use(express.urlencoded({ extended: false }));
-app.use(express.text({ type: "text/plain", limit: "10mb" }));
+app.use(express.urlencoded({ extended: false, verify: captureRawBody } as any));
+app.use(express.text({ type: "text/plain", limit: "10mb", verify: captureRawBody } as any));
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
