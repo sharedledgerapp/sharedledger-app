@@ -59,6 +59,7 @@ interface GroupMember {
 
 interface GroupExpense {
   id: number;
+  userId: number;
   amount: string;
   note: string | null;
   date: string;
@@ -189,7 +190,7 @@ export default function FriendGroupDashboard() {
   const allBalances = balances || group?.balances || [];
 
   const totalSpent = (expenses || []).reduce((sum, e) => sum + Number(e.amount), 0);
-  const myExpenseCount = (expenses || []).filter(e => e.paidByUserId === currentUserId).length;
+  const myExpenseCount = (expenses || []).filter(e => e.userId === currentUserId).length;
 
   if (groupLoading) {
     return (

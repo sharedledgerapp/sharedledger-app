@@ -533,14 +533,25 @@ If any field cannot be determined, use null. Be precise with the total amount. R
               return { ...e, amount: userSplit.amount };
             }
             return e;
-          } else if (orphanedGroupCurrencies.has(e.familyId)) {
-            // Orphaned friend group expense: apply currency exclusion
-            const orphanCurrency = orphanedGroupCurrencies.get(e.familyId)!;
+          } else {
+            // Orphaned friend group expense (group left or deleted).
+            // Safe default: exclude if group record is missing entirely.
+            const orphanCurrency = orphanedGroupCurrencies.get(e.familyId);
+            if (orphanCurrency === undefined) {
+              // Group row no longer exists — exclude to be safe
+              crossCurrencyGroupExpenseCount++;
+              return null;
+            }
             if (orphanCurrency !== userCurrency) {
               crossCurrencyGroupExpenseCount++;
               return null;
             }
-            return e; // Same currency: count at full amount
+            // Same currency: apply split share if available, else full amount
+            const userSplit = (e.splits || []).find(s => s.userId === user.id);
+            if (userSplit) {
+              return { ...e, amount: userSplit.amount };
+            }
+            return e;
           }
         }
         return e;
