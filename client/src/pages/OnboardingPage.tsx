@@ -281,6 +281,7 @@ export default function OnboardingPage() {
 
   const handleStep1Continue = async () => {
     await updateProfileMutation.mutateAsync({ language });
+    captureEvent("onboarding_language_selected", { language });
     goNext();
   };
 
@@ -296,6 +297,7 @@ export default function OnboardingPage() {
 
   const handleStep4Continue = async () => {
     await updateProfileMutation.mutateAsync({ currency });
+    captureEvent("onboarding_currency_selected", { currency });
     goNext();
   };
 
@@ -314,6 +316,7 @@ export default function OnboardingPage() {
     if (selectedBudgets.length > 0) {
       await createBudgetsMutation.mutateAsync(selectedBudgets);
     }
+    captureEvent("onboarding_budgets_selected", { budgets: selectedBudgets, count: selectedBudgets.length });
     goNext();
   };
 
@@ -339,6 +342,9 @@ export default function OnboardingPage() {
         }
       }
     }
+    const groupEventProps: Record<string, unknown> = { mode: groupMode };
+    if (groupMode === "create") groupEventProps.group_type = groupType;
+    captureEvent("onboarding_group_setup", groupEventProps);
     goNext();
   };
 
@@ -352,10 +358,14 @@ export default function OnboardingPage() {
         await Notification.requestPermission();
       } catch {}
     }
+    const notifEventProps: Record<string, unknown> = { enabled: notifEnabled };
+    if (notifEnabled) notifEventProps.reminder_time = notifTime;
+    captureEvent("onboarding_notifications_configured", notifEventProps);
     goNext();
   };
 
   const handleFinish = async (destination: "/app" | "/app/goals") => {
+    captureEvent("onboarding_completed", { destination: destination === "/app" ? "expense_log" : "goals" });
     await completeOnboardingMutation.mutateAsync();
     setLocation(destination);
   };
