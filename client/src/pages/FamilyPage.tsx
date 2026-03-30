@@ -18,7 +18,9 @@ import { Label } from "@/components/ui/label";
 import { QrScannerDialog } from "@/components/QrScannerDialog";
 import { shareOrCopy, canNativeShare } from "@/lib/share";
 
-const APP_URL = window.location.origin;
+const APP_URL = window.location.hostname === "localhost"
+  ? window.location.origin
+  : "https://sharedledger.app";
 
 function InviteQrDisplay({ code, appUrl, testId }: { code: string; appUrl: string; testId: string }) {
   useEffect(() => {
