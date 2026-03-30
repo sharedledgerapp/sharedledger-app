@@ -507,7 +507,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     )];
     const orphanedGroupCurrencies = orphanedFamilyIds.length > 0
       ? await storage.getFriendGroupCurrenciesForIds(orphanedFamilyIds)
-      : new Map<number, string>();
+      : new Map<number, { currency: string; groupType: string }>();
 
     // Adjust personal expenses for friend group currency handling:
     // - Cross-currency friend group expenses are excluded (would corrupt totals)

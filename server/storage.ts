@@ -901,8 +901,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUserExpensesForGroup(groupId: number, userId: number): Promise<void> {
-    await db.delete(expenses)
-      .where(and(eq(expenses.userId, userId), eq(expenses.familyId, groupId)));
+    await db.transaction(async (tx) => {
+      const userExpenses = await tx
+        .select({ id: expenses.id })
+        .from(expenses)
+        .where(and(eq(expenses.userId, userId), eq(expenses.familyId, groupId)));
+      if (userExpenses.length === 0) return;
+      const expenseIds = userExpenses.map(e => e.id);
+      await tx.delete(expenseSplits).where(inArray(expenseSplits.expenseId, expenseIds));
+      await tx.delete(expenses).where(inArray(expenses.id, expenseIds));
+    });
   }
 
   async getFriendGroupNetBalances(groupId: number): Promise<{ fromUserId: number; fromName: string; toUserId: number; toName: string; amount: number }[]> {
