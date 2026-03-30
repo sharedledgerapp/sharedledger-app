@@ -664,7 +664,12 @@ If any field cannot be determined, use null. Be precise with the total amount. R
               return null;
             }
             if (orphanEntry.groupType !== "friends") {
-              // Non-friend group expense (family/couple/roommates) — include normally
+              // Non-friend group expense (family/couple/roommates) — include if same currency,
+              // otherwise exclude to avoid corrupting the user-currency total
+              if (orphanEntry.currency && orphanEntry.currency !== userCurrency) {
+                crossCurrencyGroupExpenseCount++;
+                return null;
+              }
               return e;
             }
             // Orphaned friend group expense
@@ -1116,7 +1121,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
       const memberExpenses = await storage.getExpenses(member.id, user.familyId);
       const monthlyTotal = memberExpenses
-        .filter(e => new Date(e.date) >= startOfMonth && e.visibility === "public")
+        .filter(e => new Date(e.date) >= startOfMonth)
         .reduce((sum, e) => sum + Number(e.amount), 0);
 
       return {

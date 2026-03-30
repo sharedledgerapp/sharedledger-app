@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useExpenses, useGoals } from "@/hooks/use-data";
+import { useExpenses, useGoals, useFamily } from "@/hooks/use-data";
 import { captureEvent } from "@/lib/analytics";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -41,6 +41,7 @@ export default function HomePage() {
   const [, navigate] = useLocation();
   const { data: expenses, isLoading: expensesLoading } = useExpenses();
   const { data: goals, isLoading: goalsLoading } = useGoals();
+  const { data: familyData } = useFamily();
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const { startTutorial } = useTutorial();
 
@@ -179,10 +180,24 @@ export default function HomePage() {
   const now = new Date();
   const monthStart = startOfMonth(now);
   const monthEnd = endOfMonth(now);
+
+  const friendGroupCurrencyMap = new Map<number, string>(
+    (friendGroups || []).map(g => [g.id, g.currency || "EUR"])
+  );
+  const establishedFamilyCurrency = familyData?.family?.currency || null;
+  const userCurrency = user?.currency || "EUR";
+
   const personalExpenses = expenses?.filter(e => {
     if (e.paymentSource !== "personal") return false;
     const expDate = new Date(e.date);
-    return expDate >= monthStart && expDate <= monthEnd;
+    if (expDate < monthStart || expDate > monthEnd) return false;
+    const expFamilyId = (e as any).familyId as number | null | undefined;
+    if (expFamilyId != null) {
+      const groupCurrency = friendGroupCurrencyMap.get(expFamilyId)
+        ?? (expFamilyId === user?.familyId ? establishedFamilyCurrency : null);
+      if (groupCurrency && groupCurrency !== userCurrency) return false;
+    }
+    return true;
   }) || [];
   const categoryData = personalExpenses.reduce((acc, curr) => {
     const existing = acc.find(i => i.name === curr.category);

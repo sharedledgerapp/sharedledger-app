@@ -79,6 +79,7 @@ export default function ExpensesPage() {
   const [, navigate] = useLocation();
   
   const currencySymbol = getCurrencySymbol(user?.currency);
+  const { data: familyData } = useFamily();
 
   const userRecurringCategories = (user as any)?.recurringCategories as string[] | null;
   const RECURRING_CATEGORIES = userRecurringCategories || DEFAULT_RECURRING_CATEGORIES;
@@ -428,8 +429,12 @@ export default function ExpensesPage() {
               {regularExpenses?.map((expense) => {
                 const expFamilyId = (expense as any).familyId as number | null | undefined;
                 const friendGroup = expFamilyId != null ? friendGroupMap.get(expFamilyId) : undefined;
-                const expCurrencySymbol = friendGroup ? getCurrencySymbol(friendGroup.currency) : currencySymbol;
-                const expCurrency = friendGroup ? friendGroup.currency : user?.currency;
+                const establishedFamilyCurrencyCode = (expFamilyId != null && expFamilyId === user?.familyId)
+                  ? (familyData?.family?.currency || user?.currency)
+                  : user?.currency;
+                const expCurrencyCode = friendGroup ? friendGroup.currency : establishedFamilyCurrencyCode;
+                const expCurrencySymbol = getCurrencySymbol(expCurrencyCode);
+                const expCurrency = expCurrencyCode;
                 return (
                   <div
                     key={expense.id}
