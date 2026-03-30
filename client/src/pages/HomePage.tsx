@@ -117,6 +117,7 @@ export default function HomePage() {
     trend: "up" | "down";
     recurringMonthlyTotal: string;
     combinedMonthlyTotal: string;
+    crossCurrencyGroupExpenseCount: number;
   }>({
     queryKey: ["/api/spending/summary"],
   });
@@ -263,6 +264,12 @@ export default function HomePage() {
                   )}
                   {trend === "up" ? "+" : "-"}{percentageChange.toFixed(0)}% {t("vsLastMonth")}
                 </div>
+              </div>
+            )}
+            {(spendingSummary?.crossCurrencyGroupExpenseCount ?? 0) > 0 && (
+              <div className="mt-2 flex items-center gap-1 text-white/60 text-[10px]" data-testid="badge-cross-currency-note">
+                <Globe className="w-3 h-3 shrink-0" />
+                <span>{spendingSummary!.crossCurrencyGroupExpenseCount} group expense{spendingSummary!.crossCurrencyGroupExpenseCount !== 1 ? "s" : ""} in other currencies not counted</span>
               </div>
             )}
           </CardContent>

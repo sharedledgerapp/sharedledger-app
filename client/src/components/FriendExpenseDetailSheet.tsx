@@ -134,10 +134,10 @@ export function FriendExpenseDetailSheet({ expense, open, onOpenChange, groupId,
               </div>
             </div>
 
-            {!isArchived && (
-              <>
-                <Separator />
-                <div className="flex gap-3 pt-2">
+            <>
+              <Separator />
+              <div className="flex gap-3 pt-2">
+                {!isArchived && (
                   <Button
                     variant="outline"
                     className="flex-1"
@@ -146,17 +146,17 @@ export function FriendExpenseDetailSheet({ expense, open, onOpenChange, groupId,
                   >
                     <Pencil className="w-4 h-4 mr-2" /> Edit
                   </Button>
-                  <Button
-                    variant="destructive"
-                    className="flex-1"
-                    onClick={() => setShowDeleteConfirm(true)}
-                    data-testid="button-delete-expense"
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" /> Delete
-                  </Button>
-                </div>
-              </>
-            )}
+                )}
+                <Button
+                  variant="destructive"
+                  className={!isArchived ? "flex-1" : "w-full"}
+                  onClick={() => setShowDeleteConfirm(true)}
+                  data-testid="button-delete-expense"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" /> Delete
+                </Button>
+              </div>
+            </>
           </div>
         </SheetContent>
       </Sheet>

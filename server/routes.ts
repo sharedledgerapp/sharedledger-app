@@ -474,8 +474,40 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
 
-    const allExpenses = await storage.getExpenses(user.id);
-    const personalExpenses = allExpenses.filter(e => e.paymentSource === "personal");
+    const [allExpenses, friendGroups] = await Promise.all([
+      storage.getExpenses(user.id),
+      storage.getFriendGroupsForUser(user.id),
+    ]);
+
+    // Build a lookup map for friend groups: groupId → group
+    const friendGroupMap = new Map<number, typeof friendGroups[0]>(
+      friendGroups.map(g => [g.id, g])
+    );
+    const userCurrency = (user.currency || "EUR") as string;
+
+    // Adjust personal expenses for friend group currency handling:
+    // - Cross-currency friend group expenses are excluded (would corrupt totals)
+    // - Same-currency friend group expenses use only the user's share (expense_splits)
+    let crossCurrencyGroupExpenseCount = 0;
+    const personalExpenses = allExpenses
+      .filter(e => e.paymentSource === "personal")
+      .map(e => {
+        if (e.familyId != null && friendGroupMap.has(e.familyId)) {
+          const group = friendGroupMap.get(e.familyId)!;
+          const groupCurrency = (group.currency || "EUR") as string;
+          if (groupCurrency !== userCurrency) {
+            crossCurrencyGroupExpenseCount++;
+            return null;
+          }
+          // Same currency: count only the user's own split share, not the full amount
+          const userSplit = (e.splits || []).find(s => s.userId === user.id);
+          if (userSplit) {
+            return { ...e, amount: userSplit.amount };
+          }
+        }
+        return e;
+      })
+      .filter((e): e is NonNullable<typeof e> => e !== null);
 
     const currentMonthTotal = personalExpenses
       .filter(e => new Date(e.date) >= currentMonthStart && new Date(e.date) <= currentMonthEnd)
@@ -518,6 +550,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       trend: currentMonthTotal >= prevMonthTotal ? "up" : "down",
       recurringMonthlyTotal: recurringMonthlyTotal.toFixed(2),
       combinedMonthlyTotal: combinedMonthlyTotal.toFixed(2),
+      crossCurrencyGroupExpenseCount,
     });
   });
 

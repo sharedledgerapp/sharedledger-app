@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, ScanLine, Check, X, DollarSign, Trash2, Wallet, Repeat, Pause, Play, Settings, Search } from "lucide-react";
+import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, ScanLine, Check, X, DollarSign, Trash2, Wallet, Repeat, Pause, Play, Settings, Search, Globe, ChevronDown, ChevronRight, Archive } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Keypad } from "@/components/Keypad";
 import { format } from "date-fns";
@@ -233,6 +233,49 @@ export default function ExpensesPage() {
     });
   }, [expenses, searchQuery]);
 
+  const [expandedArchivedGroups, setExpandedArchivedGroups] = useState<Set<number>>(new Set());
+
+  const { data: friendGroups } = useQuery<Array<{
+    id: number;
+    name: string;
+    currency: string;
+    archived: boolean;
+  }>>({
+    queryKey: ["/api/friend-groups"],
+  });
+
+  const friendGroupMap = useMemo(() => {
+    const map = new Map<number, { id: number; name: string; currency: string; archived: boolean }>();
+    (friendGroups || []).forEach(g => map.set(g.id, g));
+    return map;
+  }, [friendGroups]);
+
+  const { regularExpenses, archivedGroupedExpenses } = useMemo(() => {
+    const regular: NonNullable<typeof filteredExpenses> = [];
+    const archivedMap = new Map<number, {
+      group: { id: number; name: string; currency: string; archived: boolean };
+      expenses: NonNullable<typeof filteredExpenses>;
+    }>();
+
+    (filteredExpenses || []).forEach(e => {
+      const expFamilyId = (e as any).familyId as number | null | undefined;
+      const group = expFamilyId != null ? friendGroupMap.get(expFamilyId) : undefined;
+      if (group?.archived) {
+        if (!archivedMap.has(group.id)) {
+          archivedMap.set(group.id, { group, expenses: [] });
+        }
+        archivedMap.get(group.id)!.expenses.push(e);
+        return;
+      }
+      regular.push(e);
+    });
+
+    return {
+      regularExpenses: regular,
+      archivedGroupedExpenses: [...archivedMap.values()],
+    };
+  }, [filteredExpenses, friendGroupMap]);
+
   return (
     <div className="space-y-6 pb-20">
       <div className="flex justify-between items-center gap-2">
@@ -347,62 +390,144 @@ export default function ExpensesPage() {
                   <p className="text-sm text-muted-foreground" data-testid="text-no-results-message">{t("noSearchResults")} "{searchQuery}"</p>
                 </div>
               )}
-              {filteredExpenses?.map((expense) => (
-                <div 
-                  key={expense.id} 
-                  className="bg-white dark:bg-card p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between group hover:border-primary/30 transition-colors"
-                >
-                  <div 
-                    className="flex items-center gap-3 flex-1 cursor-pointer"
-                    onClick={() => setEditingExpense(expense)}
+              {regularExpenses?.map((expense) => {
+                const expFamilyId = (expense as any).familyId as number | null | undefined;
+                const friendGroup = expFamilyId != null ? friendGroupMap.get(expFamilyId) : undefined;
+                const expCurrencySymbol = friendGroup ? getCurrencySymbol(friendGroup.currency) : currencySymbol;
+                const expCurrency = friendGroup ? friendGroup.currency : user?.currency;
+                return (
+                  <div
+                    key={expense.id}
+                    className="bg-white dark:bg-card p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between group hover:border-primary/30 transition-colors"
                   >
-                    <div className="w-12 h-12 rounded-2xl bg-secondary/50 flex items-center justify-center text-2xl group-hover:scale-105 transition-transform">
-                      <CategoryEmojiDisplay category={expense.category} />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-foreground">{expense.note || expense.category}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{format(new Date(expense.date), "MMM d, h:mm a")}</span>
-                        {(expense as any).paymentSource === "family" ? (
-                          <Badge variant="outline" className="gap-1">
-                            <Users className="w-3 h-3" />
-                            {t("familyBadge")}
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="gap-1">
-                            <Wallet className="w-3 h-3" />
-                            {t("personal")}
-                          </Badge>
-                        )}
-                        {expense.visibility === "public" && (
-                          <Badge variant="outline" className="gap-1 border-primary text-primary">
-                            {t("shared")}
-                          </Badge>
-                        )}
+                    <div
+                      className="flex items-center gap-3 flex-1 cursor-pointer"
+                      onClick={() => setEditingExpense(expense)}
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-secondary/50 flex items-center justify-center text-2xl group-hover:scale-105 transition-transform">
+                        <CategoryEmojiDisplay category={expense.category} />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-foreground">{expense.note || expense.category}</p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                          <span>{format(new Date(expense.date), "MMM d, h:mm a")}</span>
+                          {friendGroup ? (
+                            <Badge variant="outline" className="gap-1 border-muted-foreground/30">
+                              <Users className="w-3 h-3" />
+                              {friendGroup.name}
+                            </Badge>
+                          ) : (expense as any).paymentSource === "family" ? (
+                            <Badge variant="outline" className="gap-1">
+                              <Users className="w-3 h-3" />
+                              {t("familyBadge")}
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="gap-1">
+                              <Wallet className="w-3 h-3" />
+                              {t("personal")}
+                            </Badge>
+                          )}
+                          {expense.visibility === "public" && !friendGroup && (
+                            <Badge variant="outline" className="gap-1 border-primary text-primary">
+                              {t("shared")}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <span className="block font-bold text-lg">-{expCurrencySymbol}{toFixedAmount(Number(expense.amount), expCurrency)}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm("Are you sure you want to delete this expense?")) {
+                            deleteMutation.mutate(expense.id, {
+                              onSuccess: () => captureEvent("expense_deleted"),
+                            });
+                          }
+                        }}
+                        data-testid={`button-delete-expense-${expense.id}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="block font-bold text-lg">-{currencySymbol}{toFixedAmount(Number(expense.amount), user?.currency)}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (confirm("Are you sure you want to delete this expense?")) {
-                          deleteMutation.mutate(expense.id, {
-                            onSuccess: () => captureEvent("expense_deleted"),
-                          });
-                        }
-                      }}
-                      data-testid={`button-delete-expense-${expense.id}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                );
+              })}
+
+              {/* Archived friend group expense rollup */}
+              {archivedGroupedExpenses.length > 0 && (
+                <div className="mt-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Archive className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Closed Groups</span>
+                  </div>
+                  <div className="space-y-2">
+                    {archivedGroupedExpenses.map(({ group, expenses: groupExpenses }) => {
+                      const isExpanded = expandedArchivedGroups.has(group.id);
+                      const groupSymbol = getCurrencySymbol(group.currency);
+                      const groupTotal = groupExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
+                      return (
+                        <div key={group.id} className="rounded-xl border border-border/50 overflow-hidden" data-testid={`archived-group-${group.id}`}>
+                          <button
+                            className="w-full flex items-center justify-between p-3 bg-muted/20 hover:bg-muted/40 transition-colors text-left"
+                            onClick={() => setExpandedArchivedGroups(prev => {
+                              const next = new Set(prev);
+                              isExpanded ? next.delete(group.id) : next.add(group.id);
+                              return next;
+                            })}
+                            data-testid={`button-toggle-archived-group-${group.id}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Globe className="w-4 h-4 text-muted-foreground" />
+                              <span className="font-medium text-sm">{group.name}</span>
+                              <Badge variant="secondary" className="text-[10px] px-1 py-0">{groupExpenses.length}</Badge>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-muted-foreground">{groupSymbol}{toFixedAmount(groupTotal, group.currency)}</span>
+                              {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                            </div>
+                          </button>
+                          {isExpanded && (
+                            <div className="divide-y divide-border/30">
+                              {groupExpenses.map(expense => (
+                                <div key={expense.id} className="flex items-center justify-between px-3 py-2.5 bg-background" data-testid={`archived-expense-${expense.id}`}>
+                                  <div>
+                                    <p className="text-sm font-medium">{expense.note || expense.category}</p>
+                                    <p className="text-xs text-muted-foreground">{format(new Date(expense.date), "MMM d, yyyy")}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-semibold">{groupSymbol}{toFixedAmount(Number(expense.amount), group.currency)}</span>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                      onClick={() => {
+                                        if (confirm("Delete this expense from the archived group?")) {
+                                          deleteMutation.mutate(expense.id, {
+                                            onSuccess: () => captureEvent("expense_deleted"),
+                                          });
+                                        }
+                                      }}
+                                      data-testid={`button-delete-archived-expense-${expense.id}`}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              ))}
+              )}
+
               {!searchQuery && filteredExpenses?.length === 0 && (
                 <div className="text-center py-20 bg-muted/20 rounded-2xl border-2 border-dashed border-muted">
                   <p className="text-muted-foreground">{t("noTransactions")}</p>

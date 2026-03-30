@@ -110,6 +110,7 @@ export function useDeleteExpense() {
       queryClient.invalidateQueries({ queryKey: ["/api/budget-summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/family/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/group/balances"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/friend-groups"] });
       toast({ title: "Deleted", description: "Expense removed successfully." });
     },
   });
