@@ -432,6 +432,7 @@ export default function FamilyPage() {
                 className="gap-2 rounded-xl"
                 onClick={shareInvite}
                 data-testid="button-share-invite"
+                data-tutorial="share-invite"
               >
                 <Share2 className="w-4 h-4" />
                 {canNativeShare() ? "Share invite" : "Copy invite link"}

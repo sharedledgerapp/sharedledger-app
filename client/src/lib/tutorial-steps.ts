@@ -39,6 +39,14 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     page: "/app/goals",
   },
   {
+    id: "group-invite",
+    title: "Invite Your Group",
+    description: "On the Group tab, tap \"Share invite\" to send a join link directly via WhatsApp, iMessage, Snapchat, SMS, or email. Or show the QR code and let someone scan it — they land straight in the join flow.",
+    target: "share-invite",
+    placement: "top",
+    page: "/app/family",
+  },
+  {
     id: "settings-currency",
     title: "Change Your Currency",
     description: "You can change your currency here at any time. SharedLedger supports dozens of currencies — pick the one that matches your location.",

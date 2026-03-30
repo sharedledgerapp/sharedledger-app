@@ -295,6 +295,20 @@ export default function AuthPage() {
             <RegisterForm />
           </TabsContent>
         </Tabs>
+
+        <div className="grid grid-cols-2 gap-3 pt-2">
+          {[
+            { icon: "💸", label: "Track shared expenses" },
+            { icon: "🎯", label: "Shared goals & budgets" },
+            { icon: "📲", label: "Invite via QR or link" },
+            { icon: "🔔", label: "Budget alerts & reminders" },
+          ].map(({ icon, label }) => (
+            <div key={label} className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 rounded-xl px-3 py-2">
+              <span className="text-base leading-none">{icon}</span>
+              <span>{label}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
