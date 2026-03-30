@@ -498,27 +498,50 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     );
     const userCurrency = (user.currency || "EUR") as string;
 
+    // Safety net: look up currencies for orphaned expenses from groups the user has left.
+    // These have a familyId but are no longer in the active friendGroupMap.
+    const orphanedFamilyIds = [...new Set(
+      allExpenses
+        .filter(e => e.paymentSource === "personal" && e.familyId != null && !friendGroupMap.has(e.familyId!))
+        .map(e => e.familyId as number)
+    )];
+    const orphanedGroupCurrencies = orphanedFamilyIds.length > 0
+      ? await storage.getFriendGroupCurrenciesForIds(orphanedFamilyIds)
+      : new Map<number, string>();
+
     // Adjust personal expenses for friend group currency handling:
     // - Cross-currency friend group expenses are excluded (would corrupt totals)
     // - Same-currency friend group expenses: use the user's tracked split share if set,
     //   otherwise fall back to the full amount (user paid it solo / no split tracked)
+    // - Orphaned expenses (from groups the user has left) get the same currency check via
+    //   the orphanedGroupCurrencies safety net above
     let crossCurrencyGroupExpenseCount = 0;
     const personalExpenses = allExpenses
       .filter(e => e.paymentSource === "personal")
       .map(e => {
-        if (e.familyId != null && friendGroupMap.has(e.familyId)) {
-          const group = friendGroupMap.get(e.familyId)!;
-          const groupCurrency = (group.currency || "EUR") as string;
-          if (groupCurrency !== userCurrency) {
-            crossCurrencyGroupExpenseCount++;
-            return null;
+        if (e.familyId != null) {
+          if (friendGroupMap.has(e.familyId)) {
+            const group = friendGroupMap.get(e.familyId)!;
+            const groupCurrency = (group.currency || "EUR") as string;
+            if (groupCurrency !== userCurrency) {
+              crossCurrencyGroupExpenseCount++;
+              return null;
+            }
+            // Use the user's split share if one exists; otherwise count full amount
+            const userSplit = (e.splits || []).find(s => s.userId === user.id);
+            if (userSplit) {
+              return { ...e, amount: userSplit.amount };
+            }
+            return e;
+          } else if (orphanedGroupCurrencies.has(e.familyId)) {
+            // Orphaned friend group expense: apply currency exclusion
+            const orphanCurrency = orphanedGroupCurrencies.get(e.familyId)!;
+            if (orphanCurrency !== userCurrency) {
+              crossCurrencyGroupExpenseCount++;
+              return null;
+            }
+            return e; // Same currency: count at full amount
           }
-          // Use the user's split share if one exists; otherwise count full amount
-          const userSplit = (e.splits || []).find(s => s.userId === user.id);
-          if (userSplit) {
-            return { ...e, amount: userSplit.amount };
-          }
-          return e;
         }
         return e;
       })
@@ -1701,6 +1724,20 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
       await storage.leaveFriendGroup(groupId, user.id);
       res.json({ message: "You have left the group" });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // DELETE /api/friend-groups/:id/my-expenses — Delete only the current user's expenses in a group
+  app.delete("/api/friend-groups/:id/my-expenses", requireAuth, async (req, res, next) => {
+    try {
+      const user = req.user as any;
+      const groupId = parseInt(req.params.id);
+      if (isNaN(groupId)) return res.status(400).json({ message: "Invalid group ID" });
+
+      await storage.deleteUserExpensesForGroup(groupId, user.id);
+      res.json({ message: "Your expenses in this group have been deleted" });
     } catch (err) {
       next(err);
     }

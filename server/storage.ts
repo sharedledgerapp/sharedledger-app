@@ -117,6 +117,8 @@ export interface IStorage {
   isFriendGroupMember(groupId: number, userId: number): Promise<boolean>;
   getFriendGroupMembers(groupId: number): Promise<(User & { memberRole: string })[]>;
   getFriendGroupNetBalances(groupId: number): Promise<{ fromUserId: number; fromName: string; toUserId: number; toName: string; amount: number }[]>;
+  getFriendGroupCurrenciesForIds(groupIds: number[]): Promise<Map<number, string>>;
+  deleteUserExpensesForGroup(groupId: number, userId: number): Promise<void>;
 
   sessionStore: session.Store;
 }
@@ -884,6 +886,25 @@ export class DatabaseStorage implements IStorage {
       .where(eq(families.id, groupId))
       .returning();
     return updated;
+  }
+
+  async getFriendGroupCurrenciesForIds(groupIds: number[]): Promise<Map<number, string>> {
+    if (groupIds.length === 0) return new Map();
+    const groups = await db.select({ id: families.id, currency: families.currency, groupType: families.groupType })
+      .from(families)
+      .where(inArray(families.id, groupIds));
+    const result = new Map<number, string>();
+    for (const g of groups) {
+      if (g.groupType === "friends") {
+        result.set(g.id, (g.currency as string) || "EUR");
+      }
+    }
+    return result;
+  }
+
+  async deleteUserExpensesForGroup(groupId: number, userId: number): Promise<void> {
+    await db.delete(expenses)
+      .where(and(eq(expenses.userId, userId), eq(expenses.familyId, groupId)));
   }
 
   async getFriendGroupNetBalances(groupId: number): Promise<{ fromUserId: number; fromName: string; toUserId: number; toName: string; amount: number }[]> {

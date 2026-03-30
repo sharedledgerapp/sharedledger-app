@@ -23,9 +23,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { getCurrencySymbol, toFixedAmount } from "@/lib/currency";
 import { format } from "date-fns";
-import { MoreVertical, Plus, ArrowLeft, CheckCircle2, Archive, Copy, Check, X, QrCode, ChevronDown, ChevronUp } from "lucide-react";
+import { MoreVertical, Plus, ArrowLeft, CheckCircle2, Archive, Copy, Check, X, QrCode, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -90,8 +98,7 @@ export default function FriendGroupDashboard() {
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<GroupExpense | null>(null);
   const [selectedBalance, setSelectedBalance] = useState<Balance | null>(null);
-  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
-  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"leave" | "archive" | null>(null);
 
   const { data: group, isLoading: groupLoading } = useQuery<FriendGroup>({
     queryKey: ["/api/friend-groups", groupId],
@@ -152,11 +159,37 @@ export default function FriendGroupDashboard() {
     },
   });
 
+  const deleteMyExpensesMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/friend-groups/${groupId}/my-expenses`);
+    },
+  });
+
+  const handleGroupAction = async (deleteExpenses: boolean) => {
+    const action = pendingAction;
+    setPendingAction(null);
+    try {
+      if (deleteExpenses) {
+        await deleteMyExpensesMutation.mutateAsync();
+        queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/spending/summary"] });
+      }
+      if (action === "archive") {
+        archiveMutation.mutate();
+      } else if (action === "leave") {
+        leaveMutation.mutate();
+      }
+    } catch {
+      toast({ title: "Error", description: "Something went wrong", variant: "destructive" });
+    }
+  };
+
   const currencySymbol = getCurrencySymbol(group?.currency);
   const currentUserId = (user as { id: number })?.id;
   const allBalances = balances || group?.balances || [];
 
   const totalSpent = (expenses || []).reduce((sum, e) => sum + Number(e.amount), 0);
+  const myExpenseCount = (expenses || []).filter(e => e.paidByUserId === currentUserId).length;
 
   if (groupLoading) {
     return (
@@ -211,13 +244,13 @@ export default function FriendGroupDashboard() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {!group.archived && (
-              <DropdownMenuItem onClick={() => setShowArchiveConfirm(true)} data-testid="menu-item-archive">
+              <DropdownMenuItem onClick={() => setPendingAction("archive")} data-testid="menu-item-archive">
                 <Archive className="w-4 h-4 mr-2" /> Archive Group
               </DropdownMenuItem>
             )}
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
-              onClick={() => setShowLeaveConfirm(true)}
+              onClick={() => setPendingAction("leave")}
               data-testid="menu-item-leave"
             >
               Leave Group
@@ -474,43 +507,64 @@ export default function FriendGroupDashboard() {
         groupCurrency={group.currency}
       />
 
-      <AlertDialog open={showLeaveConfirm} onOpenChange={setShowLeaveConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Leave Group?</AlertDialogTitle>
-            <AlertDialogDescription>
-              You'll lose access to this group's expenses and balances.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => leaveMutation.mutate()}
-              className="bg-destructive hover:bg-destructive/90"
-              data-testid="button-confirm-leave"
-            >
-              Leave
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Unified Leave / Archive dialog with expense cleanup choice */}
+      <Dialog open={pendingAction !== null} onOpenChange={(o) => { if (!o) setPendingAction(null); }}>
+        <DialogContent className="max-w-sm mx-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {pendingAction === "archive" ? "Archive Group?" : "Leave Group?"}
+            </DialogTitle>
+            <DialogDescription className="pt-1">
+              {pendingAction === "archive"
+                ? "The group will become read-only. No new expenses can be added."
+                : "You'll lose access to this group's expenses and balances."}
+            </DialogDescription>
+          </DialogHeader>
 
-      <AlertDialog open={showArchiveConfirm} onOpenChange={setShowArchiveConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Archive Group?</AlertDialogTitle>
-            <AlertDialogDescription>
-              The group will become read-only. No new expenses can be added. You can still view history.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => archiveMutation.mutate()} data-testid="button-confirm-archive">
-              Archive
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          {myExpenseCount > 0 && (
+            <div className="rounded-xl border border-border/50 bg-muted/30 p-3 text-sm">
+              <p className="font-medium">
+                You have {myExpenseCount} expense{myExpenseCount !== 1 ? "s" : ""} recorded in this group.
+              </p>
+              <p className="text-muted-foreground mt-0.5 text-xs">
+                What would you like to do with them?
+              </p>
+            </div>
+          )}
+
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => handleGroupAction(false)}
+              data-testid={`button-confirm-${pendingAction}-keep`}
+              disabled={deleteMyExpensesMutation.isPending || archiveMutation.isPending || leaveMutation.isPending}
+            >
+              {pendingAction === "archive" ? "Archive" : "Leave"} &amp; keep expenses
+            </Button>
+            {myExpenseCount > 0 && (
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={() => handleGroupAction(true)}
+                data-testid={`button-confirm-${pendingAction}-delete`}
+                disabled={deleteMyExpensesMutation.isPending || archiveMutation.isPending || leaveMutation.isPending}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                {pendingAction === "archive" ? "Archive" : "Leave"} &amp; delete my expenses
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              className="w-full text-muted-foreground"
+              onClick={() => setPendingAction(null)}
+              data-testid="button-cancel-group-action"
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
