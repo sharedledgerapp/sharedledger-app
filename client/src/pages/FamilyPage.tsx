@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Users, Shield, ShieldOff, LogOut, Home, Heart, QrCode, ChevronDown, ChevronUp, Plus, Camera, Share2 } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
+import { QRCodeCanvas } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
@@ -28,11 +28,14 @@ function InviteQrDisplay({ code, appUrl, testId }: { code: string; appUrl: strin
   }, [code]);
 
   return (
-    <QRCodeSVG
+    <QRCodeCanvas
       value={`${appUrl}/join?code=${code}`}
       size={180}
       level="M"
+      fgColor="#000000"
+      bgColor="#ffffff"
       data-testid={testId}
+      style={{ borderRadius: 8 }}
     />
   );
 }

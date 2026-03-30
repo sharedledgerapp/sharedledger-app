@@ -34,7 +34,7 @@ import {
 import { getCurrencySymbol, toFixedAmount } from "@/lib/currency";
 import { format } from "date-fns";
 import { MoreVertical, Plus, ArrowLeft, CheckCircle2, Archive, Copy, Check, X, QrCode, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
+import { QRCodeCanvas } from "qrcode.react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { AddFriendExpenseDialog } from "@/components/AddFriendExpenseDialog";
@@ -305,11 +305,14 @@ export default function FriendGroupDashboard() {
             </div>
             {showQr && (
               <div className="flex flex-col items-center gap-2 mt-3 pt-3 border-t border-primary/20">
-                <QRCodeSVG
+                <QRCodeCanvas
                   value={`${window.location.hostname === "localhost" ? window.location.origin : "https://sharedledger.app"}/join?code=${newGroupCode}`}
                   size={180}
-                  className="rounded-lg"
+                  level="M"
+                  fgColor="#000000"
+                  bgColor="#ffffff"
                   data-testid="qr-code-friend-group"
+                  style={{ borderRadius: 8 }}
                 />
                 <p className="text-xs text-muted-foreground">Scan to join this group</p>
               </div>

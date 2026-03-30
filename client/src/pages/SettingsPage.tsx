@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LogOut, User, Users, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat, Sparkles, ChevronDown, MessageCircle, CheckCircle, QrCode, Copy, Share2 } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
+import { QRCodeCanvas } from "qrcode.react";
 import { shareOrCopy, canNativeShare } from "@/lib/share";
 import { Switch } from "@/components/ui/switch";
 import { Link, useLocation } from "wouter";
@@ -470,11 +470,14 @@ export default function SettingsPage() {
           </p>
           <div className="flex flex-col items-center gap-3">
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-border/50">
-              <QRCodeSVG
+              <QRCodeCanvas
                 value={APP_URL}
                 size={160}
                 level="M"
+                fgColor="#000000"
+                bgColor="#ffffff"
                 data-testid="qr-code-app-share"
+                style={{ borderRadius: 8 }}
               />
             </div>
             <p className="text-xs text-muted-foreground font-mono">{APP_URL}</p>
