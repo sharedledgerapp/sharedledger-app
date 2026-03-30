@@ -256,20 +256,20 @@ export default function BudgetPage() {
                 <div>
                   <p className="text-xs text-muted-foreground">{t("totalBudget")}</p>
                   <p className="text-xl font-bold" data-testid="text-total-budget">
-                    {currencySymbol}{formatAmount(summary.totalBudget)}
+                    {formatAmount(summary.totalBudget, user?.currency)}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">{t("spent")}</p>
                   <p className="text-xl font-bold" data-testid="text-total-spent">
-                    {currencySymbol}{formatAmount(summary.totalSpent)}
+                    {formatAmount(summary.totalSpent, user?.currency)}
                   </p>
                 </div>
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-muted-foreground">
-                    {t("remaining")}: {currencySymbol}{formatAmount(summary.totalRemaining)}
+                    {t("remaining")}: {formatAmount(summary.totalRemaining, user?.currency)}
                   </span>
                   <span className={summary.totalPercentUsed > 100 ? "text-destructive font-semibold" : "text-muted-foreground"}>
                     {summary.totalPercentUsed}% {t("percentUsed")}
@@ -335,7 +335,7 @@ export default function BudgetPage() {
                           </div>
                         </div>
                         <div className="flex justify-between text-xs text-muted-foreground mt-1 gap-2">
-                          <span>{currencySymbol}{formatAmount(budget.spent)} / {currencySymbol}{formatAmount(Number(budget.amount))}</span>
+                          <span>{formatAmount(budget.spent, user?.currency)} / {formatAmount(Number(budget.amount), user?.currency)}</span>
                           <span>{budget.periodType === "weekly" ? t("weekly") : t("monthly")}</span>
                         </div>
                         <div className="w-full bg-secondary rounded-full h-2 mt-2 overflow-hidden">
@@ -352,12 +352,12 @@ export default function BudgetPage() {
                         <div className="grid grid-cols-2 gap-3 text-sm">
                           <div>
                             <p className="text-muted-foreground text-xs">{t("spent")}</p>
-                            <p className="font-semibold">{currencySymbol}{formatAmount(budget.spent)}</p>
+                            <p className="font-semibold">{formatAmount(budget.spent, user?.currency)}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground text-xs">{t("remaining")}</p>
                             <p className={`font-semibold ${budget.remaining < 0 ? 'text-destructive' : ''}`}>
-                              {currencySymbol}{formatAmount(budget.remaining)}
+                              {formatAmount(budget.remaining, user?.currency)}
                             </p>
                           </div>
                         </div>

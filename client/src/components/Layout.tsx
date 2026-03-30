@@ -71,7 +71,10 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
       {/* Mobile Top Bar */}
-      <header className="fixed top-0 left-0 right-0 z-40 px-6 py-4 bg-background/80 backdrop-blur-md flex justify-between items-center border-b border-border/20 lg:hidden">
+      <header
+        className="fixed top-0 left-0 right-0 z-40 px-6 pb-4 bg-background/80 backdrop-blur-md flex justify-between items-center border-b border-border/20 lg:hidden"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1rem)' }}
+      >
         <h1 className="font-display font-bold text-xl text-primary tracking-tight">SharedLedger</h1>
         {user && (
           <div className="flex items-center gap-3">
@@ -159,7 +162,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       </div>
       {/* Main Content */}
-      <main className="flex-1 lg:pl-64 pb-20 pt-16 lg:pt-0">
+      <main className="flex-1 lg:pl-64 pb-20 safe-top-mobile">
         <div className="max-w-4xl mx-auto p-4 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-150">
           {children}
         </div>

@@ -72,6 +72,16 @@
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
+
+  .safe-top-mobile {
+    padding-top: calc(env(safe-area-inset-top) + 4rem);
+  }
+
+  @media (min-width: 1024px) {
+    .safe-top-mobile {
+      padding-top: 0;
+    }
+  }
   
   .glass-panel {
     @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl;
