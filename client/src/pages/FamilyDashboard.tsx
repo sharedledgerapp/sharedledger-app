@@ -47,6 +47,7 @@ interface FamilyDashboardData {
     memberCount: number;
     familyName: string;
     groupType?: string;
+    currency?: string;
   };
   memberSpending: MemberSpending[];
   categoryBreakdown: {
@@ -127,7 +128,6 @@ function getGoalStatus(goal: FamilyDashboardData["sharedGoals"][0]) {
 export default function FamilyDashboard() {
   const { user } = useAuth();
   const { t } = useLanguage();
-  const currencySymbol = getCurrencySymbol(user?.currency);
   const { data: familyData } = useFamily();
   const isRoommates = familyData?.family?.groupType === "roommates";
   
@@ -185,6 +185,9 @@ export default function FamilyDashboard() {
     enabled: !!user?.familyId,
     staleTime: 10_000,
   });
+
+  const currencySymbol = getCurrencySymbol(data?.summary.currency || user?.currency);
+  const groupCurrency = data?.summary.currency || user?.currency;
 
   const navigatePeriod = (direction: "prev" | "next") => {
     if (periodType === "month") {
@@ -318,7 +321,7 @@ export default function FamilyDashboard() {
             <span className="text-sm font-medium">{t("sharedSpending")}</span>
           </div>
           <div className="text-4xl font-display font-bold" data-testid="text-total-shared-spending">
-            {currencySymbol}{data?.summary.totalSpent}
+            {currencySymbol}{toFixedAmount(Number(data?.summary.totalSpent || 0), groupCurrency)}
           </div>
           <div className="mt-4 flex gap-3 text-xs font-medium text-white/90">
             <div className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg backdrop-blur-sm">
@@ -357,7 +360,7 @@ export default function FamilyDashboard() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-lg font-bold">{currencySymbol}{member.total}</span>
+                    <span className="text-lg font-bold">{currencySymbol}{toFixedAmount(Number(member.total), groupCurrency)}</span>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
                       {member.expenseCount} {t(member.expenseCount === 1 ? "expense" : "expensesPlural")}
                     </p>
@@ -390,7 +393,7 @@ export default function FamilyDashboard() {
                     className="h-2"
                   />
                   <div className="text-xs text-muted-foreground mt-1" data-testid="text-family-money-amount">
-                    {currencySymbol}{data?.moneySourceSplit.familyMoney}
+                    {currencySymbol}{toFixedAmount(Number(data?.moneySourceSplit.familyMoney || 0), groupCurrency)}
                   </div>
                 </div>
               </div>
@@ -405,7 +408,7 @@ export default function FamilyDashboard() {
                     className="h-2 [&>div]:bg-accent"
                   />
                   <div className="text-xs text-muted-foreground mt-1" data-testid="text-personal-money-amount">
-                    {currencySymbol}{data?.moneySourceSplit.personalMoney}
+                    {currencySymbol}{toFixedAmount(Number(data?.moneySourceSplit.personalMoney || 0), groupCurrency)}
                   </div>
                 </div>
               </div>
@@ -459,7 +462,7 @@ export default function FamilyDashboard() {
                     <Badge variant={expense.paymentSource === "family" ? "outline" : "secondary"} className="text-xs">
                       {expense.paymentSource === "family" ? t("familyBadge") : t("personal")}
                     </Badge>
-                    <span className="font-bold text-sm">-{currencySymbol}{toFixedAmount(Number(expense.amount), user?.currency)}</span>
+                    <span className="font-bold text-sm">-{currencySymbol}{toFixedAmount(Number(expense.amount), groupCurrency)}</span>
                   </div>
                 </div>
               )) : (
@@ -498,7 +501,7 @@ export default function FamilyDashboard() {
                           ))}
                         </Pie>
                         <Tooltip 
-                          formatter={(value: any) => [`${currencySymbol}${toFixedAmount(Number(value), user?.currency)}`, ""]}
+                          formatter={(value: any) => [`${currencySymbol}${toFixedAmount(Number(value), groupCurrency)}`, ""]}
                           contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                         />
                       </PieChart>
@@ -522,7 +525,7 @@ export default function FamilyDashboard() {
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground">{cat.percentage}%</span>
-                          <span className="text-sm font-bold">{currencySymbol}{cat.amount}</span>
+                          <span className="text-sm font-bold">{currencySymbol}{toFixedAmount(Number(cat.amount), groupCurrency)}</span>
                           <ChevronRight className="w-4 h-4 text-muted-foreground" />
                         </div>
                       </button>
@@ -612,7 +615,7 @@ export default function FamilyDashboard() {
                         </div>
                         <Progress value={progress} className="h-2 mb-2" />
                         <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>{currencySymbol}{Number(goal.currentAmount).toLocaleString()} / {currencySymbol}{Number(goal.targetAmount).toLocaleString()}</span>
+                          <span>{currencySymbol}{toFixedAmount(Number(goal.currentAmount), groupCurrency)} / {currencySymbol}{toFixedAmount(Number(goal.targetAmount), groupCurrency)}</span>
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-primary">{progress.toFixed(0)}%</span>
                             {daysLeft !== null && daysLeft >= 0 && (
@@ -657,7 +660,7 @@ export default function FamilyDashboard() {
                   </div>
                 </div>
               </div>
-              <span className="font-bold text-foreground">-{currencySymbol}{toFixedAmount(Number(expense.amount), user?.currency)}</span>
+              <span className="font-bold text-foreground">-{currencySymbol}{toFixedAmount(Number(expense.amount), groupCurrency)}</span>
             </div>
           )) : (
             <div className="text-center py-8 text-muted-foreground text-sm bg-muted/30 rounded-xl">
@@ -706,8 +709,8 @@ export default function FamilyDashboard() {
                         className={`h-2 mb-2 ${isOver ? "[&>div]:bg-destructive" : isNear ? "[&>div]:bg-orange-500" : ""}`}
                       />
                       <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{currencySymbol}{toFixedAmount(budget.spent, user?.currency)} spent</span>
-                        <span>{currencySymbol}{toFixedAmount(Number(budget.amount), user?.currency)} limit</span>
+                        <span>{currencySymbol}{toFixedAmount(budget.spent, groupCurrency)} spent</span>
+                        <span>{currencySymbol}{toFixedAmount(Number(budget.amount), groupCurrency)} limit</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -732,6 +735,7 @@ export default function FamilyDashboard() {
           open={!!viewingMember}
           onOpenChange={(open) => !open && setViewingMember(null)}
           currencySymbol={currencySymbol}
+          groupCurrency={groupCurrency}
           expenses={data?.memberExpenses?.[viewingMember.id] ?? []}
           periodLabel={periodLabel}
         />
@@ -745,6 +749,7 @@ function MemberDetailsDialog({
   open, 
   onOpenChange, 
   currencySymbol,
+  groupCurrency,
   expenses,
   periodLabel,
 }: { 
@@ -752,6 +757,7 @@ function MemberDetailsDialog({
   open: boolean; 
   onOpenChange: (open: boolean) => void;
   currencySymbol: string;
+  groupCurrency: string | undefined;
   expenses: { id: number; amount: string; category: string; note: string | null; date: string; paymentSource: string }[];
   periodLabel: string;
 }) {
@@ -797,7 +803,7 @@ function MemberDetailsDialog({
                       </div>
                     </div>
                   </div>
-                  <span className="font-bold text-sm">-{currencySymbol}{toFixedAmount(Number(expense.amount), user?.currency)}</span>
+                  <span className="font-bold text-sm">-{currencySymbol}{toFixedAmount(Number(expense.amount), groupCurrency)}</span>
                 </div>
               ))}
             </div>

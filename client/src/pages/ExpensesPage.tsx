@@ -251,22 +251,39 @@ export default function ExpensesPage() {
     return map;
   }, [friendGroups]);
 
-  const { regularExpenses, archivedGroupedExpenses } = useMemo(() => {
+  const { regularExpenses, archivedGroupedExpenses, deletedGroupExpenses } = useMemo(() => {
     const regular: NonNullable<typeof filteredExpenses> = [];
     const archivedMap = new Map<number, {
       group: { id: number; name: string; currency: string; archived: boolean };
       expenses: NonNullable<typeof filteredExpenses>;
     }>();
+    const deleted: NonNullable<typeof filteredExpenses> = [];
+
+    const establishedFamilyId: number | null | undefined = user?.familyId;
 
     (filteredExpenses || []).forEach(e => {
       const expFamilyId = (e as any).familyId as number | null | undefined;
-      const group = expFamilyId != null ? friendGroupMap.get(expFamilyId) : undefined;
-      if (group?.archived) {
-        if (!archivedMap.has(group.id)) {
-          archivedMap.set(group.id, { group, expenses: [] });
+      if (expFamilyId != null) {
+        // If this expense belongs to the user's established family group, treat it as regular
+        if (establishedFamilyId && expFamilyId === establishedFamilyId) {
+          regular.push(e);
+          return;
         }
-        archivedMap.get(group.id)!.expenses.push(e);
-        return;
+        const group = friendGroupMap.get(expFamilyId);
+        if (group) {
+          if (group.archived) {
+            if (!archivedMap.has(group.id)) {
+              archivedMap.set(group.id, { group, expenses: [] });
+            }
+            archivedMap.get(group.id)!.expenses.push(e);
+            return;
+          }
+          // Active friend group expense — shown normally in regularExpenses
+        } else {
+          // familyId not found in friendGroupMap and not established family — group was deleted or user left it
+          deleted.push(e);
+          return;
+        }
       }
       regular.push(e);
     });
@@ -274,8 +291,25 @@ export default function ExpensesPage() {
     return {
       regularExpenses: regular,
       archivedGroupedExpenses: [...archivedMap.values()],
+      deletedGroupExpenses: deleted,
     };
-  }, [filteredExpenses, friendGroupMap]);
+  }, [filteredExpenses, friendGroupMap, user?.familyId]);
+
+  // Fetch currencies for orphaned/deleted group expenses so they display correctly
+  const orphanedFamilyIds = useMemo(() => {
+    return [...new Set(deletedGroupExpenses.map(e => (e as any).familyId as number).filter(Boolean))];
+  }, [deletedGroupExpenses]);
+
+  const { data: orphanedGroupCurrencies } = useQuery<Record<number, { currency: string; groupType: string }>>({
+    queryKey: ["/api/friend-groups/currencies", orphanedFamilyIds.join(",")],
+    queryFn: async () => {
+      if (orphanedFamilyIds.length === 0) return {};
+      const res = await fetch(`/api/friend-groups/currencies?ids=${orphanedFamilyIds.join(",")}`, { credentials: "include" });
+      return res.json();
+    },
+    enabled: orphanedFamilyIds.length > 0,
+    staleTime: 60_000,
+  });
 
   return (
     <div className="space-y-6 pb-20">
@@ -442,8 +476,20 @@ export default function ExpensesPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
                       <span className="block font-bold text-lg">-{expCurrencySymbol}{toFixedAmount(Number(expense.amount), expCurrency)}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-primary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingExpense(expense);
+                        }}
+                        data-testid={`button-edit-expense-${expense.id}`}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -506,8 +552,17 @@ export default function ExpensesPage() {
                                     <p className="text-sm font-medium">{expense.note || expense.category}</p>
                                     <p className="text-xs text-muted-foreground">{format(new Date(expense.date), "MMM d, yyyy")}</p>
                                   </div>
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-1">
                                     <span className="text-sm font-semibold">{groupSymbol}{toFixedAmount(Number(expense.amount), group.currency)}</span>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 text-muted-foreground hover:text-primary"
+                                      onClick={() => setEditingExpense(expense)}
+                                      data-testid={`button-edit-archived-expense-${expense.id}`}
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </Button>
                                     <Button
                                       variant="ghost"
                                       size="icon"
@@ -534,6 +589,78 @@ export default function ExpensesPage() {
                   </div>
                 </div>
               )}
+
+              {/* Deleted group expenses — only show confirmed friend/quick groups */}
+              {(() => {
+                const confirmedDeletedExpenses = orphanedGroupCurrencies
+                  ? deletedGroupExpenses.filter(e => {
+                      const expFamilyId = (e as any).familyId as number | undefined;
+                      const info = expFamilyId ? orphanedGroupCurrencies[expFamilyId] : undefined;
+                      return info?.groupType === "friends";
+                    })
+                  : [];
+                return confirmedDeletedExpenses.length > 0 ? (
+                <div className="mt-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Deleted Groups</span>
+                  </div>
+                  <div className="space-y-2">
+                    {confirmedDeletedExpenses.map(expense => {
+                      const expFamilyId = (expense as any).familyId as number | undefined;
+                      const orphanInfo = expFamilyId ? orphanedGroupCurrencies?.[expFamilyId] : undefined;
+                      const expCurrency = orphanInfo?.currency || user?.currency;
+                      return (
+                        <div key={expense.id} className="bg-white dark:bg-card p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between" data-testid={`deleted-group-expense-${expense.id}`}>
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className="w-10 h-10 rounded-2xl bg-muted/50 flex items-center justify-center text-xl">
+                              <CategoryEmojiDisplay category={expense.category} />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-foreground truncate">{expense.note || expense.category}</p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                                <span>{format(new Date(expense.date), "MMM d, yyyy")}</span>
+                                <Badge variant="secondary" className="gap-1 text-[10px]">
+                                  <Archive className="w-2.5 h-2.5" />
+                                  Deleted group
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                            <span className="font-bold text-sm">-{getCurrencySymbol(expCurrency)}{toFixedAmount(Number(expense.amount), expCurrency)}</span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-primary"
+                              onClick={() => setEditingExpense(expense)}
+                              data-testid={`button-edit-deleted-expense-${expense.id}`}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                              onClick={() => {
+                                if (confirm("Delete this expense?")) {
+                                  deleteMutation.mutate(expense.id, {
+                                    onSuccess: () => captureEvent("expense_deleted"),
+                                  });
+                                }
+                              }}
+                              data-testid={`button-delete-deleted-expense-${expense.id}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                ) : null;
+              })()}
 
               {!searchQuery && filteredExpenses?.length === 0 && (
                 <div className="text-center py-20 bg-muted/20 rounded-2xl border-2 border-dashed border-muted">

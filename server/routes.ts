@@ -276,6 +276,7 @@ export async function registerRoutes(
       weeklyReminderEnabled: z.boolean().optional(),
       monthlyReminderEnabled: z.boolean().optional(),
       budgetAlertsEnabled: z.boolean().optional(),
+      includeQuickGroupInSummary: z.boolean().optional(),
     });
     
     const updates = updateSchema.parse(req.body);
@@ -509,8 +510,13 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       ? await storage.getFriendGroupCurrenciesForIds(orphanedFamilyIds)
       : new Map<number, { currency: string; groupType: string }>();
 
+    // Whether to include quick group (friend group) spending in personal summary.
+    // Default is false (excluded) — users must explicitly opt in via Settings > Privacy.
+    const includeQuickGroupInSummary = !!(user.includeQuickGroupInSummary);
+
     // Adjust personal expenses for friend group currency handling:
-    // - Cross-currency friend group expenses are excluded (would corrupt totals)
+    // - If includeQuickGroupInSummary is false (default), all friend group expenses are excluded
+    // - Cross-currency friend group expenses are always excluded (would corrupt totals)
     // - Same-currency friend group expenses: use the user's tracked split share if set,
     //   otherwise fall back to the full amount (user paid it solo / no split tracked)
     // - Orphaned expenses (from groups the user has left) get the same currency check via
@@ -521,6 +527,11 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       .map(e => {
         if (e.familyId != null) {
           if (friendGroupMap.has(e.familyId)) {
+            // Expense belongs to an active friend group
+            if (!includeQuickGroupInSummary) {
+              crossCurrencyGroupExpenseCount++;
+              return null;
+            }
             const group = friendGroupMap.get(e.familyId)!;
             const groupCurrency = (group.currency || "EUR") as string;
             if (groupCurrency !== userCurrency) {
@@ -545,7 +556,12 @@ If any field cannot be determined, use null. Be precise with the total amount. R
               // Non-friend group expense (family/couple/roommates) — include normally
               return e;
             }
-            // Orphaned friend group: apply currency exclusion
+            // Orphaned friend group expense
+            if (!includeQuickGroupInSummary) {
+              crossCurrencyGroupExpenseCount++;
+              return null;
+            }
+            // Apply currency exclusion
             if (orphanEntry.currency !== userCurrency) {
               crossCurrencyGroupExpenseCount++;
               return null;
@@ -741,6 +757,17 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       }
     }
 
+    const [family, members, sharedGoals] = await Promise.all([
+      storage.getFamily(user.familyId),
+      storage.getFamilyMembers(user.familyId),
+      storage.getSharedGoals(user.familyId),
+    ]);
+
+    // Guard: do not aggregate friend/quick groups in the established family dashboard
+    if (!family || family.groupType === "friends") {
+      return res.status(404).json({ message: "No established group" });
+    }
+
     const sharedExpenses = await storage.getSharedExpenses(user.familyId, start, end);
 
     const totalSpent = sharedExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
@@ -764,11 +791,6 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       .filter(e => e.paymentSource === "personal")
       .reduce((sum, e) => sum + Number(e.amount), 0);
 
-    const [family, members, sharedGoals] = await Promise.all([
-      storage.getFamily(user.familyId),
-      storage.getFamilyMembers(user.familyId),
-      storage.getSharedGoals(user.familyId),
-    ]);
     const balances = await storage.getGroupBalances(user.familyId, { members });
 
     const memberExpensesMap: Record<number, { id: number; amount: string | number; category: string; note: string | null; date: string | Date; paymentSource: string }[]> = {};
@@ -856,6 +878,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         memberCount: members.length,
         familyName: family?.name,
         groupType: family?.groupType,
+        currency: family?.currency || "EUR",
       },
       memberSpending,
       categoryBreakdown: categoryBreakdown.map(c => ({
@@ -885,6 +908,31 @@ If any field cannot be determined, use null. Be precise with the total amount. R
   });
 
   // === GROUP ROUTES ===
+
+  app.get("/api/friend-groups/currencies", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const requestedIds = ((req.query.ids as string) || "")
+      .split(",")
+      .map(s => parseInt(s, 10))
+      .filter(n => !isNaN(n));
+    if (requestedIds.length === 0) return res.json({});
+    // Only return info for groups the caller has access to via membership or expenses
+    const userFriendGroups = await storage.getFriendGroupsForUser(user.id);
+    const memberGroupIds = new Set(userFriendGroups.map(g => g.id));
+    // Also allow orphaned familyIds from user's own expenses (past groups)
+    const userExpenses = await storage.getExpenses(user.id);
+    const userExpenseFamilyIds = new Set(
+      userExpenses.map(e => (e as any).familyId).filter(Boolean)
+    );
+    const authorizedIds = requestedIds.filter(
+      id => memberGroupIds.has(id) || userExpenseFamilyIds.has(id)
+    );
+    if (authorizedIds.length === 0) return res.json({});
+    const map = await storage.getFriendGroupCurrenciesForIds(authorizedIds);
+    const result: Record<number, { currency: string; groupType: string }> = {};
+    map.forEach((val, key) => { result[key] = val; });
+    res.json(result);
+  });
 
   app.get("/api/group/balances", requireAuth, async (req, res) => {
     const user = req.user as any;
@@ -1027,7 +1075,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       return res.json(userExpenses.filter(e => e.visibility === "public"));
     }
 
-    const filtered = await storage.getExpenses(user.id, user.familyId);
+    const filtered = await storage.getExpenses(user.id);
     res.json(filtered);
   });
 

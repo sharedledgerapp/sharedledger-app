@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, User, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat, Sparkles, ChevronDown, MessageCircle, CheckCircle } from "lucide-react";
+import { LogOut, User, Users, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat, Sparkles, ChevronDown, MessageCircle, CheckCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Link, useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
@@ -96,6 +96,7 @@ export default function SettingsPage() {
   const [weeklyReminderEnabled, setWeeklyReminderEnabled] = useState((user as any)?.weeklyReminderEnabled ?? true);
   const [monthlyReminderEnabled, setMonthlyReminderEnabled] = useState((user as any)?.monthlyReminderEnabled ?? true);
   const [budgetAlertsEnabled, setBudgetAlertsEnabled] = useState((user as any)?.budgetAlertsEnabled ?? true);
+  const [includeQuickGroupInSummary, setIncludeQuickGroupInSummary] = useState((user as any)?.includeQuickGroupInSummary ?? false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
     typeof Notification !== "undefined" ? Notification.permission : "default"
   );
@@ -168,7 +169,7 @@ export default function SettingsPage() {
   });
 
   const updateNotificationMutation = useMutation({
-    mutationFn: async (data: { dailyReminderTime?: string; dailyReminderEnabled?: boolean; weeklyReminderEnabled?: boolean; monthlyReminderEnabled?: boolean; budgetAlertsEnabled?: boolean }) => {
+    mutationFn: async (data: { dailyReminderTime?: string; dailyReminderEnabled?: boolean; weeklyReminderEnabled?: boolean; monthlyReminderEnabled?: boolean; budgetAlertsEnabled?: boolean; includeQuickGroupInSummary?: boolean }) => {
       const res = await apiRequest("PATCH", "/api/user/profile", data);
       return res.json();
     },
@@ -236,6 +237,11 @@ export default function SettingsPage() {
   const handleToggleBudgetAlerts = (enabled: boolean) => {
     setBudgetAlertsEnabled(enabled);
     updateNotificationMutation.mutate({ budgetAlertsEnabled: enabled });
+  };
+
+  const handleToggleQuickGroupSummary = (enabled: boolean) => {
+    setIncludeQuickGroupInSummary(enabled);
+    updateNotificationMutation.mutate({ includeQuickGroupInSummary: enabled });
   };
 
   const handleAddCategory = () => {
@@ -483,6 +489,30 @@ export default function SettingsPage() {
               </SelectItem>
             </SelectContent>
           </Select>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Users className="w-5 h-5 text-primary" />
+            Privacy
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1">
+              <p className="text-sm font-medium">Include quick groups in spending summary</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                When enabled, expenses from your friend/travel groups will be counted in your personal monthly total. Off by default to keep group and personal spending separate.
+              </p>
+            </div>
+            <Switch
+              checked={includeQuickGroupInSummary}
+              onCheckedChange={handleToggleQuickGroupSummary}
+              data-testid="switch-include-quick-group-summary"
+            />
+          </div>
         </CardContent>
       </Card>
 
