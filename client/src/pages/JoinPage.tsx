@@ -44,13 +44,13 @@ export default function JoinPage() {
   });
 
   useEffect(() => {
-    if (!code) return;
+    if (authLoading) return;
     captureEvent("join_page_viewed", {
-      had_code: true,
+      had_code: !!code,
       already_logged_in: !!user,
-      code_prefix: code.split("-")[0],
+      ...(code ? { code_prefix: code.split("-")[0] } : {}),
     });
-  }, []);
+  }, [authLoading]);
 
   const joinMutation = useMutation({
     mutationFn: async () => {

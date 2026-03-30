@@ -217,14 +217,17 @@ export default function FamilyPage() {
               </Button>
             </div>
             <div className="flex flex-col items-center gap-2">
-              {inviteRevealCode && (
-                <QRCodeSVG
-                  value={`${APP_URL}/join?code=${inviteRevealCode}`}
-                  size={180}
-                  className="rounded-lg"
-                  data-testid="qr-code-family-invite"
-                />
-              )}
+              {inviteRevealCode && (() => {
+                captureEvent("invite_qr_url_shown", { code_prefix: inviteRevealCode.split("-")[0] });
+                return (
+                  <QRCodeSVG
+                    value={`${APP_URL}/join?code=${inviteRevealCode}`}
+                    size={180}
+                    className="rounded-lg"
+                    data-testid="qr-code-family-invite"
+                  />
+                );
+              })()}
               <p className="text-xs text-muted-foreground">Scan to join this group</p>
             </div>
           </div>
@@ -413,6 +416,7 @@ export default function FamilyPage() {
                 </Button>
                 {showQr && (
                   <div className="mt-3 flex flex-col items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                    {(() => { captureEvent("invite_qr_url_shown", { code_prefix: family.code.split("-")[0] }); return null; })()}
                     <div className="bg-white p-4 rounded-2xl shadow-sm border border-border/50">
                       <QRCodeSVG
                         value={`${APP_URL}/join?code=${family.code}`}

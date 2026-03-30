@@ -44,6 +44,10 @@ export default function SettingsPage() {
 
   const APP_URL = "https://sharedledger.app";
 
+  useEffect(() => {
+    captureEvent("app_share_qr_viewed");
+  }, []);
+
   const handleCopyAppLink = () => {
     navigator.clipboard.writeText(APP_URL).then(() => {
       setAppShareCopied(true);
@@ -451,10 +455,7 @@ export default function SettingsPage() {
             Share SharedLedger
           </CardTitle>
         </CardHeader>
-        <CardContent
-          className="space-y-4"
-          onMouseEnter={() => captureEvent("app_share_qr_viewed")}
-        >
+        <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
             Let someone scan this to open the app — no link needed.
           </p>
