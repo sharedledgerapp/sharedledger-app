@@ -251,6 +251,7 @@ export default function AuthPage() {
   const [, setLocation] = useLocation();
   const [searchParams] = useState(() => new URLSearchParams(window.location.search));
   const showGroupSetup = searchParams.get("setup") === "group";
+  const defaultTab = searchParams.get("mode") === "register" ? "register" : "login";
 
   useEffect(() => {
     if (user) {
@@ -280,7 +281,7 @@ export default function AuthPage() {
           <p className="text-muted-foreground">Manage shared finances together.</p>
         </div>
 
-        <Tabs defaultValue="login" className="w-full">
+        <Tabs defaultValue={defaultTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-4 h-12 p-1 bg-muted/50 rounded-xl">
             <TabsTrigger value="login" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Sign In</TabsTrigger>
             <TabsTrigger value="register" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Sign Up</TabsTrigger>

@@ -78,12 +78,12 @@ export default function JoinPage() {
 
   const handleCreateAccount = () => {
     localStorage.setItem("pending_invite_code", code);
-    setLocation("/auth");
+    setLocation("/auth?mode=register");
   };
 
   const handleSignIn = () => {
     localStorage.setItem("pending_invite_code", code);
-    setLocation("/auth");
+    setLocation("/auth?mode=login");
   };
 
   if (!code) {
