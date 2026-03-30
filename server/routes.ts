@@ -500,7 +500,8 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
     // Adjust personal expenses for friend group currency handling:
     // - Cross-currency friend group expenses are excluded (would corrupt totals)
-    // - Same-currency friend group expenses use only the user's share (expense_splits)
+    // - Same-currency friend group expenses: use the user's tracked split share if set,
+    //   otherwise fall back to the full amount (user paid it solo / no split tracked)
     let crossCurrencyGroupExpenseCount = 0;
     const personalExpenses = allExpenses
       .filter(e => e.paymentSource === "personal")
@@ -512,13 +513,12 @@ If any field cannot be determined, use null. Be precise with the total amount. R
             crossCurrencyGroupExpenseCount++;
             return null;
           }
-          // Same currency: count only the user's own split share, not the full amount
-          // If no split found for user, exclude entirely (user's share is zero/unknown)
+          // Use the user's split share if one exists; otherwise count full amount
           const userSplit = (e.splits || []).find(s => s.userId === user.id);
           if (userSplit) {
             return { ...e, amount: userSplit.amount };
           }
-          return null;
+          return e;
         }
         return e;
       })

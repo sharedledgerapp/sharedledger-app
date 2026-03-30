@@ -21,7 +21,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useDeleteExpense } from "@/hooks/use-data";
 import { getCurrencySymbol, CURRENCIES, toFixedAmount } from "@/lib/currency";
 import { DEFAULT_CATEGORIES, DEFAULT_RECURRING_CATEGORIES } from "@/pages/SettingsPage";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import type { RecurringExpense } from "@shared/schema";
@@ -76,6 +76,7 @@ export default function ExpensesPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const deleteMutation = useDeleteExpense();
+  const [, navigate] = useLocation();
   
   const currencySymbol = getCurrencySymbol(user?.currency);
 
@@ -402,7 +403,13 @@ export default function ExpensesPage() {
                   >
                     <div
                       className="flex items-center gap-3 flex-1 cursor-pointer"
-                      onClick={() => setEditingExpense(expense)}
+                      onClick={() => {
+                        if (friendGroup) {
+                          navigate(`/app/groups/${friendGroup.id}`);
+                        } else {
+                          setEditingExpense(expense);
+                        }
+                      }}
                     >
                       <div className="w-12 h-12 rounded-2xl bg-secondary/50 flex items-center justify-center text-2xl group-hover:scale-105 transition-transform">
                         <CategoryEmojiDisplay category={expense.category} />
