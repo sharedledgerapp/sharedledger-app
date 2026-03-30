@@ -500,10 +500,12 @@ If any field cannot be determined, use null. Be precise with the total amount. R
             return null;
           }
           // Same currency: count only the user's own split share, not the full amount
+          // If no split found for user, exclude entirely (user's share is zero/unknown)
           const userSplit = (e.splits || []).find(s => s.userId === user.id);
           if (userSplit) {
             return { ...e, amount: userSplit.amount };
           }
+          return null;
         }
         return e;
       })
@@ -1945,6 +1947,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
   });
 
   // DELETE /api/friend-groups/:id/expenses/:expenseId — Delete an expense
+  // Only the expense creator or a group admin may delete (even in archived groups)
   app.delete("/api/friend-groups/:id/expenses/:expenseId", requireAuth, async (req, res, next) => {
     try {
       const user = req.user as any;
@@ -1952,11 +1955,18 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       const expenseId = parseInt(req.params.expenseId);
       if (isNaN(groupId) || isNaN(expenseId)) return res.status(400).json({ message: "Invalid ID" });
 
-      const isMember = await storage.isFriendGroupMember(groupId, user.id);
-      if (!isMember) return res.status(403).json({ message: "Forbidden" });
+      const members = await storage.getFriendGroupMembers(groupId);
+      const currentMember = members.find(m => m.id === user.id);
+      if (!currentMember) return res.status(403).json({ message: "Forbidden" });
 
       const expense = await storage.getExpense(expenseId);
       if (!expense || expense.familyId !== groupId) return res.status(404).json({ message: "Expense not found" });
+
+      const isCreator = expense.userId === user.id;
+      const isAdmin = currentMember.memberRole === "admin";
+      if (!isCreator && !isAdmin) {
+        return res.status(403).json({ message: "Only the expense creator or group admin can delete this expense" });
+      }
 
       await storage.deleteExpense(expenseId);
       res.status(204).send();
