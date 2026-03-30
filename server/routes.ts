@@ -38,11 +38,11 @@ export async function registerRoutes(
   const { hashPassword } = setupAuth(app);
 
   // === POSTHOG REVERSE PROXY ===
-  // Forwards /ingest/* to us.i.posthog.com so ad-blockers can't intercept events
+  // Forwards /ingest/* to eu.i.posthog.com so ad-blockers can't intercept events
   app.all("/ingest/*", async (req: Request, res: Response) => {
     const suffix = req.path.slice("/ingest".length);
     const queryString = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
-    const targetUrl = `https://us.i.posthog.com${suffix}${queryString}`;
+    const targetUrl = `https://eu.i.posthog.com${suffix}${queryString}`;
 
     try {
       const headers: Record<string, string> = {};
