@@ -120,8 +120,9 @@ export function useDeleteExpense() {
 export function useGoals() {
   return useQuery({
     queryKey: [api.goals.list.path],
+    staleTime: 0,
     queryFn: async () => {
-      const res = await fetch(api.goals.list.path);
+      const res = await fetch(api.goals.list.path, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch goals");
       return api.goals.list.responses[200].parse(await res.json());
     },
@@ -137,13 +138,20 @@ export function useCreateGoal() {
         method: api.goals.create.method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
+        credentials: "include",
       });
-      if (!res.ok) throw new Error("Failed to create goal");
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.message || "Failed to create goal");
+      }
       return api.goals.create.responses[201].parse(await res.json());
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.goals.list.path] });
       toast({ title: "Goal Created", description: "Good luck with your savings!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Could not create goal", description: error.message, variant: "destructive" });
     },
   });
 }

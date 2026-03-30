@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import { useGoals, useCreateGoal, useUpdateGoal, useDeleteGoal, useUpload } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
-import { useQueryClient } from "@tanstack/react-query";
-import { api } from "@shared/routes";
 import { captureEvent } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -197,7 +195,6 @@ function CreateGoalDialog({
   const [visibility, setVisibility] = useState<"private" | "shared" | "family">("private");
   const [file, setFile] = useState<File | null>(null);
   const { user } = useAuth();
-  const queryClient = useQueryClient();
   const createMutation = useCreateGoal();
   const updateMutation = useUpdateGoal();
   const uploadMutation = useUpload();
@@ -260,10 +257,9 @@ function CreateGoalDialog({
       createMutation.mutate({
         ...goalData,
         currentAmount: "0",
-        userId: 1, // Ignored by backend, will be overwritten
+        userId: 1,
       } as any, {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: [api.goals.list.path] });
           captureEvent("goal_created", {
             has_deadline: !!deadline,
             has_photo: !!file,
@@ -276,7 +272,7 @@ function CreateGoalDialog({
           setNote("");
           setVisibility("private");
           setFile(null);
-        }
+        },
       });
     }
   };

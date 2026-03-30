@@ -455,15 +455,26 @@ export class DatabaseStorage implements IStorage {
     return goal;
   }
 
-  async getGoals(userId: number, familyId: number): Promise<Goal[]> {
-    const allGoals = await db.select().from(goals).where(eq(goals.familyId, familyId));
-    
-    return allGoals.filter(goal => {
-      if (goal.userId === userId) return true;
-      if (goal.visibility === 'family' && goal.isApproved) return true;
-      if (goal.visibility === 'shared') return true;
-      return false;
-    });
+  async getGoals(userId: number, familyId: number | null): Promise<Goal[]> {
+    // Always return the user's own goals regardless of familyId
+    const ownGoals = await db.select().from(goals).where(eq(goals.userId, userId));
+
+    // If the user belongs to a family, also include other members' shared/approved-family goals
+    let familyGoals: Goal[] = [];
+    if (familyId) {
+      familyGoals = await db.select().from(goals).where(
+        and(
+          eq(goals.familyId, familyId),
+          ne(goals.userId, userId),
+          or(
+            and(eq(goals.visibility, 'family'), eq(goals.isApproved, true)),
+            eq(goals.visibility, 'shared')
+          )
+        )
+      );
+    }
+
+    return [...ownGoals, ...familyGoals];
   }
 
   async getSharedGoals(familyId: number): Promise<(Goal & { creatorName: string; approvalCount: number })[]> {

@@ -1394,23 +1394,30 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.post(api.goals.create.path, requireAuth, async (req, res) => {
     const user = req.user as any;
-    const body = req.body;
-    if (typeof body.deadline === 'string') {
+    const body = { ...req.body };
+    if (typeof body.deadline === 'string' && body.deadline) {
       body.deadline = new Date(body.deadline);
+    } else if (!body.deadline) {
+      body.deadline = null;
     }
-    const input = api.goals.create.input.parse(body);
-    
+
+    const parsed = api.goals.create.input.safeParse(body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid goal data", errors: parsed.error.errors });
+    }
+    const input = parsed.data;
+
     let goal = await storage.createGoal({
         ...input,
         userId: user.id,
-        familyId: user.familyId
+        familyId: user.familyId ?? null,
     });
-    
+
     if (input.visibility === 'family' && user.role === 'parent') {
       await storage.createGoalApproval(goal.id, user.id);
       goal = await storage.approveGoal(goal.id);
     }
-    
+
     res.status(201).json(goal);
   });
 
