@@ -21,6 +21,15 @@ import { useToast } from "@/hooks/use-toast";
 import { api } from "@shared/routes";
 import type { Html5Qrcode } from "html5-qrcode";
 
+function extractInviteCode(raw: string): string {
+  try {
+    const url = new URL(raw);
+    const code = url.searchParams.get("code");
+    if (code) return code.toUpperCase().trim();
+  } catch {}
+  return raw.toUpperCase().trim();
+}
+
 function OAuthButtons() {
   return (
     <div className="space-y-3">
@@ -211,7 +220,8 @@ function GroupSetupForm({ onComplete }: { onComplete: () => void }) {
               <QrScannerDialog
                 open={scannerOpen}
                 onClose={() => setScannerOpen(false)}
-                onScan={(code) => {
+                onScan={(raw) => {
+                  const code = extractInviteCode(raw);
                   form.setValue("groupCode", code);
                   form.clearErrors("groupCode");
                   setScannerOpen(false);

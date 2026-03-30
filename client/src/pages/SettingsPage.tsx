@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, User, Users, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat, Sparkles, ChevronDown, MessageCircle, CheckCircle } from "lucide-react";
+import { LogOut, User, Users, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat, Sparkles, ChevronDown, MessageCircle, CheckCircle, QrCode, Copy } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { Switch } from "@/components/ui/switch";
 import { Link, useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
@@ -39,6 +40,17 @@ export default function SettingsPage() {
   const [currency, setCurrency] = useState((user as any)?.currency || "EUR");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [appShareCopied, setAppShareCopied] = useState(false);
+
+  const APP_URL = "https://sharedledger.app";
+
+  const handleCopyAppLink = () => {
+    navigator.clipboard.writeText(APP_URL).then(() => {
+      setAppShareCopied(true);
+      setTimeout(() => setAppShareCopied(false), 2000);
+    });
+    captureEvent("app_share_link_copied");
+  };
   
   const userCategories = (user as any)?.categories as string[] | null;
   const [categories, setCategories] = useState<string[]>(userCategories || DEFAULT_CATEGORIES);
@@ -429,6 +441,52 @@ export default function SettingsPage() {
               {t("save")}
             </Button>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/50" data-testid="card-app-share">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <QrCode className="w-5 h-5 text-primary" />
+            Share SharedLedger
+          </CardTitle>
+        </CardHeader>
+        <CardContent
+          className="space-y-4"
+          onMouseEnter={() => captureEvent("app_share_qr_viewed")}
+        >
+          <p className="text-sm text-muted-foreground">
+            Let someone scan this to open the app — no link needed.
+          </p>
+          <div className="flex flex-col items-center gap-3">
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-border/50">
+              <QRCodeSVG
+                value={APP_URL}
+                size={160}
+                level="M"
+                data-testid="qr-code-app-share"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground font-mono">{APP_URL}</p>
+          </div>
+          <Button
+            variant="outline"
+            className="w-full gap-2"
+            onClick={handleCopyAppLink}
+            data-testid="button-copy-app-link"
+          >
+            {appShareCopied ? (
+              <>
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <Copy className="w-4 h-4" />
+                Copy link
+              </>
+            )}
+          </Button>
         </CardContent>
       </Card>
 

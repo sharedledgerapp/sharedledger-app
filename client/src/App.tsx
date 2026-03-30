@@ -24,6 +24,7 @@ import BudgetPage from "@/pages/BudgetPage";
 import FriendGroupsPage from "@/pages/FriendGroupsPage";
 import FriendGroupDashboard from "@/pages/FriendGroupDashboard";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
+import JoinPage from "@/pages/JoinPage";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { startNotificationScheduler, stopNotificationScheduler, checkBudgetThresholdNotifications, subscribeToPush } from "@/lib/notifications";
@@ -126,6 +127,7 @@ function Router() {
     <Switch>
       <Route path="/auth" component={AuthPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
+      <Route path="/join" component={JoinPage} />
       <Route path="/onboarding" component={OnboardingPage} />
 
       {/* Specific /app/* routes must come before /app to avoid prefix-match shadowing */}

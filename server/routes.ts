@@ -284,6 +284,19 @@ export async function registerRoutes(
     }
   });
 
+  // Public: look up basic group info by invite code (used by /join landing page)
+  app.get("/api/invite/lookup", async (req, res) => {
+    const code = typeof req.query.code === "string" ? req.query.code.toUpperCase().trim() : null;
+    if (!code) return res.status(400).json({ message: "code is required" });
+    try {
+      const family = await storage.getFamilyByCode(code);
+      if (!family) return res.status(404).json({ message: "Invite code not found" });
+      res.json({ name: family.name, groupType: family.groupType, code: family.code });
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   app.get(api.auth.me.path, async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });

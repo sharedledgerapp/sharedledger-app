@@ -17,6 +17,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { QrScannerDialog } from "@/components/QrScannerDialog";
 
+const APP_URL = "https://sharedledger.app";
+
+function extractInviteCode(raw: string): string {
+  try {
+    const url = new URL(raw);
+    const code = url.searchParams.get("code");
+    if (code) return code.toUpperCase().trim();
+  } catch {}
+  return raw.toUpperCase().trim();
+}
+
 const groupTypeIcons: Record<string, any> = {
   family: Users,
   roommates: Home,
@@ -160,9 +171,10 @@ export default function FamilyPage() {
 
   const copyCode = () => {
     if (family?.code) {
-      navigator.clipboard.writeText(family.code);
-      toast({ title: "Copied!", description: "Invite code copied to clipboard" });
-      captureEvent("group_invite_code_copied");
+      const url = `${APP_URL}/join?code=${family.code}`;
+      navigator.clipboard.writeText(url);
+      toast({ title: "Copied!", description: "Invite link copied to clipboard" });
+      captureEvent("group_invite_code_copied", { type: "url" });
     }
   };
 
@@ -188,10 +200,12 @@ export default function FamilyPage() {
                 className="h-8 w-8 flex-shrink-0"
                 onClick={() => {
                   if (!inviteRevealCode) return;
-                  navigator.clipboard.writeText(inviteRevealCode).then(() => {
+                  const url = `${APP_URL}/join?code=${inviteRevealCode}`;
+                  navigator.clipboard.writeText(url).then(() => {
                     setInviteCodeCopied(true);
                     setTimeout(() => setInviteCodeCopied(false), 2000);
                   });
+                  captureEvent("group_invite_code_copied", { type: "url", source: "reveal_dialog" });
                 }}
                 data-testid="button-copy-family-invite-code"
               >
@@ -205,7 +219,7 @@ export default function FamilyPage() {
             <div className="flex flex-col items-center gap-2">
               {inviteRevealCode && (
                 <QRCodeSVG
-                  value={inviteRevealCode}
+                  value={`${APP_URL}/join?code=${inviteRevealCode}`}
                   size={180}
                   className="rounded-lg"
                   data-testid="qr-code-family-invite"
@@ -301,8 +315,8 @@ export default function FamilyPage() {
             open={joinScannerOpen}
             onClose={() => setJoinScannerOpen(false)}
             scannerId="family-join-qr-scanner"
-            onScan={(code) => {
-              setJoinCode(code.toUpperCase().trim());
+            onScan={(raw) => {
+              setJoinCode(extractInviteCode(raw));
               setJoinScannerOpen(false);
             }}
           />
@@ -387,7 +401,10 @@ export default function FamilyPage() {
                   variant="ghost"
                   size="sm"
                   className="gap-2 text-muted-foreground"
-                  onClick={() => { if (!showQr) captureEvent("group_qr_shown"); setShowQr(!showQr); }}
+                  onClick={() => {
+                    if (!showQr) captureEvent("group_qr_shown", { type: "url" });
+                    setShowQr(!showQr);
+                  }}
                   data-testid="button-toggle-qr"
                 >
                   <QrCode className="w-4 h-4" />
@@ -395,15 +412,16 @@ export default function FamilyPage() {
                   {showQr ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                 </Button>
                 {showQr && (
-                  <div className="mt-3 flex justify-center animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="mt-3 flex flex-col items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
                     <div className="bg-white p-4 rounded-2xl shadow-sm border border-border/50">
                       <QRCodeSVG
-                        value={family.code}
+                        value={`${APP_URL}/join?code=${family.code}`}
                         size={180}
                         level="M"
                         data-testid="qr-code-display"
                       />
                     </div>
+                    <p className="text-xs text-muted-foreground">Anyone who scans this can join the group</p>
                   </div>
                 )}
               </div>

@@ -35,6 +35,15 @@ import {
 
 const TOTAL_STEPS = 10;
 
+function extractInviteCode(raw: string): string {
+  try {
+    const url = new URL(raw);
+    const code = url.searchParams.get("code");
+    if (code) return code.toUpperCase().trim();
+  } catch {}
+  return raw.toUpperCase().trim();
+}
+
 function ProgressBar({ current }: { current: number }) {
   const pct = Math.round((current / TOTAL_STEPS) * 100);
   return (
@@ -1083,6 +1092,17 @@ function Step8Group({
 }) {
   const [scannerOpen, setScannerOpen] = useState(false);
 
+  useEffect(() => {
+    const pending = localStorage.getItem("pending_invite_code");
+    if (pending && !alreadyInGroup) {
+      const code = pending.toUpperCase().trim();
+      localStorage.removeItem("pending_invite_code");
+      setGroupMode("join");
+      setGroupCode(code);
+      captureEvent("join_page_code_prefilled", { source: "join_page" });
+    }
+  }, []);
+
   if (alreadyInGroup) {
     return (
       <div>
@@ -1184,8 +1204,8 @@ function Step8Group({
           <OnboardingQrScannerDialog
             open={scannerOpen}
             onClose={() => setScannerOpen(false)}
-            onScan={(code) => {
-              setGroupCode(code);
+            onScan={(raw) => {
+              setGroupCode(extractInviteCode(raw));
               setScannerOpen(false);
             }}
           />
