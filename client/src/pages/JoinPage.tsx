@@ -8,8 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, Users, Home, Heart, CheckCircle2, AlertCircle } from "lucide-react";
 
-const APP_URL = "https://sharedledger.app";
-
 const groupTypeIcons: Record<string, any> = {
   family: Users,
   roommates: Home,
