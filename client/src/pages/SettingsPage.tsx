@@ -43,7 +43,7 @@ export default function SettingsPage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [appShareCopied, setAppShareCopied] = useState(false);
 
-  const APP_URL = "https://sharedledger.app";
+  const APP_URL = window.location.origin;
 
   useEffect(() => {
     captureEvent("app_share_qr_viewed");

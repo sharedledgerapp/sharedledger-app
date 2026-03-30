@@ -306,7 +306,7 @@ export default function FriendGroupDashboard() {
             {showQr && (
               <div className="flex flex-col items-center gap-2 mt-3 pt-3 border-t border-primary/20">
                 <QRCodeSVG
-                  value={newGroupCode}
+                  value={`${window.location.origin}/join?code=${newGroupCode}`}
                   size={180}
                   className="rounded-lg"
                   data-testid="qr-code-friend-group"
