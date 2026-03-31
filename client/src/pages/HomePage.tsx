@@ -414,16 +414,16 @@ export default function HomePage() {
                   <div className="flex justify-between items-baseline gap-2 flex-wrap">
                     <div>
                       <p className="text-xs text-muted-foreground">{t("spent")}</p>
-                      <p className="text-lg font-bold">{currencySymbol}{formatAmount(budgetSummary.totalSpent)}</p>
+                      <p className="text-lg font-bold">{formatAmount(budgetSummary.totalSpent, user?.currency)}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-muted-foreground">{t("totalBudget")}</p>
-                      <p className="text-lg font-bold">{currencySymbol}{formatAmount(budgetSummary.totalBudget)}</p>
+                      <p className="text-lg font-bold">{formatAmount(budgetSummary.totalBudget, user?.currency)}</p>
                     </div>
                   </div>
                   <div>
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                      <span>{t("remaining")}: {currencySymbol}{formatAmount(budgetSummary.totalRemaining)}</span>
+                      <span>{t("remaining")}: {formatAmount(budgetSummary.totalRemaining, user?.currency)}</span>
                       <span className={budgetSummary.totalPercentUsed > 100 ? "text-destructive font-semibold" : ""}>
                         {budgetSummary.totalPercentUsed}% {t("percentUsed")}
                       </span>
@@ -578,7 +578,7 @@ export default function HomePage() {
                 {budgetAverages.averages.slice(0, 5).map(avg => (
                   <div key={avg.category} className="flex justify-between text-sm">
                     <span>{avg.category}</span>
-                    <span className="text-muted-foreground">{currencySymbol}{formatAmount(avg.monthlyAverage)}/{t("monthly").toLowerCase()}</span>
+                    <span className="text-muted-foreground">{formatAmount(avg.monthlyAverage, user?.currency)}/{t("monthly").toLowerCase()}</span>
                   </div>
                 ))}
               </div>

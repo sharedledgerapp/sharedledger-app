@@ -37,30 +37,35 @@ export function isZeroDecimalCurrency(currencyCode?: string | null): boolean {
 }
 
 export function getCurrencySymbol(currencyCode: string | undefined | null): string {
-  return CURRENCY_SYMBOLS[currencyCode || "EUR"] || "€";
+  if (!currencyCode) return "";
+  return CURRENCY_SYMBOLS[currencyCode] ?? currencyCode;
+}
+
+/**
+ * Format a number consistently with the en-US locale so that thousand
+ * separators are always commas and decimal separators are always dots,
+ * regardless of the user's system/browser locale.
+ */
+function formatNumber(num: number, currencyCode?: string | null): string {
+  if (isZeroDecimalCurrency(currencyCode)) {
+    return Math.round(num).toLocaleString("en-US");
+  }
+  return num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function formatAmount(amount: number | string, currencyCode?: string | null): string {
   const symbol = getCurrencySymbol(currencyCode);
   const numAmount = typeof amount === "string" ? Number(amount) : amount;
-  const formatted = isZeroDecimalCurrency(currencyCode)
-    ? Math.round(numAmount).toLocaleString()
-    : numAmount.toFixed(2);
-  return `${symbol}${formatted}`;
+  return `${symbol}${formatNumber(numAmount, currencyCode)}`;
 }
 
 export function formatAmountWithSign(amount: number | string, currencyCode?: string | null, isExpense = true): string {
   const symbol = getCurrencySymbol(currencyCode);
   const numAmount = typeof amount === "string" ? Number(amount) : amount;
   const sign = isExpense ? "-" : "+";
-  const formatted = isZeroDecimalCurrency(currencyCode)
-    ? Math.round(numAmount).toLocaleString()
-    : numAmount.toFixed(2);
-  return `${sign}${symbol}${formatted}`;
+  return `${sign}${symbol}${formatNumber(numAmount, currencyCode)}`;
 }
 
 export function toFixedAmount(amount: number, currencyCode?: string | null): string {
-  return isZeroDecimalCurrency(currencyCode)
-    ? Math.round(amount).toLocaleString()
-    : amount.toFixed(2);
+  return formatNumber(amount, currencyCode);
 }
