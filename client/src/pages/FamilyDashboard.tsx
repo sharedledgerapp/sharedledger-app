@@ -23,6 +23,7 @@ import { BalanceBoard } from "@/components/BalanceBoard";
 import { RoommatesDashboardView } from "@/pages/RoommatesDashboard";
 import { CouplesDashboardView } from "@/pages/CouplesDashboard";
 import { useFamily } from "@/hooks/use-data";
+import { InviteSection } from "@/components/InviteSection";
 
 const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#a78bfa", "#fb923c", "#4ade80"];
 
@@ -226,32 +227,48 @@ export default function FamilyDashboard() {
     );
   }
 
+  const familyCode = familyData?.family?.code;
+
   if (isLoading) {
     return <FamilyDashboardSkeleton />;
   }
 
   if (data?.summary.groupType === "roommates") {
     return (
-      <RoommatesDashboardView
-        summary={data.summary}
-        recentExpenses={data.recentExpenses}
-      />
+      <>
+        {familyCode && (
+          <div className="mb-2">
+            <InviteSection familyCode={familyCode} groupName={data.summary.familyName} />
+          </div>
+        )}
+        <RoommatesDashboardView
+          summary={data.summary}
+          recentExpenses={data.recentExpenses}
+        />
+      </>
     );
   }
 
   if (data?.summary.groupType === "couple") {
     return (
-      <CouplesDashboardView
-        summary={data.summary}
-        categoryBreakdown={data.categoryBreakdown}
-        contributions={data.contributions}
-        milestones={data.milestones}
-        recentExpenses={data.recentExpenses}
-        periodType={periodType}
-        setPeriodType={setPeriodType}
-        navigatePeriod={navigatePeriod}
-        periodLabel={periodLabel}
-      />
+      <>
+        {familyCode && (
+          <div className="mb-2">
+            <InviteSection familyCode={familyCode} groupName={data.summary.familyName} />
+          </div>
+        )}
+        <CouplesDashboardView
+          summary={data.summary}
+          categoryBreakdown={data.categoryBreakdown}
+          contributions={data.contributions}
+          milestones={data.milestones}
+          recentExpenses={data.recentExpenses}
+          periodType={periodType}
+          setPeriodType={setPeriodType}
+          navigatePeriod={navigatePeriod}
+          periodLabel={periodLabel}
+        />
+      </>
     );
   }
 
@@ -273,6 +290,8 @@ export default function FamilyDashboard() {
           {data?.summary.memberCount} {t("members")}
         </Badge>
       </div>
+
+      {familyCode && <InviteSection familyCode={familyCode} groupName={data?.summary.familyName} />}
 
       <div className="flex items-center justify-between gap-2">
         <div className="flex gap-2">
