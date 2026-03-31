@@ -20,6 +20,7 @@ import {
   BarChart3,
   MessageCircle,
   ChevronDown,
+  ChevronUp,
   Star,
   Download,
   Share2,
@@ -63,6 +64,7 @@ export default function LandingPage() {
   const [feedbackName, setFeedbackName] = useState("");
   const [feedbackEmail, setFeedbackEmail] = useState("");
   const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   const handleFeedbackSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,100 +120,6 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* 0. Quick Overview Summary */}
-      <section id="overview" className="pt-20 pb-10 px-6 bg-gradient-to-b from-primary/6 via-primary/3 to-transparent border-b border-primary/10">
-        <div className="max-w-4xl mx-auto space-y-6">
-
-          {/* Page navigation pills */}
-          <div className="flex flex-wrap justify-center gap-2">
-            {[
-              { label: "Who it's for", href: "#why-section" },
-              { label: "How it works", href: "#how-it-works" },
-              { label: "Features", href: "#features" },
-              { label: "Why install?", href: "#why-install" },
-            ].map(({ label, href }) => (
-              <a
-                key={href}
-                href={href}
-                className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors px-3 py-1.5 rounded-full bg-white border border-border/50 hover:border-primary/30 hover:shadow-sm"
-              >
-                {label}
-              </a>
-            ))}
-            <a
-              href="#install-section"
-              className="text-xs font-semibold text-primary px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 hover:bg-primary/15 transition-all flex items-center gap-1.5"
-            >
-              <Download className="w-3 h-3" /> Install the App
-            </a>
-            <a
-              href="#feedback-section"
-              className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors px-3 py-1.5 rounded-full bg-white border border-border/50 hover:border-primary/30 hover:shadow-sm"
-            >
-              Give Feedback
-            </a>
-          </div>
-
-          {/* App purpose */}
-          <div className="text-center">
-            <h2 className="font-display font-bold text-2xl md:text-3xl text-foreground mb-3">
-              Shared finances made simple — for families, roommates & couples
-            </h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto text-base leading-relaxed">
-              SharedLedger lets you track expenses, split bills fairly, manage budgets, and work towards savings goals together.
-              It's free to use during our beta phase and we're actively improving it based on your feedback.
-            </p>
-          </div>
-
-          {/* PWA explanation card */}
-          <div className="bg-white rounded-2xl border border-primary/20 shadow-sm p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="flex items-start gap-3 flex-1">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-primary to-accent flex items-center justify-center shrink-0 shadow-sm shadow-primary/20 mt-0.5">
-                <Smartphone className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <p className="font-semibold text-foreground text-sm mb-1">Install it on your phone — no app store needed</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  SharedLedger is a <strong>Progressive Web App (PWA)</strong>. We chose this format for beta so we can ship
-                  updates instantly without app store delays. It works offline, feels like a native app, and installs
-                  directly from your browser in under 30 seconds.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={scrollToInstall}
-              className="shrink-0 inline-flex items-center gap-2 bg-gradient-to-r from-primary to-accent text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-md shadow-primary/25 hover:opacity-90 transition-opacity whitespace-nowrap"
-            >
-              <Download className="w-4 h-4" /> See Install Guide
-            </button>
-          </div>
-
-          {/* Call to action */}
-          <div className="bg-gradient-to-r from-accent/10 to-primary/10 rounded-2xl border border-primary/15 p-5 flex flex-col sm:flex-row items-center gap-4">
-            <div className="flex items-start gap-3 flex-1">
-              <MessageSquareHeart className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-              <p className="text-sm text-foreground leading-relaxed">
-                <strong>We need your help to make SharedLedger better.</strong> Try the app with your household, then share
-                what works, what's confusing, and what you wish it could do. Every piece of feedback directly shapes the next version.
-              </p>
-            </div>
-            <div className="flex gap-2 shrink-0">
-              <Link href="/app">
-                <Button size="sm" className="rounded-xl bg-gradient-to-r from-primary to-accent hover:opacity-90 text-white shadow-md shadow-primary/20">
-                  Try Free
-                </Button>
-              </Link>
-              <a href="#feedback-section">
-                <Button size="sm" variant="outline" className="rounded-xl border-primary/30 text-primary hover:bg-primary/5">
-                  Feedback
-                </Button>
-              </a>
-            </div>
-          </div>
-
-        </div>
-      </section>
-
       {/* 1. Hero */}
       <section className="pt-16 pb-20 px-6 text-center relative overflow-hidden">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[60%] rounded-full bg-primary/8 blur-[120px]" />
@@ -246,6 +154,150 @@ export default function LandingPage() {
               {t("landingInstallApp")} <Download className="ml-2 w-5 h-5" />
             </Button>
           </div>
+        </div>
+      </section>
+
+      {/* 1b. Expandable Summary */}
+      <section className="pb-2 px-6">
+        <div className="max-w-sm mx-auto flex flex-col items-center">
+          {/* Animated trigger button with pulsing rings */}
+          <div className="relative flex items-center justify-center">
+            {/* Outer pulse ring */}
+            {!summaryOpen && (
+              <span
+                className="absolute inline-flex rounded-full"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  background: "hsl(var(--primary)/0.2)",
+                  animation: "ring-pulse 2s ease-out infinite",
+                }}
+              />
+            )}
+            {/* Middle pulse ring — offset delay */}
+            {!summaryOpen && (
+              <span
+                className="absolute inline-flex rounded-full"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  background: "hsl(var(--accent)/0.18)",
+                  animation: "ring-pulse 2s ease-out infinite 0.6s",
+                }}
+              />
+            )}
+            <button
+              onClick={() => setSummaryOpen((v) => !v)}
+              data-testid="button-summary-toggle"
+              className="relative z-10 flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold text-sm transition-all duration-300"
+              style={{
+                background: summaryOpen
+                  ? "hsl(var(--primary)/0.12)"
+                  : "linear-gradient(135deg, hsl(var(--primary)/0.15), hsl(var(--accent)/0.15))",
+                border: "1.5px solid hsl(var(--primary)/0.35)",
+                color: "hsl(var(--primary))",
+                boxShadow: summaryOpen ? "none" : "0 0 18px hsl(var(--primary)/0.2)",
+              }}
+            >
+              {summaryOpen ? (
+                <>
+                  <ChevronUp className="w-4 h-4" />
+                  Close overview
+                </>
+              ) : (
+                <>
+                  <span>Quick overview</span>
+                  <ChevronDown className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Expandable content */}
+          {summaryOpen && (
+            <div className="mt-6 w-full space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+
+              {/* Nav pills — first thing revealed */}
+              <div className="flex flex-wrap justify-center gap-2">
+                {[
+                  { label: "Who it's for", href: "#why-section" },
+                  { label: "How it works", href: "#how-it-works" },
+                  { label: "Features", href: "#features" },
+                  { label: "Why install?", href: "#why-install" },
+                ].map(({ label, href }) => (
+                  <a
+                    key={href}
+                    href={href}
+                    onClick={() => setSummaryOpen(false)}
+                    className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors px-3 py-1.5 rounded-full bg-white border border-border/50 hover:border-primary/30 hover:shadow-sm"
+                  >
+                    {label}
+                  </a>
+                ))}
+                <a
+                  href="#install-section"
+                  onClick={() => setSummaryOpen(false)}
+                  className="text-xs font-semibold text-primary px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 hover:bg-primary/15 transition-all flex items-center gap-1.5"
+                >
+                  <Download className="w-3 h-3" /> Install the App
+                </a>
+                <a
+                  href="#feedback-section"
+                  onClick={() => setSummaryOpen(false)}
+                  className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors px-3 py-1.5 rounded-full bg-white border border-border/50 hover:border-primary/30 hover:shadow-sm"
+                >
+                  Give Feedback
+                </a>
+              </div>
+
+              {/* PWA explanation card */}
+              <div className="bg-white rounded-2xl border border-primary/20 shadow-sm p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div className="flex items-start gap-3 flex-1">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-primary to-accent flex items-center justify-center shrink-0 shadow-sm shadow-primary/20 mt-0.5">
+                    <Smartphone className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground text-sm mb-1">Install it on your phone — no app store needed</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      SharedLedger is a <strong>Progressive Web App (PWA)</strong>. We chose this format for beta so we can ship
+                      updates instantly without app store delays. It works offline, feels like a native app, and installs
+                      directly from your browser in under 30 seconds.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setSummaryOpen(false); scrollToInstall(); }}
+                  className="shrink-0 inline-flex items-center gap-2 bg-gradient-to-r from-primary to-accent text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-md shadow-primary/25 hover:opacity-90 transition-opacity whitespace-nowrap"
+                >
+                  <Download className="w-4 h-4" /> See Install Guide
+                </button>
+              </div>
+
+              {/* CTA card */}
+              <div className="bg-gradient-to-r from-accent/10 to-primary/10 rounded-2xl border border-primary/15 p-5 flex flex-col sm:flex-row items-center gap-4">
+                <div className="flex items-start gap-3 flex-1">
+                  <MessageSquareHeart className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <p className="text-sm text-foreground leading-relaxed">
+                    <strong>We need your help to make SharedLedger better.</strong> Try the app with your household, then share
+                    what works, what's confusing, and what you wish it could do.
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Link href="/app">
+                    <Button size="sm" className="rounded-xl bg-gradient-to-r from-primary to-accent hover:opacity-90 text-white shadow-md shadow-primary/20" data-testid="button-summary-open-app">
+                      Open the App
+                    </Button>
+                  </Link>
+                  <a href="#feedback-section" onClick={() => setSummaryOpen(false)}>
+                    <Button size="sm" variant="outline" className="rounded-xl border-primary/30 text-primary hover:bg-primary/5">
+                      Feedback
+                    </Button>
+                  </a>
+                </div>
+              </div>
+
+            </div>
+          )}
         </div>
       </section>
 
