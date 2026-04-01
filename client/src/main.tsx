@@ -18,10 +18,8 @@ if ('serviceWorker' in navigator) {
         if (newWorker) {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              console.log('[PWA] New version available');
-              if (confirm('A new version of SharedLedger is available. Reload to update?')) {
-                newWorker.postMessage({ type: 'SKIP_WAITING' });
-              }
+              console.log('[PWA] New version available — activating immediately');
+              newWorker.postMessage({ type: 'SKIP_WAITING' });
             }
           });
         }
