@@ -38,7 +38,7 @@ function OAuthButtons() {
           <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
           <span className="font-medium">Google sign-in is temporarily unavailable</span>
         </div>
-        <p className="pl-5">We're working to resolve this as quickly as possible and appreciate your patience as a beta user. If you signed up with Google and need help accessing your account, please contact the developer directly at <span className="font-medium">sharedledger.app@gmail.com</span> or reach out via WhatsApp.</p>
+        <p className="pl-5">We're working to resolve this as quickly as possible and truly appreciate your patience as a beta user. If you signed up with Google and need access now, reach out to us directly — we can set up a temporary password for your account while we get this sorted.</p>
       </div>
       <a
         href="/api/auth/google"
