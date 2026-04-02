@@ -33,9 +33,12 @@ function extractInviteCode(raw: string): string {
 function OAuthButtons() {
   return (
     <div className="space-y-3">
-      <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2.5 text-xs text-amber-800 dark:text-amber-300">
-        <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-        <span>Google sign-in is temporarily unavailable. Please use your username and password to log in.</span>
+      <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-3 text-xs text-amber-800 dark:text-amber-300 space-y-1.5">
+        <div className="flex items-start gap-2">
+          <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          <span className="font-medium">Google sign-in is temporarily unavailable</span>
+        </div>
+        <p className="pl-5">We're working to resolve this as quickly as possible and appreciate your patience as a beta user. If you signed up with Google and need help accessing your account, please contact the developer directly at <span className="font-medium">sharedledger.app@gmail.com</span> or reach out via WhatsApp.</p>
       </div>
       <a
         href="/api/auth/google"
