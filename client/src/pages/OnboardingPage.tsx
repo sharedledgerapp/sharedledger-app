@@ -155,7 +155,9 @@ export default function OnboardingPage() {
     (user?.language as "en" | "fr" | "nl") || "en"
   );
   const [goal, setGoal] = useState<string>("");
-  const [userName, setUserName] = useState(user?.name || "");
+  const [userName, setUserName] = useState(
+    user?.name && user.name !== user?.username ? user.name : ""
+  );
   const [currency, setCurrency] = useState(user?.currency || "EUR");
   const [personality, setPersonality] = useState<string>("");
   const [spendingInsights, setSpendingInsights] = useState<boolean | null>(null);

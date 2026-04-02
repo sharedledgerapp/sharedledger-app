@@ -600,7 +600,7 @@ function RegisterForm() {
 
   const onSubmit = (data: z.infer<typeof registerSchema>) => {
     registerMutation.mutate(
-      { ...data, groupName: "", groupCode: "", familyName: "", familyCode: "", role: "member" },
+      { ...data, name: data.username, groupName: "", groupCode: "", familyName: "", familyCode: "", role: "member" },
       { onSuccess: () => setLocation("/onboarding") }
     );
   };
@@ -615,34 +615,19 @@ function RegisterForm() {
         <OAuthButtons />
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Full Name</FormLabel>
-                    <FormControl>
-                      <Input {...field} className="h-11 rounded-xl" data-testid="input-name" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Username</FormLabel>
-                    <FormControl>
-                      <Input {...field} className="h-11 rounded-xl" data-testid="input-username" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="username"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Username</FormLabel>
+                  <FormControl>
+                    <Input {...field} className="h-11 rounded-xl" placeholder="Choose a username" data-testid="input-username" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
