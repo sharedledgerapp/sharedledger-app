@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useLocation } from "wouter";
-import { Loader2, Users, ArrowRight, Eye, EyeOff, Camera } from "lucide-react";
+import { Loader2, Users, ArrowRight, Eye, EyeOff, Camera, AlertCircle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { SiGoogle } from "react-icons/si";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -33,12 +33,17 @@ function extractInviteCode(raw: string): string {
 function OAuthButtons() {
   return (
     <div className="space-y-3">
+      <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2.5 text-xs text-amber-800 dark:text-amber-300">
+        <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+        <span>Google sign-in is temporarily unavailable. Please use your username and password to log in.</span>
+      </div>
       <a
         href="/api/auth/google"
-        className="flex items-center justify-center gap-3 w-full h-12 rounded-xl border border-border bg-white hover:bg-gray-50 text-gray-700 font-medium transition-all shadow-sm"
+        className="flex items-center justify-center gap-3 w-full h-12 rounded-xl border border-border bg-white/50 dark:bg-white/5 text-gray-400 dark:text-gray-500 font-medium transition-all shadow-sm pointer-events-none opacity-50"
         data-testid="button-google-signin"
+        aria-disabled="true"
       >
-        <SiGoogle className="w-5 h-5" style={{ color: "#4285F4" }} />
+        <SiGoogle className="w-5 h-5" />
         Continue with Google
       </a>
       <div className="relative my-4">

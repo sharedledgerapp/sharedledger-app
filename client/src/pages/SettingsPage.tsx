@@ -37,6 +37,7 @@ export default function SettingsPage() {
   const [, setLocation] = useLocation();
   
   const [name, setName] = useState(user?.name || "");
+  const [email, setEmail] = useState(user?.email || "");
   const [profileImageUrl, setProfileImageUrl] = useState(user?.profileImageUrl || "");
   const [currency, setCurrency] = useState((user as any)?.currency || "EUR");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -151,7 +152,7 @@ export default function SettingsPage() {
   });
 
   const updateProfileMutation = useMutation({
-    mutationFn: async (data: { name?: string; profileImageUrl?: string; currency?: string }) => {
+    mutationFn: async (data: { name?: string; email?: string | null; profileImageUrl?: string; currency?: string }) => {
       const res = await apiRequest("PATCH", "/api/user/profile", data);
       return res.json();
     },
@@ -376,8 +377,9 @@ export default function SettingsPage() {
   };
 
   const handleSaveProfile = () => {
-    const updates: { name?: string; profileImageUrl?: string; currency?: string } = {};
+    const updates: { name?: string; email?: string | null; profileImageUrl?: string; currency?: string } = {};
     if (name !== user?.name) updates.name = name;
+    if (email !== (user?.email || "")) updates.email = email || null;
     if (profileImageUrl !== user?.profileImageUrl) updates.profileImageUrl = profileImageUrl || undefined;
     if (currency !== (user as any)?.currency) updates.currency = currency;
     
@@ -386,7 +388,7 @@ export default function SettingsPage() {
     }
   };
 
-  const hasChanges = name !== user?.name || profileImageUrl !== (user?.profileImageUrl || "") || currency !== ((user as any)?.currency || "USD");
+  const hasChanges = name !== user?.name || email !== (user?.email || "") || profileImageUrl !== (user?.profileImageUrl || "") || currency !== ((user as any)?.currency || "USD");
 
   return (
     <div className="space-y-6 pb-20">
@@ -441,6 +443,23 @@ export default function SettingsPage() {
               placeholder={t("yourName")}
               data-testid="input-profile-name"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="profile-email" className="text-sm text-muted-foreground">
+              Email address
+            </Label>
+            <Input
+              id="profile-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="your@email.com"
+              data-testid="input-profile-email"
+            />
+            <p className="text-xs text-muted-foreground">
+              Used for password resets and important account notifications.
+            </p>
           </div>
 
           {hasChanges && (

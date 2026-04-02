@@ -377,6 +377,7 @@ export async function registerRoutes(
     const user = req.user as any;
     const updateSchema = z.object({
       name: z.string().min(1).optional(),
+      email: z.string().email("Please enter a valid email address").optional().nullable(),
       profileImageUrl: z.string().url().optional().nullable(),
       language: z.enum(["en", "fr", "nl"]).optional(),
       currency: z.string().optional(),
