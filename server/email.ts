@@ -1,25 +1,15 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
-const SUPPORT_EMAIL = "SharedLedger.app@gmail.com";
+const FROM_EMAIL = "SharedLedger <hello@sharedledger.app>";
+const SUPPORT_EMAIL = "hello@sharedledger.app";
 
-function createTransporter() {
-  return nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
-    connectionTimeout: 8000,
-    greetingTimeout: 8000,
-    socketTimeout: 10000,
-    auth: {
-      user: SUPPORT_EMAIL,
-      pass: process.env.GMAIL_APP_PASSWORD,
-    },
-  });
+function getResend() {
+  return new Resend(process.env.RESEND_API_KEY);
 }
 
 export async function sendWelcomeEmail(toEmail: string, name: string): Promise<void> {
-  if (!process.env.GMAIL_APP_PASSWORD) {
-    console.warn("[email] GMAIL_APP_PASSWORD is not set — welcome email not sent.");
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("[email] RESEND_API_KEY is not set — welcome email not sent.");
     return;
   }
 
@@ -65,13 +55,14 @@ export async function sendWelcomeEmail(toEmail: string, name: string): Promise<v
 `.trim();
 
   try {
-    await createTransporter().sendMail({
-      from: `SharedLedger <${SUPPORT_EMAIL}>`,
+    const { error } = await getResend().emails.send({
+      from: FROM_EMAIL,
       to: toEmail,
       subject: `Welcome to SharedLedger, ${name}!`,
       text: textBody,
       html: htmlBody,
     });
+    if (error) throw error;
     console.log(`[email] Welcome email sent to ${toEmail}`);
   } catch (err) {
     console.error("[email] Failed to send welcome email:", err);
@@ -79,8 +70,8 @@ export async function sendWelcomeEmail(toEmail: string, name: string): Promise<v
 }
 
 export async function sendPasswordResetEmail(toEmail: string, name: string, resetUrl: string): Promise<void> {
-  if (!process.env.GMAIL_APP_PASSWORD) {
-    console.warn("[email] GMAIL_APP_PASSWORD is not set — password reset email not sent.");
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("[email] RESEND_API_KEY is not set — password reset email not sent.");
     return;
   }
 
@@ -125,13 +116,14 @@ export async function sendPasswordResetEmail(toEmail: string, name: string, rese
 `.trim();
 
   try {
-    await createTransporter().sendMail({
-      from: `SharedLedger <${SUPPORT_EMAIL}>`,
+    const { error } = await getResend().emails.send({
+      from: FROM_EMAIL,
       to: toEmail,
       subject: "Reset your SharedLedger password",
       text: textBody,
       html: htmlBody,
     });
+    if (error) throw error;
     console.log(`[email] Password reset email sent to ${toEmail}`);
   } catch (err) {
     console.error("[email] Failed to send password reset email:", err);
@@ -149,12 +141,10 @@ export interface FeedbackPayload {
 export async function sendFeedbackEmail(payload: FeedbackPayload): Promise<void> {
   const { group, message, userEmail, userName } = payload;
 
-  if (!process.env.GMAIL_APP_PASSWORD) {
-    console.warn("[email] GMAIL_APP_PASSWORD is not set — feedback email not sent.");
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("[email] RESEND_API_KEY is not set — feedback email not sent.");
     return;
   }
-
-  const transporter = createTransporter();
 
   const timestamp = new Date().toLocaleString("en-GB", {
     timeZone: "UTC",
@@ -195,12 +185,13 @@ export async function sendFeedbackEmail(payload: FeedbackPayload): Promise<void>
 </div>
 `.trim();
 
-  await transporter.sendMail({
-    from: `SharedLedger <${SUPPORT_EMAIL}>`,
+  const { error } = await getResend().emails.send({
+    from: FROM_EMAIL,
     to: SUPPORT_EMAIL,
     replyTo: userEmail ? `${userName || "User"} <${userEmail}>` : undefined,
     subject: `SharedLedger Feedback – ${group}`,
     text: textBody,
     html: htmlBody,
   });
+  if (error) throw error;
 }
