@@ -42,11 +42,10 @@ function OAuthButtons() {
       </div>
       <a
         href="/api/auth/google"
-        className="flex items-center justify-center gap-3 w-full h-12 rounded-xl border border-border bg-white/50 dark:bg-white/5 text-gray-400 dark:text-gray-500 font-medium transition-all shadow-sm pointer-events-none opacity-50"
+        className="flex items-center justify-center gap-3 w-full h-12 rounded-xl border border-border bg-white hover:bg-gray-50 text-gray-700 font-medium transition-all shadow-sm"
         data-testid="button-google-signin"
-        aria-disabled="true"
       >
-        <SiGoogle className="w-5 h-5" />
+        <SiGoogle className="w-5 h-5" style={{ color: "#4285F4" }} />
         Continue with Google
       </a>
       <div className="relative my-4">
