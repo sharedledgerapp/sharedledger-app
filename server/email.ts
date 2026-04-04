@@ -28,7 +28,9 @@ export async function sendWelcomeEmail(toEmail: string, name: string): Promise<v
 
   const htmlBody = `
 <div style="font-family:sans-serif;max-width:600px;margin:auto;padding:32px 24px;background:#ffffff">
-  <div style="text-align:center;margin-bottom:32px">
+  <div style="text-align:center;margin-bottom:28px">
+    <img src="https://sharedledger.app/icons/icon-192.png" alt="SharedLedger" width="72" height="72"
+         style="border-radius:16px;margin-bottom:16px" />
     <h1 style="font-size:28px;font-weight:700;color:#1d1d1f;margin:0">Welcome to SharedLedger</h1>
     <p style="color:#6b7280;font-size:15px;margin-top:8px">Your shared finances, simplified.</p>
   </div>
@@ -40,13 +42,24 @@ export async function sendWelcomeEmail(toEmail: string, name: string): Promise<v
   <p style="font-size:15px;color:#374151;line-height:1.6">
     Get started by adding your first expense or inviting someone to your group.
   </p>
-  <div style="text-align:center;margin:32px 0">
+  <div style="text-align:center;margin:28px 0">
     <a href="https://sharedledger.app/app"
        style="display:inline-block;background:#4f46e5;color:#ffffff;font-size:15px;font-weight:600;
-              padding:12px 28px;border-radius:8px;text-decoration:none">
+              padding:12px 28px;border-radius:8px;text-decoration:none;margin-bottom:12px">
       Open SharedLedger
     </a>
+    <br/>
+    <a href="https://sharedledger.app/#install-section"
+       style="display:inline-block;background:#f3f4f6;color:#4f46e5;font-size:14px;font-weight:600;
+              padding:10px 24px;border-radius:8px;text-decoration:none">
+      📲 How to install the app
+    </a>
   </div>
+  <p style="font-size:14px;color:#6b7280;line-height:1.6">
+    Not sure where to start? Visit our
+    <a href="https://sharedledger.app" style="color:#4f46e5;text-decoration:none">website</a>
+    to learn more about what SharedLedger can do for you.
+  </p>
   <p style="font-size:14px;color:#9ca3af;line-height:1.6;border-top:1px solid #f3f4f6;padding-top:20px;margin-top:8px">
     If you have any questions, just reply to this email — we're happy to help.<br>
     <strong style="color:#6b7280">The SharedLedger Team</strong>
