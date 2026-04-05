@@ -59,6 +59,17 @@ function StepCard({ number, title, description }: { number: string; title: strin
   );
 }
 
+function useIOSBrowserState() {
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  const isIOS = /iPad|iPhone|iPod/.test(ua);
+  const isChromeIOS = /CriOS/.test(ua);
+  const isFirefoxIOS = /FxiOS/.test(ua);
+  const isInApp = /(Instagram|FBAN|FBAV|WhatsApp|Snapchat|Twitter|LinkedIn)/i.test(ua);
+  const isPWA = typeof window !== "undefined" && (window.navigator as any).standalone === true;
+  const isNativeSafari = isIOS && !isChromeIOS && !isFirefoxIOS && !isInApp && !isPWA;
+  return { isIOS, isChromeIOS, isInApp, isNativeSafari, isPWA };
+}
+
 export default function LandingPage() {
   const { toast } = useToast();
   const { language, setLanguage, t } = useLanguage();
@@ -66,6 +77,13 @@ export default function LandingPage() {
   const [feedbackEmail, setFeedbackEmail] = useState("");
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const { isIOS, isChromeIOS, isInApp, isNativeSafari, isPWA } = useIOSBrowserState();
+
+  const copyInstallLink = () => {
+    navigator.clipboard.writeText("https://sharedledger.app").then(() => {
+      toast({ title: "Link copied!", description: "Paste it in Safari to install." });
+    });
+  };
 
   const handleFeedbackSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -486,13 +504,48 @@ export default function LandingPage() {
             <h2 className="font-display font-bold text-3xl md:text-4xl text-foreground mb-4">{t("landingInstallTitle")}</h2>
             <p className="text-muted-foreground text-lg">{t("landingInstallSubtitle")}</p>
           </div>
-          {/* iPhone in-app browser tip */}
-          <div className="mb-6 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
-            <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-            <p className="text-sm text-amber-800 leading-relaxed">
-              <strong>iPhone users:</strong> If you clicked this link inside WhatsApp, Snapchat, or Instagram, you are in their built-in browser — not Safari. The "Add to Home Screen" option will not appear. Tap <strong>···</strong> or the browser icon and choose <strong>"Open in Safari"</strong> first.
-            </p>
-          </div>
+          {/* iOS browser detection banner */}
+          {isIOS && isPWA ? (
+            <div className="mb-6 flex items-start gap-3 bg-green-50 border border-green-200 rounded-xl px-5 py-4">
+              <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
+              <p className="text-sm text-green-800 leading-relaxed">
+                <strong>You're all set!</strong> SharedLedger is already installed on your home screen.
+              </p>
+            </div>
+          ) : isIOS && (isInApp || isChromeIOS) ? (
+            <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
+              <div className="flex items-start gap-3 mb-3">
+                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                <p className="text-sm text-amber-800 leading-relaxed">
+                  <strong>You're not in Safari right now.</strong> The "Add to Home Screen" option won't appear in {isInApp ? "WhatsApp, Snapchat, or Instagram's built-in browser" : "Chrome"}. You need to open this page in Safari first.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 ml-8">
+                <button
+                  onClick={copyInstallLink}
+                  className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                  data-testid="button-copy-install-link"
+                >
+                  Copy link to open in Safari
+                </button>
+                <p className="text-xs text-amber-700 self-center">Then paste it in Safari's address bar</p>
+              </div>
+            </div>
+          ) : isIOS && isNativeSafari ? (
+            <div className="mb-6 flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl px-5 py-4">
+              <CheckCircle2 className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+              <p className="text-sm text-blue-800 leading-relaxed">
+                <strong>You're in Safari — perfect.</strong> Follow the steps below. If the Share button (□↑) isn't visible, scroll up slightly or tap the bottom edge of the screen to bring the toolbar back.
+              </p>
+            </div>
+          ) : (
+            <div className="mb-6 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
+              <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-800 leading-relaxed">
+                <strong>iPhone users:</strong> If you opened this link from WhatsApp, Snapchat, or Instagram, you are in their built-in browser — not Safari. Tap <strong>···</strong> or the browser icon and choose <strong>"Open in Safari"</strong>. If you're in Chrome, tap the share icon and choose <strong>"Open in Safari"</strong>.
+              </p>
+            </div>
+          )}
           <div className="grid md:grid-cols-2 gap-8">
             {/* iPhone */}
             <div className="bg-white rounded-2xl border border-border/50 shadow-sm p-8">
