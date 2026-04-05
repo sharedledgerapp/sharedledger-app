@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useLocation } from "wouter";
-import { Loader2, Users, ArrowRight, Eye, EyeOff, Camera } from "lucide-react";
+import { Loader2, Users, ArrowRight, Eye, EyeOff, Camera, AlertTriangle, Copy, Check } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { SiGoogle } from "react-icons/si";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -30,17 +30,70 @@ function extractInviteCode(raw: string): string {
   return raw.toUpperCase().trim();
 }
 
+function useInAppBrowser() {
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  const isInApp = /(Instagram|FBAN|FBAV|WhatsApp|Snapchat|Twitter|LinkedIn|TikTok)/i.test(ua);
+  const isChromeIOS = /CriOS/.test(ua);
+  const isIOS = /iPad|iPhone|iPod/.test(ua);
+  const isAndroid = /Android/.test(ua);
+  const needsRealBrowser = isInApp || (isChromeIOS && isIOS);
+  return { isInApp, isChromeIOS, isIOS, isAndroid, needsRealBrowser };
+}
+
+function InAppBrowserWarning() {
+  const [copied, setCopied] = useState(false);
+  const { isIOS } = useInAppBrowser();
+
+  const copyLink = () => {
+    navigator.clipboard.writeText("https://sharedledger.app/auth").then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    });
+  };
+
+  return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 mb-2">
+      <div className="flex items-start gap-3">
+        <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+        <div className="flex-1 space-y-2">
+          <p className="text-sm font-semibold text-amber-800">Google sign-in won't work here</p>
+          <p className="text-xs text-amber-700 leading-relaxed">
+            You're in an in-app browser (Snapchat, WhatsApp, Instagram, etc.). Google blocks sign-in from these for security reasons.
+            {isIOS
+              ? ' Tap the ··· menu or browser icon and choose "Open in Safari", then sign in.'
+              : ' Tap the ··· menu and choose "Open in Chrome" or copy the link below.'}
+          </p>
+          <button
+            onClick={copyLink}
+            className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+            data-testid="button-copy-auth-link"
+          >
+            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? "Copied!" : "Copy link to open in browser"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function OAuthButtons() {
+  const { needsRealBrowser } = useInAppBrowser();
+
   return (
     <div className="space-y-3">
-      <a
-        href="/api/auth/google"
-        className="flex items-center justify-center gap-3 w-full h-12 rounded-xl border border-border bg-white hover:bg-gray-50 text-gray-700 font-medium transition-all shadow-sm"
-        data-testid="button-google-signin"
-      >
-        <SiGoogle className="w-5 h-5" style={{ color: "#4285F4" }} />
-        Continue with Google
-      </a>
+      {needsRealBrowser ? (
+        <InAppBrowserWarning />
+      ) : (
+        <a
+          href="/api/auth/google"
+          className="flex items-center justify-center gap-3 w-full h-12 rounded-xl border border-border bg-white hover:bg-gray-50 text-gray-700 font-medium transition-all shadow-sm"
+          data-testid="button-google-signin"
+        >
+          <SiGoogle className="w-5 h-5" style={{ color: "#4285F4" }} />
+          Continue with Google
+        </a>
+      )}
       <div className="relative my-4">
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-border" />
