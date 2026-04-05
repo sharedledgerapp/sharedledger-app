@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, Wallet, Trophy, PieChart, Settings, BarChart3, MessageCircle } from "lucide-react";
+import { Home, Wallet, Users, Trophy, PieChart, Shield, Settings, BarChart3, MessageCircle } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,7 @@ export function BottomNav() {
     { href: "/app", label: t("home"), icon: Home, groupTab: false },
     { href: "/app/expenses", label: t("expenses"), icon: Wallet, groupTab: false },
     { href: "/app/goals", label: t("goals"), icon: Trophy, groupTab: false },
+    { href: groupHref, label: t("group"), icon: Users, groupTab: true },
   ];
 
   return (
@@ -115,6 +116,12 @@ export function Layout({ children }: { children: ReactNode }) {
           </Link>
           <Link href="/app/goals" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
             <Trophy className="w-5 h-5" /> {t("goals")}
+          </Link>
+          <Link href="/app/family" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
+            <Users className="w-5 h-5" /> {t("group")}
+          </Link>
+          <Link href="/app/family-dashboard" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
+            <Shield className="w-5 h-5" /> {t("dashboard")}
           </Link>
           <Link href="/app/reports" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors" data-testid="link-reports-desktop">
             <BarChart3 className="w-5 h-5" /> {t("reports")}
