@@ -30,19 +30,16 @@ function extractInviteCode(raw: string): string {
   return raw.toUpperCase().trim();
 }
 
-function useInAppBrowser() {
+function useAndroidWebView() {
   const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
-  const isInApp = /(Instagram|FBAN|FBAV|WhatsApp|Snapchat|Twitter|LinkedIn|TikTok)/i.test(ua);
-  const isChromeIOS = /CriOS/.test(ua);
-  const isIOS = /iPad|iPhone|iPod/.test(ua);
+  // Android WebView is identified by the `wv` flag or FB_IAB patterns on Android
   const isAndroid = /Android/.test(ua);
-  const needsRealBrowser = isInApp || (isChromeIOS && isIOS);
-  return { isInApp, isChromeIOS, isIOS, isAndroid, needsRealBrowser };
+  const isWebView = isAndroid && (/; wv\)/.test(ua) || /FBAN|FBAV|FB_IAB/.test(ua));
+  return { isWebView, isAndroid };
 }
 
-function InAppBrowserWarning() {
+function AndroidWebViewWarning() {
   const [copied, setCopied] = useState(false);
-  const { isIOS } = useInAppBrowser();
 
   const copyLink = () => {
     navigator.clipboard.writeText("https://sharedledger.app/auth").then(() => {
@@ -58,10 +55,7 @@ function InAppBrowserWarning() {
         <div className="flex-1 space-y-2">
           <p className="text-sm font-semibold text-amber-800">Google sign-in won't work here</p>
           <p className="text-xs text-amber-700 leading-relaxed">
-            You're in an in-app browser (Snapchat, WhatsApp, Instagram, etc.). Google blocks sign-in from these for security reasons.
-            {isIOS
-              ? ' Tap the ··· menu or browser icon and choose "Open in Safari", then sign in.'
-              : ' Tap the ··· menu and choose "Open in Chrome" or copy the link below.'}
+            Google blocks sign-in from in-app browsers on Android. Tap the ··· menu and choose <strong>"Open in Chrome"</strong>, or copy the link and paste it in Chrome.
           </p>
           <button
             onClick={copyLink}
@@ -69,7 +63,7 @@ function InAppBrowserWarning() {
             data-testid="button-copy-auth-link"
           >
             {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-            {copied ? "Copied!" : "Copy link to open in browser"}
+            {copied ? "Copied!" : "Copy link to open in Chrome"}
           </button>
         </div>
       </div>
@@ -78,12 +72,12 @@ function InAppBrowserWarning() {
 }
 
 function OAuthButtons() {
-  const { needsRealBrowser } = useInAppBrowser();
+  const { isWebView } = useAndroidWebView();
 
   return (
     <div className="space-y-3">
-      {needsRealBrowser ? (
-        <InAppBrowserWarning />
+      {isWebView ? (
+        <AndroidWebViewWarning />
       ) : (
         <a
           href="/api/auth/google"
