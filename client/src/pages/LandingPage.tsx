@@ -30,6 +30,7 @@ import {
   RefreshCw,
   Layers,
   MessageSquareHeart,
+  AlertTriangle,
 } from "lucide-react";
 
 function UseCaseCard({ icon: Icon, title, description }: { icon: LucideIcon; title: string; description: string }) {
@@ -484,6 +485,13 @@ export default function LandingPage() {
           <div className="text-center mb-14">
             <h2 className="font-display font-bold text-3xl md:text-4xl text-foreground mb-4">{t("landingInstallTitle")}</h2>
             <p className="text-muted-foreground text-lg">{t("landingInstallSubtitle")}</p>
+          </div>
+          {/* iPhone in-app browser tip */}
+          <div className="mb-6 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
+            <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-800 leading-relaxed">
+              <strong>iPhone users:</strong> If you clicked this link inside WhatsApp, Snapchat, or Instagram, you are in their built-in browser — not Safari. The "Add to Home Screen" option will not appear. Tap <strong>···</strong> or the browser icon and choose <strong>"Open in Safari"</strong> first.
+            </p>
           </div>
           <div className="grid md:grid-cols-2 gap-8">
             {/* iPhone */}
