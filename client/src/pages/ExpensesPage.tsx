@@ -1120,7 +1120,6 @@ function CreateExpenseDialog({
 
   const handleSubmit = async () => {
     if (amount === "0") return;
-    if (!user?.familyId) return;
 
     let receiptUrl = editingExpense?.receiptUrl;
     if (file) {
@@ -1148,14 +1147,18 @@ function CreateExpenseDialog({
       }
     }
 
+    const effectivePaymentSource = user.familyId ? paymentSource : "personal";
+    const effectiveIsPublic = user.familyId ? (isPublic || paymentSource === "family") : false;
+    const effectiveVisibility = effectiveIsPublic ? "public" : "private";
+
     const expenseData: any = {
       userId: user.id,
       amount,
       category,
       note,
-      visibility: (isPublic || paymentSource === "family" ? "public" : "private") as "public" | "private",
-      paymentSource,
-      splitType: paymentSource === "family" ? splitType : "none",
+      visibility: effectiveVisibility as "public" | "private",
+      paymentSource: effectivePaymentSource,
+      splitType: effectivePaymentSource === "family" ? splitType : "none",
       paidByUserId: user.id,
       receiptUrl,
       date: editingExpense ? editingExpense.date : new Date().toISOString(),
@@ -1186,7 +1189,7 @@ function CreateExpenseDialog({
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending || uploadMutation.isPending;
-  const canSubmit = amount !== "0" && !!user?.familyId;
+  const canSubmit = amount !== "0";
 
   const handleCurrencyConfirm = async () => {
     await updateCurrencyMutation.mutateAsync(selectedCurrency);
@@ -1251,11 +1254,6 @@ function CreateExpenseDialog({
             </Card>
           )}
 
-          {!user?.familyId && (
-            <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-xl font-medium">
-              You must belong to a group to add expenses.
-            </div>
-          )}
           <div className="text-center py-4">
             <span className="text-4xl font-bold font-display text-primary">{getCurrencySymbolLocal()}{amount}</span>
           </div>
@@ -1320,40 +1318,44 @@ function CreateExpenseDialog({
                   <Wallet className="w-4 h-4" />
                   <span className="font-medium">{t("myMoney")}</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentSource("family")}
-                  className={cn(
-                    "flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all",
-                    paymentSource === "family"
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-background hover:bg-muted text-muted-foreground"
-                  )}
-                  data-testid="button-payment-family"
-                >
-                  <Users className="w-4 h-4" />
-                  <span className="font-medium">{familyData?.family?.groupType === "couple" ? "Our Wallet" : t("familyMoney")}</span>
-                </button>
+                {user?.familyId && (
+                  <button
+                    type="button"
+                    onClick={() => setPaymentSource("family")}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all",
+                      paymentSource === "family"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-background hover:bg-muted text-muted-foreground"
+                    )}
+                    data-testid="button-payment-family"
+                  >
+                    <Users className="w-4 h-4" />
+                    <span className="font-medium">{familyData?.family?.groupType === "couple" ? "Our Wallet" : t("familyMoney")}</span>
+                  </button>
+                )}
               </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between bg-muted/20 p-4 rounded-xl border border-border/50">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="public-mode" className="font-medium">{familyData?.family?.groupType === "couple" ? "Shared with Partner" : "Share with Group"}</Label>
+            {user?.familyId && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between bg-muted/20 p-4 rounded-xl border border-border/50">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="public-mode" className="font-medium">{familyData?.family?.groupType === "couple" ? "Shared with Partner" : "Share with Group"}</Label>
+                  </div>
+                  <Switch id="public-mode" checked={isPublic || paymentSource === "family"} onCheckedChange={setIsPublic} disabled={paymentSource === "family"} data-testid="switch-share-family" />
                 </div>
-                <Switch id="public-mode" checked={isPublic || paymentSource === "family"} onCheckedChange={setIsPublic} disabled={paymentSource === "family"} data-testid="switch-share-family" />
+                {paymentSource !== "family" && (
+                  <p className="text-xs text-muted-foreground px-1">
+                    {familyData?.family?.groupType === "couple"
+                      ? "Only expenses you choose to share will appear on the household dashboard."
+                      : "Only expenses you choose to share with your group will appear in the group dashboard."}
+                  </p>
+                )}
               </div>
-              {paymentSource !== "family" && (
-                <p className="text-xs text-muted-foreground px-1">
-                  {familyData?.family?.groupType === "couple"
-                    ? "Only expenses you choose to share will appear on the household dashboard."
-                    : "Only expenses you choose to share with your group will appear in the group dashboard."}
-                </p>
-              )}
-            </div>
+            )}
 
-            {paymentSource === "family" && (
+            {user?.familyId && paymentSource === "family" && (
               <div className="space-y-3 border border-primary/20 rounded-xl p-4 bg-primary/5" data-testid="section-split-options">
                 <Label className="text-sm font-semibold">{t("splitMethod")}</Label>
                 <div className="grid grid-cols-3 gap-2">
