@@ -103,6 +103,26 @@ export default function ExpensesPage() {
   const [moneyTab, setMoneyTab] = useState<"out" | "in">(initialTab);
   const [view, setView] = useState<"everyday" | "recurring">("everyday");
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("openCreate") === "true") {
+      const tab = params.get("tab");
+      if (tab === "in") {
+        setMoneyTab("in");
+        setShowIncomeDialog(true);
+      } else {
+        setMoneyTab("out");
+        setIsCreateOpen(true);
+      }
+      params.delete("openCreate");
+      params.delete("tab");
+      const newSearch = params.toString();
+      const newUrl = window.location.pathname + (newSearch ? `?${newSearch}` : "");
+      window.history.replaceState(null, "", newUrl);
+    }
+  }, []);
+
   // Income state
   const { data: incomeEntries, isLoading: incomeLoading } = useQuery<IncomeEntry[]>({
     queryKey: ["/api/income"],

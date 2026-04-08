@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Plus, Wallet, TrendingUp, Star, ArrowUpRight, ArrowDownRight, ChevronRight, Flag, Target, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, PiggyBank, Clock, Globe, Bell, Sparkles, X, Banknote } from "lucide-react";
+import { Plus, Wallet, TrendingUp, Star, ArrowUpRight, ArrowDownRight, ChevronRight, Flag, Target, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, PiggyBank, Clock, Globe, Bell, Sparkles, X, Banknote, ArrowDownLeft } from "lucide-react";
 import { Link, useLocation } from "wouter";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, differenceInDays, startOfMonth, endOfMonth } from "date-fns";
 import { sortGoalsByPriority } from "@/lib/goals";
@@ -221,11 +222,32 @@ export default function HomePage() {
           </h1>
           <p className="text-muted-foreground mt-1">{t("financialSnapshot")}</p>
         </div>
-        <Link href="/app/expenses">
-          <Button size="icon" className="rounded-full shadow-lg shadow-primary/25" data-tutorial="add-expense-button">
-            <Plus className="w-6 h-6" />
-          </Button>
-        </Link>
+        <DropdownMenu>
+          <div className="relative">
+            <span className="absolute inset-0 rounded-full bg-primary animate-ring-pulse pointer-events-none" />
+            <DropdownMenuTrigger asChild>
+              <Button size="icon" className="rounded-full shadow-lg shadow-primary/25 relative" data-tutorial="add-expense-button" data-testid="button-quick-add">
+                <Plus className="w-6 h-6" />
+              </Button>
+            </DropdownMenuTrigger>
+          </div>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem
+              onClick={() => navigate("/app/expenses?openCreate=true")}
+              data-testid="dropdown-item-expense"
+            >
+              <ArrowDownLeft className="w-4 h-4 mr-2 text-destructive" />
+              Expense
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => navigate("/app/expenses?tab=in&openCreate=true")}
+              data-testid="dropdown-item-income"
+            >
+              <TrendingUp className="w-4 h-4 mr-2 text-green-500" />
+              Income
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
