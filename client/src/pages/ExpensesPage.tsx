@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, ScanLine, Check, X, DollarSign, Trash2, Wallet, Repeat, Pause, Play, Settings, Search, Globe, ChevronDown, ChevronRight, Archive } from "lucide-react";
+import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, ScanLine, Check, X, DollarSign, Trash2, Wallet, Repeat, Pause, Play, Settings, Search, Globe, ChevronDown, ChevronRight, Archive, TrendingUp, Banknote } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Keypad } from "@/components/Keypad";
 import { format } from "date-fns";
@@ -24,7 +24,18 @@ import { DEFAULT_CATEGORIES, DEFAULT_RECURRING_CATEGORIES } from "@/pages/Settin
 import { Link, useLocation } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import type { RecurringExpense } from "@shared/schema";
+import type { RecurringExpense, IncomeEntry } from "@shared/schema";
+
+const INCOME_SOURCES = ["Family / Parents", "Work", "Gift or Unexpected", "Scholarship or Grant", "Other"] as const;
+type IncomeSource = typeof INCOME_SOURCES[number];
+
+const sourceEmoji: Record<IncomeSource, string> = {
+  "Family / Parents": "👨‍👩‍👧",
+  "Work": "💼",
+  "Gift or Unexpected": "🎁",
+  "Scholarship or Grant": "🎓",
+  "Other": "💰",
+};
 
 const FREQUENCIES = ["monthly", "quarterly", "yearly"] as const;
 
@@ -88,7 +99,114 @@ export default function ExpensesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  const initialTab = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "in" ? "in" : "out";
+  const [moneyTab, setMoneyTab] = useState<"out" | "in">(initialTab);
   const [view, setView] = useState<"everyday" | "recurring">("everyday");
+
+  // Income state
+  const { data: incomeEntries, isLoading: incomeLoading } = useQuery<IncomeEntry[]>({
+    queryKey: ["/api/income"],
+  });
+
+  const [showIncomeDialog, setShowIncomeDialog] = useState(false);
+  const [editingIncome, setEditingIncome] = useState<IncomeEntry | null>(null);
+  const [incomeForm, setIncomeForm] = useState({
+    amount: "",
+    source: "Work" as IncomeSource,
+    note: "",
+    date: new Date().toISOString().split("T")[0],
+    isRecurring: false,
+    recurringInterval: "monthly" as "weekly" | "monthly" | "tri-monthly",
+  });
+
+  function resetIncomeForm() {
+    setShowIncomeDialog(false);
+    setEditingIncome(null);
+    setIncomeForm({
+      amount: "",
+      source: "Work",
+      note: "",
+      date: new Date().toISOString().split("T")[0],
+      isRecurring: false,
+      recurringInterval: "monthly",
+    });
+  }
+
+  function openEditIncomeDialog(entry: IncomeEntry) {
+    setEditingIncome(entry);
+    setIncomeForm({
+      amount: String(entry.amount),
+      source: entry.source as IncomeSource,
+      note: entry.note || "",
+      date: new Date(entry.date).toISOString().split("T")[0],
+      isRecurring: entry.isRecurring,
+      recurringInterval: (entry.recurringInterval as "weekly" | "monthly" | "tri-monthly") || "monthly",
+    });
+    setShowIncomeDialog(true);
+  }
+
+  const createIncomeMutation = useMutation({
+    mutationFn: async (data: typeof incomeForm) => {
+      const res = await apiRequest("POST", "/api/income", {
+        amount: data.amount,
+        source: data.source,
+        note: data.note || null,
+        date: data.date,
+        isRecurring: data.isRecurring,
+        recurringInterval: data.isRecurring ? data.recurringInterval : null,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/income"] });
+      qc.invalidateQueries({ queryKey: ["/api/spending/summary"] });
+      toast({ title: "Income added" });
+      resetIncomeForm();
+    },
+    onError: () => toast({ title: "Failed to add income", variant: "destructive" }),
+  });
+
+  const updateIncomeMutation = useMutation({
+    mutationFn: async ({ id, ...data }: typeof incomeForm & { id: number }) => {
+      const res = await apiRequest("PATCH", `/api/income/${id}`, {
+        amount: data.amount,
+        source: data.source,
+        note: data.note || null,
+        date: data.date,
+        isRecurring: data.isRecurring,
+        recurringInterval: data.isRecurring ? data.recurringInterval : null,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/income"] });
+      qc.invalidateQueries({ queryKey: ["/api/spending/summary"] });
+      toast({ title: "Income updated" });
+      resetIncomeForm();
+    },
+    onError: () => toast({ title: "Failed to update income", variant: "destructive" }),
+  });
+
+  const deleteIncomeMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/income/${id}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/income"] });
+      qc.invalidateQueries({ queryKey: ["/api/spending/summary"] });
+      toast({ title: "Income deleted" });
+    },
+    onError: () => toast({ title: "Failed to delete income", variant: "destructive" }),
+  });
+
+  function handleSubmitIncome() {
+    if (!incomeForm.amount || Number(incomeForm.amount) <= 0) return;
+    if (editingIncome) {
+      updateIncomeMutation.mutate({ ...incomeForm, id: editingIncome.id });
+    } else {
+      createIncomeMutation.mutate(incomeForm);
+    }
+  }
   const [showRecurringDialog, setShowRecurringDialog] = useState(false);
   const [editingRecurring, setEditingRecurring] = useState<RecurringExpense | null>(null);
   const [recurringForm, setRecurringForm] = useState({
@@ -315,7 +433,7 @@ export default function ExpensesPage() {
   return (
     <div className="space-y-6 pb-20">
       <div className="flex justify-between items-center gap-2">
-        {searchOpen && view === "everyday" ? (
+        {searchOpen && moneyTab === "out" && view === "everyday" ? (
           <div className="flex items-center gap-2 flex-1 animate-in slide-in-from-right-4 duration-200">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -350,9 +468,9 @@ export default function ExpensesPage() {
           </div>
         ) : (
           <>
-            <h1 className="font-display font-bold text-3xl">{t("expenses")}</h1>
+            <h1 className="font-display font-bold text-3xl">Money</h1>
             <div className="flex items-center gap-2">
-              {view === "everyday" && (
+              {moneyTab === "out" && view === "everyday" && (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -365,12 +483,12 @@ export default function ExpensesPage() {
                   <Search className="w-5 h-5" />
                 </Button>
               )}
-              {view === "everyday" && (
+              {moneyTab === "out" && view === "everyday" && (
                 <Button onClick={() => setIsCreateOpen(true)} className="rounded-full shadow-lg shadow-primary/25" data-testid="button-add-expense">
                   <Plus className="w-5 h-5 mr-2" /> Add New
                 </Button>
               )}
-              {view === "recurring" && (
+              {moneyTab === "out" && view === "recurring" && (
                 <Button
                   onClick={() => { resetRecurringForm(); setShowRecurringDialog(true); }}
                   className="rounded-full shadow-lg shadow-primary/25"
@@ -379,11 +497,61 @@ export default function ExpensesPage() {
                   <Plus className="w-5 h-5 mr-2" /> {t("addRecurring")}
                 </Button>
               )}
+              {moneyTab === "in" && (
+                <Button
+                  onClick={() => { resetIncomeForm(); setShowIncomeDialog(true); }}
+                  className="rounded-full shadow-lg shadow-primary/25"
+                  data-testid="button-add-income"
+                >
+                  <Plus className="w-5 h-5 mr-2" /> Add Income
+                </Button>
+              )}
             </div>
           </>
         )}
       </div>
 
+      {/* Top-level Money In / Money Out toggle */}
+      <div className="flex gap-2">
+        <Button
+          variant={moneyTab === "out" ? "default" : "outline"}
+          size="sm"
+          onClick={() => { setMoneyTab("out"); captureEvent("money_tab_switched", { tab: "out" }); }}
+          data-testid="button-money-out-tab"
+          className="flex-1"
+        >
+          <Wallet className="w-4 h-4 mr-1.5" />
+          Money Out
+        </Button>
+        <Button
+          variant={moneyTab === "in" ? "default" : "outline"}
+          size="sm"
+          onClick={() => { setMoneyTab("in"); captureEvent("money_tab_switched", { tab: "in" }); }}
+          data-testid="button-money-in-tab"
+          className="flex-1"
+        >
+          <TrendingUp className="w-4 h-4 mr-1.5" />
+          Money In
+        </Button>
+      </div>
+
+      {moneyTab === "in" ? (
+        <MoneyInSection
+          incomeEntries={incomeEntries || []}
+          incomeLoading={incomeLoading}
+          currencySymbol={currencySymbol}
+          user={user}
+          onEdit={openEditIncomeDialog}
+          onDelete={(id) => {
+            if (confirm("Delete this income entry?")) {
+              deleteIncomeMutation.mutate(id);
+            }
+          }}
+          onAdd={() => { resetIncomeForm(); setShowIncomeDialog(true); }}
+        />
+      ) : (
+        <>
+      {/* Money Out: Everyday / Recurring sub-tabs */}
       <div className="flex gap-2">
         <Button
           variant={view === "everyday" ? "default" : "outline"}
@@ -840,6 +1008,106 @@ export default function ExpensesPage() {
           )}
         </div>
       )}
+        </>
+      )}
+
+      {/* Income Entry Dialog */}
+      <Dialog open={showIncomeDialog} onOpenChange={(open) => { if (!open) resetIncomeForm(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle data-testid="text-income-dialog-title">
+              {editingIncome ? "Edit Income" : "Add Income"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Amount</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={incomeForm.amount}
+                onChange={(e) => setIncomeForm(f => ({ ...f, amount: e.target.value }))}
+                placeholder="0.00"
+                data-testid="input-income-amount"
+              />
+            </div>
+            <div>
+              <Label>Source</Label>
+              <Select
+                value={incomeForm.source}
+                onValueChange={(v) => setIncomeForm(f => ({ ...f, source: v as IncomeSource }))}
+              >
+                <SelectTrigger data-testid="select-income-source">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {INCOME_SOURCES.map((src) => (
+                    <SelectItem key={src} value={src} data-testid={`option-source-${src.toLowerCase().replace(/\s+/g, "-")}`}>
+                      {sourceEmoji[src]} {src}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Date</Label>
+              <Input
+                type="date"
+                value={incomeForm.date}
+                onChange={(e) => setIncomeForm(f => ({ ...f, date: e.target.value }))}
+                data-testid="input-income-date"
+              />
+            </div>
+            <div>
+              <Label className="text-muted-foreground text-sm">Note (optional)</Label>
+              <Input
+                value={incomeForm.note}
+                onChange={(e) => setIncomeForm(f => ({ ...f, note: e.target.value }))}
+                placeholder="Add a note..."
+                data-testid="input-income-note"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label>Recurring</Label>
+              <Switch
+                checked={incomeForm.isRecurring}
+                onCheckedChange={(v) => setIncomeForm(f => ({ ...f, isRecurring: v }))}
+                data-testid="switch-income-recurring"
+              />
+            </div>
+            {incomeForm.isRecurring && (
+              <div>
+                <Label>Interval</Label>
+                <Select
+                  value={incomeForm.recurringInterval}
+                  onValueChange={(v) => setIncomeForm(f => ({ ...f, recurringInterval: v as "weekly" | "monthly" | "tri-monthly" }))}
+                >
+                  <SelectTrigger data-testid="select-income-interval">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="tri-monthly">Every 3 months</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={resetIncomeForm} data-testid="button-cancel-income">Cancel</Button>
+            <Button
+              onClick={handleSubmitIncome}
+              disabled={!incomeForm.amount || Number(incomeForm.amount) <= 0 || createIncomeMutation.isPending || updateIncomeMutation.isPending}
+              data-testid="button-save-income"
+            >
+              {(createIncomeMutation.isPending || updateIncomeMutation.isPending) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {editingIncome ? "Update" : "Add Income"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showRecurringDialog} onOpenChange={(open) => { if (!open) resetRecurringForm(); }}>
         <DialogContent className="max-w-md">
@@ -1534,6 +1802,91 @@ function CreateExpenseDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+interface MoneyInSectionProps {
+  incomeEntries: IncomeEntry[];
+  incomeLoading: boolean;
+  currencySymbol: string;
+  user: any;
+  onEdit: (entry: IncomeEntry) => void;
+  onDelete: (id: number) => void;
+  onAdd: () => void;
+}
+
+function MoneyInSection({ incomeEntries, incomeLoading, currencySymbol, user, onEdit, onDelete, onAdd }: MoneyInSectionProps) {
+  if (incomeLoading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map(i => <div key={i} className="h-16 bg-muted animate-pulse rounded-xl" />)}
+      </div>
+    );
+  }
+
+  if (incomeEntries.length === 0) {
+    return (
+      <div className="text-center py-20 bg-muted/20 rounded-2xl border-2 border-dashed border-muted">
+        <Banknote className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
+        <p className="text-muted-foreground font-medium mb-1">No income logged yet</p>
+        <p className="text-xs text-muted-foreground mb-4">Track money you receive to see your net position</p>
+        <Button variant="ghost" onClick={onAdd} data-testid="button-add-first-income">
+          <Plus className="w-4 h-4 mr-1" /> Add your first income
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3" data-testid="income-list">
+      {incomeEntries.map((entry) => (
+        <div
+          key={entry.id}
+          className="bg-white dark:bg-card p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between group hover:border-primary/30 transition-colors"
+          data-testid={`income-entry-${entry.id}`}
+        >
+          <div className="flex items-center gap-3 flex-1">
+            <div className="w-12 h-12 rounded-2xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center text-2xl group-hover:scale-105 transition-transform">
+              {sourceEmoji[entry.source as IncomeSource] || "💰"}
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">{entry.source}</p>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                <span>{format(new Date(entry.date), "MMM d, yyyy")}</span>
+                {entry.isRecurring && (
+                  <Badge variant="secondary" className="gap-1">
+                    <Repeat className="w-3 h-3" />
+                    {entry.recurringInterval || "recurring"}
+                  </Badge>
+                )}
+                {entry.note && <span className="text-muted-foreground truncate max-w-[120px]">{entry.note}</span>}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="font-bold text-lg text-green-600 dark:text-green-400">+{currencySymbol}{toFixedAmount(Number(entry.amount), user?.currency)}</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-primary"
+              onClick={() => onEdit(entry)}
+              data-testid={`button-edit-income-${entry.id}`}
+            >
+              <Pencil className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+              onClick={() => onDelete(entry.id)}
+              data-testid={`button-delete-income-${entry.id}`}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 

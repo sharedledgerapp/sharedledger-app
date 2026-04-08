@@ -334,6 +334,19 @@ export const pushNotificationLog = pgTable("push_notification_log", {
   sentAt: timestamp("sent_at").defaultNow().notNull(),
 });
 
+export const incomeEntries = pgTable("income_entries", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  familyId: integer("family_id").references(() => families.id),
+  amount: numeric("amount").notNull(),
+  source: text("source", { enum: ["Family / Parents", "Work", "Gift or Unexpected", "Scholarship or Grant", "Other"] }).notNull(),
+  note: text("note"),
+  date: timestamp("date").defaultNow().notNull(),
+  isRecurring: boolean("is_recurring").default(false).notNull(),
+  recurringInterval: text("recurring_interval", { enum: ["weekly", "monthly", "tri-monthly"] }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const friendGroupMembersRelations = relations(friendGroupMembers, ({ one }) => ({
   group: one(families, {
     fields: [friendGroupMembers.groupId],
@@ -359,6 +372,17 @@ export const pushNotificationLogRelations = relations(pushNotificationLog, ({ on
   }),
 }));
 
+export const incomeEntriesRelations = relations(incomeEntries, ({ one }) => ({
+  user: one(users, {
+    fields: [incomeEntries.userId],
+    references: [users.id],
+  }),
+  family: one(families, {
+    fields: [incomeEntries.familyId],
+    references: [families.id],
+  }),
+}));
+
 // === ZOD SCHEMAS ===
 
 export const insertFamilySchema = createInsertSchema(families).omit({ id: true, createdAt: true });
@@ -377,6 +401,7 @@ export const insertBudgetSchema = createInsertSchema(budgets).omit({ id: true, c
 export const insertBudgetSetupPromptSchema = createInsertSchema(budgetSetupPrompts).omit({ id: true, createdAt: true });
 export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({ id: true, createdAt: true });
 export const insertFriendGroupMemberSchema = createInsertSchema(friendGroupMembers).omit({ id: true, joinedAt: true });
+export const insertIncomeEntrySchema = createInsertSchema(incomeEntries).omit({ id: true, createdAt: true });
 
 // === TYPES ===
 
@@ -398,6 +423,7 @@ export type BudgetSetupPrompt = typeof budgetSetupPrompts.$inferSelect;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type PushNotificationLog = typeof pushNotificationLog.$inferSelect;
 export type FriendGroupMember = typeof friendGroupMembers.$inferSelect;
+export type IncomeEntry = typeof incomeEntries.$inferSelect;
 
 export type InsertFamily = z.infer<typeof insertFamilySchema>;
 export type InsertGroup = InsertFamily;
@@ -415,6 +441,7 @@ export type InsertBudget = z.infer<typeof insertBudgetSchema>;
 export type InsertBudgetSetupPrompt = z.infer<typeof insertBudgetSetupPromptSchema>;
 export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
 export type InsertFriendGroupMember = z.infer<typeof insertFriendGroupMemberSchema>;
+export type InsertIncomeEntry = z.infer<typeof insertIncomeEntrySchema>;
 
 // Request types
 export type CreateExpenseRequest = InsertExpense;

@@ -3,7 +3,7 @@ import { db } from "./db";
 import { 
   users, families, expenses, goals, allowances, expenseSplits, goalApprovals,
   messages, notes, messageReadStatus, recurringExpenses, budgets, budgetSetupPrompts,
-  settlements, pushSubscriptions, pushNotificationLog, friendGroupMembers,
+  settlements, pushSubscriptions, pushNotificationLog, friendGroupMembers, incomeEntries,
   type User, type InsertUser, type Family, type InsertFamily,
   type Expense, type InsertExpense, type Goal, type InsertGoal,
   type GoalApproval, type InsertGoalApproval,
@@ -12,7 +12,8 @@ import {
   type Message, type InsertMessage, type Note, type InsertNote, type MessageReadStatus,
   type RecurringExpense, type InsertRecurringExpense,
   type Budget, type InsertBudget, type BudgetSetupPrompt, type InsertBudgetSetupPrompt,
-  type Settlement, type InsertSettlement, type FriendGroupMember
+  type Settlement, type InsertSettlement, type FriendGroupMember,
+  type IncomeEntry, type InsertIncomeEntry
 } from "@shared/schema";
 import { eq, and, desc, or, ne, gte, lte, sql, inArray, aliasedTable } from "drizzle-orm";
 import session from "express-session";
@@ -110,6 +111,13 @@ export interface IStorage {
   deletePushSubscription(userId: number, endpoint: string): Promise<void>;
   getPushSubscriptionsForUser(userId: number): Promise<{ endpoint: string; p256dh: string; auth: string }[]>;
   getAllPushSubscriptions(): Promise<{ userId: number; endpoint: string; p256dh: string; auth: string }[]>;
+
+  // Income Entries
+  getIncomeEntries(userId: number): Promise<IncomeEntry[]>;
+  createIncomeEntry(entry: InsertIncomeEntry): Promise<IncomeEntry>;
+  updateIncomeEntry(id: number, updates: Partial<InsertIncomeEntry>): Promise<IncomeEntry>;
+  deleteIncomeEntry(id: number): Promise<void>;
+  getMonthlyIncomeTotal(userId: number, monthStart: Date, monthEnd: Date): Promise<number>;
 
   // Friend Groups
   getFriendGroupExpenses(groupId: number): Promise<(Expense & { splits: ExpenseSplit[] })[]>;
@@ -956,6 +964,69 @@ export class DatabaseStorage implements IStorage {
       await tx.delete(expenseSplits).where(inArray(expenseSplits.expenseId, expenseIds));
       await tx.delete(expenses).where(inArray(expenses.id, expenseIds));
     });
+  }
+
+  // Income Entries
+  async getIncomeEntries(userId: number): Promise<IncomeEntry[]> {
+    return db.select().from(incomeEntries)
+      .where(eq(incomeEntries.userId, userId))
+      .orderBy(desc(incomeEntries.date));
+  }
+
+  async createIncomeEntry(entry: InsertIncomeEntry): Promise<IncomeEntry> {
+    const [created] = await db.insert(incomeEntries).values(entry).returning();
+    return created;
+  }
+
+  async updateIncomeEntry(id: number, updates: Partial<InsertIncomeEntry>): Promise<IncomeEntry> {
+    const [updated] = await db.update(incomeEntries).set(updates).where(eq(incomeEntries.id, id)).returning();
+    return updated;
+  }
+
+  async deleteIncomeEntry(id: number): Promise<void> {
+    await db.delete(incomeEntries).where(eq(incomeEntries.id, id));
+  }
+
+  async getMonthlyIncomeTotal(userId: number, monthStart: Date, monthEnd: Date): Promise<number> {
+    // Fetch all entries for this user — we need recurring ones too
+    const allEntries = await db.select().from(incomeEntries)
+      .where(eq(incomeEntries.userId, userId));
+
+    let total = 0;
+    for (const e of allEntries) {
+      const entryDate = new Date(e.date);
+      if (!e.isRecurring) {
+        // One-off: only count if date falls in the month window
+        if (entryDate >= monthStart && entryDate <= monthEnd) {
+          total += Number(e.amount);
+        }
+      } else {
+        // Recurring: count if entry started on or before the month end
+        if (entryDate <= monthEnd) {
+          const interval = e.recurringInterval || "monthly";
+          // Step forward from entryDate, accumulating every occurrence that falls in window
+          let occurrence = new Date(entryDate);
+          while (occurrence <= monthEnd) {
+            if (occurrence >= monthStart) {
+              total += Number(e.amount);
+            }
+            // Advance by interval
+            if (interval === "weekly") {
+              occurrence = new Date(occurrence.getTime() + 7 * 24 * 60 * 60 * 1000);
+            } else if (interval === "monthly") {
+              occurrence = new Date(occurrence);
+              occurrence.setMonth(occurrence.getMonth() + 1);
+            } else if (interval === "tri-monthly") {
+              occurrence = new Date(occurrence);
+              occurrence.setMonth(occurrence.getMonth() + 3);
+            } else {
+              break;
+            }
+          }
+        }
+      }
+    }
+    return total;
   }
 
   async getFriendGroupNetBalances(groupId: number): Promise<{ fromUserId: number; fromName: string; toUserId: number; toName: string; amount: number }[]> {

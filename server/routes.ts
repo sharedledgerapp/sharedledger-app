@@ -728,6 +728,10 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
     const combinedMonthlyTotal = currentMonthTotal + recurringMonthlyTotal;
 
+    const monthlyIncomeTotal = await storage.getMonthlyIncomeTotal(user.id, currentMonthStart, currentMonthEnd);
+    const incomeEntriesList = await storage.getIncomeEntries(user.id);
+    const hasIncomeEntries = incomeEntriesList.length > 0;
+
     res.json({
       currentMonthTotal: currentMonthTotal.toFixed(2),
       prevMonthTotal: prevMonthTotal.toFixed(2),
@@ -737,6 +741,8 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       recurringMonthlyTotal: recurringMonthlyTotal.toFixed(2),
       combinedMonthlyTotal: combinedMonthlyTotal.toFixed(2),
       crossCurrencyGroupExpenseCount,
+      monthlyIncomeTotal: monthlyIncomeTotal.toFixed(2),
+      hasIncomeEntries,
     });
   });
 
@@ -1195,6 +1201,90 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       note: data.note || null,
     });
     res.status(201).json(settlement);
+  });
+
+  // === INCOME ROUTES ===
+
+  app.get("/api/income", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const entries = await storage.getIncomeEntries(user.id);
+    res.json(entries);
+  });
+
+  app.post("/api/income", requireAuth, async (req, res, next) => {
+    try {
+      const user = req.user as any;
+      const body = req.body;
+      if (typeof body.date === "string") {
+        body.date = new Date(body.date);
+      }
+      const schema = z.object({
+        amount: z.string().or(z.number()).transform(v => String(v)),
+        source: z.enum(["Family / Parents", "Work", "Gift or Unexpected", "Scholarship or Grant", "Other"]),
+        note: z.string().optional().nullable(),
+        date: z.date().optional(),
+        isRecurring: z.boolean().optional().default(false),
+        recurringInterval: z.enum(["weekly", "monthly", "tri-monthly"]).optional().nullable(),
+      });
+      const data = schema.parse(body);
+      const entry = await storage.createIncomeEntry({
+        ...data,
+        userId: user.id,
+        familyId: null,
+        date: data.date || new Date(),
+        isRecurring: data.isRecurring ?? false,
+        recurringInterval: data.recurringInterval || null,
+      });
+      res.status(201).json(entry);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      next(err);
+    }
+  });
+
+  app.patch("/api/income/:id", requireAuth, async (req, res, next) => {
+    try {
+      const user = req.user as any;
+      const id = parseInt(req.params.id);
+      const entries = await storage.getIncomeEntries(user.id);
+      const existing = entries.find(e => e.id === id);
+      if (!existing) return res.status(404).json({ message: "Not found" });
+      if (existing.userId !== user.id) return res.status(403).json({ message: "Forbidden" });
+
+      const body = req.body;
+      if (typeof body.date === "string") {
+        body.date = new Date(body.date);
+      }
+      const schema = z.object({
+        amount: z.string().or(z.number()).transform(v => String(v)).optional(),
+        source: z.enum(["Family / Parents", "Work", "Gift or Unexpected", "Scholarship or Grant", "Other"]).optional(),
+        note: z.string().optional().nullable(),
+        date: z.date().optional(),
+        isRecurring: z.boolean().optional(),
+        recurringInterval: z.enum(["weekly", "monthly", "tri-monthly"]).optional().nullable(),
+      });
+      const updates = schema.parse(body);
+      const updated = await storage.updateIncomeEntry(id, updates);
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      next(err);
+    }
+  });
+
+  app.delete("/api/income/:id", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const id = parseInt(req.params.id);
+    const entries = await storage.getIncomeEntries(user.id);
+    const existing = entries.find(e => e.id === id);
+    if (!existing) return res.status(404).json({ message: "Not found" });
+    if (existing.userId !== user.id) return res.status(403).json({ message: "Forbidden" });
+    await storage.deleteIncomeEntry(id);
+    res.status(204).send();
   });
 
   // === EXPENSES ROUTES ===
