@@ -1,0 +1,73 @@
+Here is the brief for Task #52:
+
+Task #52: Individual Income Tracking — Money In
+Implementation Brief
+
+What This Feature Is
+
+A simple way for users to log money they receive, shown alongside existing expense tracking to produce a net monthly position: money in, money out, and the difference. The net figure is the primary value this feature adds to the home screen.
+
+Entry Flow — Keep It to Three Taps
+
+The income entry form should feel as light as adding an expense. Required fields only:
+
+Amount — numeric input, same pattern as expense entry
+Source category — single select, five options only:
+Family / Parents
+Work (covers salary, part-time, freelance, odd jobs)
+Gift or Unexpected
+Scholarship or Grant
+Other
+Date — defaults to today, editable but not forced
+Note — optional, single line, not prominent
+Recurring toggle — optional flag for regular income (weekly allowance, monthly salary). If enabled, ask for interval: weekly or monthly. The entry repeats automatically without user action.
+No employer fields, no gross versus net, no tax categories. Those belong in a different product.
+
+Home Screen Card
+
+The existing summary card should be extended to show three figures:
+
+Money In this month (sum of all income entries)
+Money Out this month (sum of all expense entries, as today)
+Net position (In minus Out) — this is the headline, shown largest
+If a user has not logged any income yet, the card shows only the existing spending view. The income line and net figure appear once the first income entry is made. No empty states, no prompts to fill in income unless the user visits the income section directly.
+
+Navigation and Access
+
+A dedicated section accessible from the home screen card (tap through to see the full income log)
+The add button for income entries should be reachable from this section without going through the expenses flow
+The income log is a simple list of entries: date, source label, amount, optional note — same visual pattern as the expense list
+Data Model Considerations
+
+A new income_entries table with the following fields:
+
+id — primary key
+userId — required, links to the user
+familyId — nullable, reserved for group use (see Notes below), not used in this task but should be present in the schema from the start
+amount — integer (cents/pence), same pattern as expenses
+source — enum or short string matching the five categories
+note — nullable text
+date — date, defaults to today
+isRecurring — boolean
+recurringInterval — nullable, "weekly" or "monthly"
+Important: Include familyId as a nullable column now even though it is unused in this task. This avoids a schema migration when group income is added later.
+
+What Is Out of Scope for This Task
+
+Group or household income visibility
+AI insights (separate task, depends on this data existing first)
+Bank integration or automatic import
+Cash flow chart (can follow once income data is being collected)
+Budget comparison for income (personal budgets are expense-side only for now)
+Notes: How This Leads to Group Income
+
+This task establishes the foundation. When group income is introduced in a later task, the path is straightforward:
+
+The familyId column on income_entries is set for entries that belong to a household
+The home screen card for a family or couple group shows combined income from all members who have logged entries
+Individual entries remain visible to the person who created them; group totals are visible to all group members
+Privacy settings will control whether individual amounts are visible to partners or whether only the combined household total is shown — that design decision is deferred to the group income task
+The net position on the group card becomes: combined household income minus combined shared expenses — the household financial picture
+For roommates, the income column stays null (income remains private); only shared expense contributions are relevant in that context
+For travel groups, the income column is repurposed to represent contributions to the group pool rather than personal earnings — handled as a separate variation when trip group features are expanded
+The schema choice to include familyId from day one means none of these later steps require altering the core table structure.
