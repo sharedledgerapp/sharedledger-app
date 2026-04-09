@@ -1347,12 +1347,11 @@ function CreateExpenseDialog({
   const [showReceiptConfirm, setShowReceiptConfirm] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedReceiptData | null>(null);
   const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
-  const [showCurrencyPrompt, setShowCurrencyPrompt] = useState(false);
-  const [selectedCurrency, setSelectedCurrency] = useState("USD");
-  
   const { user } = useAuth();
   const { data: familyData } = useFamily();
   const { t } = useLanguage();
+  const [showCurrencyPrompt, setShowCurrencyPrompt] = useState(false);
+  const [selectedCurrency, setSelectedCurrency] = useState((user as any)?.currency || "EUR");
   const createMutation = useCreateExpense();
   const updateMutation = useUpdateExpense();
   const uploadMutation = useUpload();
@@ -1380,6 +1379,12 @@ function CreateExpenseDialog({
       setShowCurrencyPrompt(true);
     }
   }, [open, isFirstExpense, editingExpense, user]);
+
+  useEffect(() => {
+    if ((user as any)?.currency) {
+      setSelectedCurrency((user as any).currency);
+    }
+  }, [user]);
 
   const scanReceiptMutation = useMutation({
     mutationFn: async (receiptFile: File) => {
@@ -1625,7 +1630,16 @@ function CreateExpenseDialog({
           )}
 
           <div className="text-center py-4">
-            <span className="text-4xl font-bold font-display text-primary">{getCurrencySymbolLocal()}{amount}</span>
+            <button
+              type="button"
+              onClick={() => setShowCurrencyPrompt(prev => !prev)}
+              className="text-4xl font-bold font-display text-primary hover:opacity-70 active:scale-95 transition-all"
+              title="Tap to change currency"
+              data-testid="button-change-currency"
+            >
+              {getCurrencySymbolLocal()}
+            </button>
+            <span className="text-4xl font-bold font-display text-primary">{amount}</span>
           </div>
 
           <div className="bg-muted/30 rounded-3xl p-2">

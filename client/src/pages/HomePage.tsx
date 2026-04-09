@@ -224,7 +224,7 @@ export default function HomePage() {
         </div>
         <DropdownMenu>
           <div className="relative">
-            <span className="absolute inset-0 rounded-full bg-primary animate-ring-pulse pointer-events-none" />
+            <span className="absolute inset-0 rounded-full bg-primary dark:bg-white animate-ring-pulse pointer-events-none" />
             <DropdownMenuTrigger asChild>
               <Button size="icon" className="rounded-full shadow-lg shadow-primary/25 relative" data-tutorial="add-expense-button" data-testid="button-quick-add">
                 <Plus className="w-6 h-6" />
