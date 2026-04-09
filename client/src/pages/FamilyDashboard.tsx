@@ -831,6 +831,7 @@ export default function FamilyDashboard() {
         <LogOut className="w-4 h-4 mr-2" />
         {t("leaveGroup")}
       </Button>
+      <p className="text-xs text-center text-muted-foreground -mt-1 px-4">{t("leaveGroupDataNotice")}</p>
 
       <Dialog open={leaveDialog} onOpenChange={setLeaveDialog}>
         <DialogContent className="max-w-sm rounded-2xl">

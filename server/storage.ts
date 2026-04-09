@@ -31,7 +31,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   getAllUsersWithEmail(): Promise<{ id: number; name: string; email: string }[]>;
   createUser(user: InsertUser & { familyId?: number; googleId?: string | null; appleId?: string | null }): Promise<User>;
-  updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId' | 'onboardingCompleted' | 'includeQuickGroupInSummary'>>): Promise<User>;
+  updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId' | 'onboardingCompleted' | 'includeQuickGroupInSummary' | 'incomeSources'>>): Promise<User>;
   deleteUser(id: number): Promise<void>;
   setPasswordResetToken(userId: number, token: string, expiry: Date): Promise<void>;
   getUserByResetToken(token: string): Promise<User | undefined>;
@@ -211,7 +211,7 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId' | 'onboardingCompleted' | 'includeQuickGroupInSummary'>>): Promise<User> {
+  async updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId' | 'onboardingCompleted' | 'includeQuickGroupInSummary' | 'incomeSources'>>): Promise<User> {
     const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
     return user;
   }

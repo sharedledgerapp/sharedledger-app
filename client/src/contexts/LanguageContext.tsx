@@ -13,7 +13,7 @@ type TranslationKey =
   | "splitEqual" | "splitCustom" | "splitPercentage" | "paidBy" | "splitBetween" | "splitMethod" | "selectMembers"
   | "totalGroupSpending" | "noGroupYet" | "createOrJoinGroup" | "inviteCode" | "showQrCode" | "hideQrCode"
   | "scanQrCode" | "pointCamera" | "cameraPermissionDenied" | "cameraUnavailable" | "close"
-  | "leaveGroup" | "confirmLeaveGroup"
+  | "leaveGroup" | "confirmLeaveGroup" | "leaveGroupDataNotice"
   | "signOut" | "profile" | "language" | "english" | "french" | "dutch"
   | "spendingBreakdown" | "recentActivity" | "viewAll" | "totalSpent"
   | "thisMonth" | "thisWeek" | "topGoal" | "noGoalsYet" | "setGoal"
@@ -59,6 +59,8 @@ type TranslationKey =
   | "recurringAdded" | "recurringUpdated" | "recurringDeleted" | "activeLabel" | "pausedLabel"
   | "recurringCategoriesTitle" | "recurringCategoriesDescription" | "recurringCategoriesUpdated"
   | "newRecurringCategoryPlaceholder" | "customizeRecurringCategoriesHint"
+  | "incomeSourcesTitle" | "incomeSourcesDescription" | "incomeSourcesUpdated"
+  | "newSourcePlaceholder" | "incomeSourcesNotice"
   | "budgetPlanning" | "planYourBudget" | "budgetSetupMessage"
   | "setupNow" | "remindWeek" | "remindMonth"
   | "totalBudget" | "totalRemaining" | "percentUsed" | "spent"
@@ -172,6 +174,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     close: "Close",
     leaveGroup: "Leave Group",
     confirmLeaveGroup: "Are you sure you want to leave this group? Your personal data will be kept.",
+    leaveGroupDataNotice: "Your personal expenses and settings are always yours — they stay with you when you leave.",
     signOut: "Sign Out",
     profile: "Profile",
     language: "Language",
@@ -358,6 +361,11 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     recurringCategoriesTitle: "Recurring Expense Groups",
     recurringCategoriesDescription: "Customize the groups for organizing your recurring expenses. Click a group to edit its name.",
     recurringCategoriesUpdated: "Recurring Groups Updated",
+    incomeSourcesTitle: "Income Sources",
+    incomeSourcesDescription: "Customize the sources that appear when logging income. Click a source to edit its name.",
+    incomeSourcesUpdated: "Income Sources Updated",
+    newSourcePlaceholder: "Add new source...",
+    incomeSourcesNotice: "Changes only apply to new entries. Existing income records keep their original source labels.",
     newRecurringCategoryPlaceholder: "Add new group...",
     customizeRecurringCategoriesHint: "Customize groups in Settings",
     budgetPlanning: "Budget & Planning",
@@ -583,6 +591,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     close: "Fermer",
     leaveGroup: "Quitter le groupe",
     confirmLeaveGroup: "Êtes-vous sûr de vouloir quitter ce groupe ? Vos données personnelles seront conservées.",
+    leaveGroupDataNotice: "Vos dépenses et paramètres personnels vous appartiennent toujours — ils restent avec vous après votre départ.",
     signOut: "Déconnexion",
     profile: "Profil",
     language: "Langue",
@@ -769,6 +778,11 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     recurringCategoriesTitle: "Groupes de dépenses récurrentes",
     recurringCategoriesDescription: "Personnalisez les groupes pour organiser vos dépenses récurrentes. Cliquez sur un groupe pour modifier son nom.",
     recurringCategoriesUpdated: "Groupes récurrents mis à jour",
+    incomeSourcesTitle: "Sources de revenus",
+    incomeSourcesDescription: "Personnalisez les sources qui apparaissent lors de l'enregistrement de revenus. Cliquez sur une source pour modifier son nom.",
+    incomeSourcesUpdated: "Sources de revenus mises à jour",
+    newSourcePlaceholder: "Ajouter une source...",
+    incomeSourcesNotice: "Les modifications s'appliquent uniquement aux nouvelles entrées. Les enregistrements existants conservent leurs libellés d'origine.",
     newRecurringCategoryPlaceholder: "Ajouter un nouveau groupe...",
     customizeRecurringCategoriesHint: "Personnaliser les groupes dans Paramètres",
     budgetPlanning: "Budget & Planification",
@@ -994,6 +1008,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     close: "Sluiten",
     leaveGroup: "Groep verlaten",
     confirmLeaveGroup: "Weet je zeker dat je deze groep wilt verlaten? Je persoonlijke gegevens blijven bewaard.",
+    leaveGroupDataNotice: "Je persoonlijke uitgaven en instellingen zijn altijd van jou — ze blijven bij je na vertrek.",
     signOut: "Uitloggen",
     profile: "Profiel",
     language: "Taal",
@@ -1180,6 +1195,11 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     recurringCategoriesTitle: "Groepen vaste uitgaven",
     recurringCategoriesDescription: "Pas de groepen aan voor het organiseren van je vaste uitgaven. Klik op een groep om de naam te bewerken.",
     recurringCategoriesUpdated: "Terugkerende groepen bijgewerkt",
+    incomeSourcesTitle: "Inkomensbronnen",
+    incomeSourcesDescription: "Pas de bronnen aan die verschijnen bij het vastleggen van inkomsten. Klik op een bron om de naam te bewerken.",
+    incomeSourcesUpdated: "Inkomensbronnen bijgewerkt",
+    newSourcePlaceholder: "Nieuwe bron toevoegen...",
+    incomeSourcesNotice: "Wijzigingen gelden alleen voor nieuwe invoer. Bestaande inkomensregistraties behouden hun oorspronkelijke bronlabels.",
     newRecurringCategoryPlaceholder: "Nieuwe groep toevoegen...",
     customizeRecurringCategoriesHint: "Pas groepen aan in Instellingen",
     budgetPlanning: "Budget & Planning",

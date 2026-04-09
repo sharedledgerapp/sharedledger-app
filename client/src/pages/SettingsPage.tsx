@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, User, Users, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat, Sparkles, ChevronDown, MessageCircle, CheckCircle, QrCode, Copy, Share2 } from "lucide-react";
+import { LogOut, User, Users, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat, Sparkles, ChevronDown, MessageCircle, CheckCircle, QrCode, Copy, Share2, TrendingUp, Info } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { shareOrCopy, canNativeShare } from "@/lib/share";
 import { Switch } from "@/components/ui/switch";
@@ -28,6 +28,7 @@ import { CURRENCIES } from "@/lib/currency";
 
 export const DEFAULT_CATEGORIES = ["Food", "Transport", "Entertainment", "Shopping", "Utilities", "Education", "Health", "Other"];
 export const DEFAULT_RECURRING_CATEGORIES = ["Subscriptions", "Utilities", "Taxes", "Insurance"];
+export const DEFAULT_INCOME_SOURCES = ["Family / Parents", "Work", "Gift or Unexpected", "Scholarship or Grant", "Other"];
 
 export default function SettingsPage() {
   const { user, logoutMutation } = useAuth();
@@ -75,9 +76,15 @@ export default function SettingsPage() {
   const [recurringCategories, setRecurringCategories] = useState<string[]>(userRecurringCategories || DEFAULT_RECURRING_CATEGORIES);
   const [newRecurringCategory, setNewRecurringCategory] = useState("");
   const [editingRecurringCategory, setEditingRecurringCategory] = useState<{ index: number; value: string } | null>(null);
+
+  const userIncomeSources = (user as any)?.incomeSources as string[] | null;
+  const [incomeSources, setIncomeSources] = useState<string[]>(userIncomeSources || DEFAULT_INCOME_SOURCES);
+  const [newSource, setNewSource] = useState("");
+  const [editingSource, setEditingSource] = useState<{ index: number; value: string } | null>(null);
   
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [recurringCategoriesOpen, setRecurringCategoriesOpen] = useState(false);
+  const [incomeSourcesOpen, setIncomeSourcesOpen] = useState(false);
 
   const feedbackFormSchema = z.object({
     group: z.string().min(1, "Please select a group"),
@@ -376,6 +383,57 @@ export default function SettingsPage() {
     updateRecurringCategoriesMutation.mutate(DEFAULT_RECURRING_CATEGORIES);
   };
 
+  const updateIncomeSourcesMutation = useMutation({
+    mutationFn: async (newSources: string[]) => {
+      const res = await apiRequest("PATCH", "/api/user/profile", { incomeSources: newSources });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      toast({ title: t("incomeSourcesUpdated"), description: t("changesSaved") });
+    },
+    onError: () => {
+      toast({ title: t("error"), description: t("failedToUpdate"), variant: "destructive" });
+    },
+  });
+
+  const handleAddSource = () => {
+    const trimmed = newSource.trim();
+    if (!trimmed || incomeSources.includes(trimmed) || incomeSources.length >= 10) return;
+    const updated = [...incomeSources, trimmed];
+    setIncomeSources(updated);
+    setNewSource("");
+    updateIncomeSourcesMutation.mutate(updated);
+  };
+
+  const handleRemoveSource = (index: number) => {
+    if (incomeSources.length <= 1) return;
+    const updated = incomeSources.filter((_, i) => i !== index);
+    setIncomeSources(updated);
+    updateIncomeSourcesMutation.mutate(updated);
+  };
+
+  const handleEditSource = (index: number) => {
+    setEditingSource({ index, value: incomeSources[index] });
+  };
+
+  const handleSaveEditSource = () => {
+    if (!editingSource) return;
+    const trimmed = editingSource.value.trim();
+    if (trimmed && !incomeSources.some((s, i) => s === trimmed && i !== editingSource.index)) {
+      const updated = [...incomeSources];
+      updated[editingSource.index] = trimmed;
+      setIncomeSources(updated);
+      updateIncomeSourcesMutation.mutate(updated);
+    }
+    setEditingSource(null);
+  };
+
+  const handleResetSources = () => {
+    setIncomeSources(DEFAULT_INCOME_SOURCES);
+    updateIncomeSourcesMutation.mutate(DEFAULT_INCOME_SOURCES);
+  };
+
   const handleSaveProfile = () => {
     const updates: { name?: string; email?: string | null; profileImageUrl?: string; currency?: string } = {};
     if (name !== user?.name) updates.name = name;
@@ -587,29 +645,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Users className="w-5 h-5 text-primary" />
-            Privacy
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1">
-              <p className="text-sm font-medium">Include quick groups in spending summary</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                When enabled, expenses from your friend/travel groups will be counted in your personal monthly total. Off by default to keep group and personal spending separate.
-              </p>
-            </div>
-            <Switch
-              checked={includeQuickGroupInSummary}
-              onCheckedChange={handleToggleQuickGroupSummary}
-              data-testid="switch-include-quick-group-summary"
-            />
-          </div>
-        </CardContent>
-      </Card>
 
       <Card
         className="border-border/50 cursor-pointer hover:border-primary/40 transition-colors"
@@ -830,6 +865,113 @@ export default function SettingsPage() {
               >
                 {t("resetToDefault")}
               </Button>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      <Card className="border-border/50">
+        <button
+          className="w-full text-left"
+          onClick={() => setIncomeSourcesOpen((o) => !o)}
+          data-testid="button-toggle-income-sources"
+        >
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-primary" />
+              <span className="flex-1">{t("incomeSourcesTitle")}</span>
+              <span className="text-xs font-normal text-muted-foreground mr-1">
+                {incomeSources.length} {t("categories")}
+              </span>
+              <ChevronDown
+                className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${incomeSourcesOpen ? "rotate-180" : ""}`}
+              />
+            </CardTitle>
+          </CardHeader>
+        </button>
+
+        {incomeSourcesOpen && (
+          <CardContent className="space-y-4 pt-0">
+            <p className="text-sm text-muted-foreground">{t("incomeSourcesDescription")}</p>
+
+            <div className="space-y-2">
+              {incomeSources.map((source, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2 p-2 rounded-lg border bg-card"
+                  data-testid={`income-source-item-${index}`}
+                >
+                  <GripVertical className="w-4 h-4 text-muted-foreground" />
+                  {editingSource?.index === index ? (
+                    <Input
+                      value={editingSource.value}
+                      onChange={(e) => setEditingSource({ ...editingSource, value: e.target.value })}
+                      onBlur={handleSaveEditSource}
+                      onKeyDown={(e) => e.key === "Enter" && handleSaveEditSource()}
+                      className="flex-1 h-8"
+                      autoFocus
+                      maxLength={40}
+                      data-testid={`input-edit-source-${index}`}
+                    />
+                  ) : (
+                    <span
+                      className="flex-1 cursor-pointer hover:text-primary transition-colors"
+                      onClick={() => handleEditSource(index)}
+                      data-testid={`text-source-${index}`}
+                    >
+                      {source}
+                    </span>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => handleRemoveSource(index)}
+                    disabled={incomeSources.length <= 1 || updateIncomeSourcesMutation.isPending}
+                    data-testid={`button-remove-source-${index}`}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-2">
+              <Input
+                value={newSource}
+                onChange={(e) => setNewSource(e.target.value)}
+                placeholder={t("newSourcePlaceholder")}
+                maxLength={40}
+                onKeyDown={(e) => e.key === "Enter" && handleAddSource()}
+                data-testid="input-new-source"
+              />
+              <Button
+                onClick={handleAddSource}
+                disabled={!newSource.trim() || incomeSources.length >= 10 || updateIncomeSourcesMutation.isPending}
+                data-testid="button-add-source"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="flex justify-between items-center pt-2">
+              <span className="text-xs text-muted-foreground">
+                {incomeSources.length}/10 {t("categories")}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleResetSources}
+                disabled={updateIncomeSourcesMutation.isPending}
+                data-testid="button-reset-sources"
+              >
+                {t("resetToDefault")}
+              </Button>
+            </div>
+
+            <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg">
+              <Info className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground leading-relaxed">{t("incomeSourcesNotice")}</p>
             </div>
           </CardContent>
         )}

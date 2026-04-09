@@ -43,6 +43,7 @@ export const users = pgTable("users", {
   budgetAlertsEnabled: boolean("budget_alerts_enabled").default(true).notNull(),
   onboardingCompleted: boolean("onboarding_completed").default(false).notNull(),
   includeQuickGroupInSummary: boolean("include_quick_group_in_summary").default(false).notNull(),
+  incomeSources: text("income_sources").array(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

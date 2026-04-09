@@ -384,6 +384,7 @@ export async function registerRoutes(
       currency: z.string().optional(),
       categories: z.array(z.string().min(1).max(30)).max(20).optional(),
       recurringCategories: z.array(z.string().min(1).max(30)).max(20).optional(),
+      incomeSources: z.array(z.string().min(1).max(40)).max(10).optional(),
       dailyReminderTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
       dailyReminderEnabled: z.boolean().optional(),
       weeklyReminderEnabled: z.boolean().optional(),

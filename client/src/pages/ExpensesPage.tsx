@@ -26,16 +26,21 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import type { RecurringExpense, IncomeEntry } from "@shared/schema";
 
-const INCOME_SOURCES = ["Family / Parents", "Work", "Gift or Unexpected", "Scholarship or Grant", "Other"] as const;
-type IncomeSource = typeof INCOME_SOURCES[number];
+import { DEFAULT_INCOME_SOURCES } from "@/pages/SettingsPage";
 
-const sourceEmoji: Record<IncomeSource, string> = {
+type IncomeSource = string;
+
+const DEFAULT_SOURCE_EMOJI: Record<string, string> = {
   "Family / Parents": "👨‍👩‍👧",
   "Work": "💼",
   "Gift or Unexpected": "🎁",
   "Scholarship or Grant": "🎓",
   "Other": "💰",
 };
+
+function getSourceEmoji(source: string): string {
+  return DEFAULT_SOURCE_EMOJI[source] || "💰";
+}
 
 const FREQUENCIES = ["monthly", "quarterly", "yearly"] as const;
 
@@ -1092,9 +1097,9 @@ export default function ExpensesPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {INCOME_SOURCES.map((src) => (
+                  {((user as any)?.incomeSources || DEFAULT_INCOME_SOURCES).map((src: string) => (
                     <SelectItem key={src} value={src} data-testid={`option-source-${src.toLowerCase().replace(/\s+/g, "-")}`}>
-                      {sourceEmoji[src]} {src}
+                      {getSourceEmoji(src)} {src}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1944,7 +1949,7 @@ function MoneyInSection({ incomeEntries, incomeLoading, currencySymbol, user, on
         >
           <div className="flex items-center gap-3 flex-1">
             <div className="w-12 h-12 rounded-2xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center text-2xl group-hover:scale-105 transition-transform">
-              {sourceEmoji[entry.source as IncomeSource] || "💰"}
+              {getSourceEmoji(entry.source)}
             </div>
             <div>
               <p className="font-semibold text-foreground">{entry.source}</p>
