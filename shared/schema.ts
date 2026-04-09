@@ -344,7 +344,7 @@ export const incomeEntries = pgTable("income_entries", {
   date: timestamp("date").defaultNow().notNull(),
   isRecurring: boolean("is_recurring").default(false).notNull(),
   recurringInterval: text("recurring_interval", { enum: ["weekly", "monthly", "tri-monthly"] }),
-  shareDetails: boolean("share_details").default(false).notNull(),
+  shareDetails: boolean("share_details"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

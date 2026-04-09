@@ -195,7 +195,7 @@ export default function FamilyDashboard() {
     note: string | null;
     date: string;
     isRecurring: boolean;
-    shareDetails: boolean;
+    shareDetails: boolean | null;
     userName: string;
   };
 
@@ -540,25 +540,36 @@ export default function FamilyDashboard() {
           </h3>
           <Card className="border-border/50 shadow-sm">
             <CardContent className="p-4 space-y-3">
-              {familyIncomeEntries.map((entry) => (
-                <div key={entry.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-700 dark:text-green-400 font-bold text-xs">
-                      {entry.userName[0]?.toUpperCase()}
+              {familyIncomeEntries.map((entry) => {
+                const isOwner = entry.userId === user?.id;
+                const isHidden = entry.source === "Hidden";
+                return (
+                  <div key={entry.id} className="flex items-center justify-between py-2 border-b last:border-0" data-testid={`family-income-entry-${entry.id}`}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-700 dark:text-green-400 font-bold text-xs">
+                        {entry.userName[0]?.toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium">{entry.userName}</p>
+                          {isOwner && (
+                            <Link href="/app/expenses?tab=in">
+                              <span className="text-[10px] text-primary underline cursor-pointer" data-testid={`link-edit-income-${entry.id}`}>edit</span>
+                            </Link>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {isHidden ? <span className="italic">Amount only</span> : entry.source}
+                          {entry.isRecurring && <span className="ml-1.5 text-primary">· recurring</span>}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">{entry.userName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {entry.source}
-                        {entry.isRecurring && <span className="ml-1.5 text-primary">· recurring</span>}
-                      </p>
-                    </div>
+                    <span className="font-bold text-green-600 dark:text-green-400">
+                      +{currencySymbol}{toFixedAmount(Number(entry.amount), groupCurrency)}
+                    </span>
                   </div>
-                  <span className="font-bold text-green-600 dark:text-green-400">
-                    +{currencySymbol}{toFixedAmount(Number(entry.amount), groupCurrency)}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
               <div className="pt-1 flex items-center justify-between text-sm font-semibold border-t border-border/50 mt-1">
                 <span className="text-muted-foreground">Combined household income</span>
                 <span className="text-green-600 dark:text-green-400">

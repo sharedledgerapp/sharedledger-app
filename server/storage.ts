@@ -119,6 +119,7 @@ export interface IStorage {
   deleteIncomeEntry(id: number): Promise<void>;
   getMonthlyIncomeTotal(userId: number, monthStart: Date, monthEnd: Date): Promise<number>;
   getFamilyIncomeEntries(familyId: number): Promise<(IncomeEntry & { userName: string })[]>;
+  getFamilyMonthlyIncomeTotal(familyId: number, monthStart: Date, monthEnd: Date): Promise<number>;
 
   // Friend Groups
   getFriendGroupExpenses(groupId: number): Promise<(Expense & { splits: ExpenseSplit[] })[]>;
@@ -1048,12 +1049,53 @@ export class DatabaseStorage implements IStorage {
       })
       .from(incomeEntries)
       .innerJoin(users, eq(incomeEntries.userId, users.id))
-      .where(and(
-        eq(incomeEntries.familyId, familyId),
-        eq(incomeEntries.shareDetails, true)
-      ))
+      .where(eq(incomeEntries.familyId, familyId))
       .orderBy(desc(incomeEntries.date));
-    return rows as (IncomeEntry & { userName: string })[];
+    // Redact source/note for entries where shareDetails = false (total-only sharing)
+    return rows.map(row => ({
+      ...row,
+      source: row.shareDetails === false ? "Hidden" : row.source,
+      note: row.shareDetails === false ? null : row.note,
+    })) as (IncomeEntry & { userName: string })[];
+  }
+
+  async getFamilyMonthlyIncomeTotal(familyId: number, monthStart: Date, monthEnd: Date): Promise<number> {
+    const allEntries = await db
+      .select()
+      .from(incomeEntries)
+      .where(eq(incomeEntries.familyId, familyId));
+
+    let total = 0;
+    for (const e of allEntries) {
+      const entryDate = new Date(e.date);
+      if (!e.isRecurring) {
+        if (entryDate >= monthStart && entryDate <= monthEnd) {
+          total += Number(e.amount);
+        }
+      } else {
+        if (entryDate <= monthEnd) {
+          const interval = e.recurringInterval || "monthly";
+          let occurrence = new Date(entryDate);
+          while (occurrence <= monthEnd) {
+            if (occurrence >= monthStart) {
+              total += Number(e.amount);
+            }
+            if (interval === "weekly") {
+              occurrence = new Date(occurrence.getTime() + 7 * 24 * 60 * 60 * 1000);
+            } else if (interval === "monthly") {
+              occurrence = new Date(occurrence);
+              occurrence.setMonth(occurrence.getMonth() + 1);
+            } else if (interval === "tri-monthly") {
+              occurrence = new Date(occurrence);
+              occurrence.setMonth(occurrence.getMonth() + 3);
+            } else {
+              break;
+            }
+          }
+        }
+      }
+    }
+    return total;
   }
 
   async getFriendGroupNetBalances(groupId: number): Promise<{ fromUserId: number; fromName: string; toUserId: number; toName: string; amount: number }[]> {

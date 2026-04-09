@@ -130,14 +130,23 @@ export default function ExpensesPage() {
 
   const [showIncomeDialog, setShowIncomeDialog] = useState(false);
   const [editingIncome, setEditingIncome] = useState<IncomeEntry | null>(null);
-  const [incomeForm, setIncomeForm] = useState({
+  // shareDetails: null = not shared; false = total only; true = full details
+  const [incomeForm, setIncomeForm] = useState<{
+    amount: string;
+    source: IncomeSource;
+    note: string;
+    date: string;
+    isRecurring: boolean;
+    recurringInterval: "weekly" | "monthly" | "tri-monthly";
+    shareDetails: boolean | null;
+  }>({
     amount: "",
-    source: "Work" as IncomeSource,
+    source: "Work",
     note: "",
     date: new Date().toISOString().split("T")[0],
     isRecurring: false,
-    recurringInterval: "monthly" as "weekly" | "monthly" | "tri-monthly",
-    shareDetails: false,
+    recurringInterval: "monthly",
+    shareDetails: null,
   });
 
   const isGroupMember = !!(familyData?.family && familyData.family.groupType !== "roommates");
@@ -152,7 +161,7 @@ export default function ExpensesPage() {
       date: new Date().toISOString().split("T")[0],
       isRecurring: false,
       recurringInterval: "monthly",
-      shareDetails: false,
+      shareDetails: null,
     });
   }
 
@@ -165,7 +174,7 @@ export default function ExpensesPage() {
       date: new Date(entry.date).toISOString().split("T")[0],
       isRecurring: entry.isRecurring,
       recurringInterval: (entry.recurringInterval as "weekly" | "monthly" | "tri-monthly") || "monthly",
-      shareDetails: (entry as any).shareDetails ?? false,
+      shareDetails: entry.shareDetails,
     });
     setShowIncomeDialog(true);
   }
@@ -187,8 +196,8 @@ export default function ExpensesPage() {
       qc.invalidateQueries({ queryKey: ["/api/income"] });
       qc.invalidateQueries({ queryKey: ["/api/spending/summary"] });
       qc.invalidateQueries({ queryKey: ["/api/family/income"] });
-      if (variables.shareDetails) {
-        captureEvent("income_shared", { source: variables.source, isRecurring: variables.isRecurring });
+      if (variables.shareDetails !== null) {
+        captureEvent("income_shared", { shareDetails: variables.shareDetails, source: variables.source, isRecurring: variables.isRecurring });
       }
       toast({ title: "Income added" });
       resetIncomeForm();
@@ -1136,7 +1145,7 @@ export default function ExpensesPage() {
               </div>
             )}
             {isGroupMember && (
-              <div className="rounded-xl border border-border/50 bg-muted/30 p-3 space-y-2">
+              <div className="rounded-xl border border-border/50 bg-muted/30 p-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium">
@@ -1145,11 +1154,40 @@ export default function ExpensesPage() {
                     <p className="text-xs text-muted-foreground">Visible on your group dashboard</p>
                   </div>
                   <Switch
-                    checked={incomeForm.shareDetails}
-                    onCheckedChange={(v) => setIncomeForm(f => ({ ...f, shareDetails: v }))}
+                    checked={incomeForm.shareDetails !== null}
+                    onCheckedChange={(v) => setIncomeForm(f => ({ ...f, shareDetails: v ? true : null }))}
                     data-testid="switch-income-share"
                   />
                 </div>
+                {incomeForm.shareDetails !== null && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Privacy level</p>
+                    <button
+                      type="button"
+                      onClick={() => setIncomeForm(f => ({ ...f, shareDetails: true }))}
+                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${incomeForm.shareDetails === true ? "border-primary bg-primary/5 text-primary" : "border-border/50 hover:bg-muted/50"}`}
+                      data-testid="button-privacy-full"
+                    >
+                      <span className="text-base">📋</span>
+                      <div className="text-left">
+                        <p className="font-medium">Full details</p>
+                        <p className="text-xs text-muted-foreground">Amount, source, and note visible</p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIncomeForm(f => ({ ...f, shareDetails: false }))}
+                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${incomeForm.shareDetails === false ? "border-primary bg-primary/5 text-primary" : "border-border/50 hover:bg-muted/50"}`}
+                      data-testid="button-privacy-total-only"
+                    >
+                      <span className="text-base">🔒</span>
+                      <div className="text-left">
+                        <p className="font-medium">Total only</p>
+                        <p className="text-xs text-muted-foreground">Only your amount is visible</p>
+                      </div>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

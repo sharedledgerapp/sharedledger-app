@@ -728,9 +728,35 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
     const combinedMonthlyTotal = currentMonthTotal + recurringMonthlyTotal;
 
-    const monthlyIncomeTotal = await storage.getMonthlyIncomeTotal(user.id, currentMonthStart, currentMonthEnd);
+    const personalMonthlyIncomeTotal = await storage.getMonthlyIncomeTotal(user.id, currentMonthStart, currentMonthEnd);
     const incomeEntriesList = await storage.getIncomeEntries(user.id);
     const hasIncomeEntries = incomeEntriesList.length > 0;
+
+    // For family/couple groups, include household shared income in the home net card total
+    // Strategy: personal unshared income + all household shared income (from all members)
+    // This avoids double-counting: shared entries from this user go into the household total,
+    // personal (unshared) entries are added on top.
+    let monthlyIncomeTotal = personalMonthlyIncomeTotal;
+    if (user.familyId) {
+      const family = await storage.getFamily(user.familyId);
+      if (family && (family.groupType === "family" || family.groupType === "couple")) {
+        const householdTotal = await storage.getFamilyMonthlyIncomeTotal(user.familyId, currentMonthStart, currentMonthEnd);
+        if (householdTotal > 0) {
+          // Sum of this user's own income that is shared (to avoid double-counting)
+          const thisMonthSharedByUser = incomeEntriesList
+            .filter(e => e.familyId === user.familyId)
+            .reduce((sum, e) => {
+              const d = new Date(e.date);
+              return (d >= currentMonthStart && d <= currentMonthEnd) ? sum + Number(e.amount) : sum;
+            }, 0);
+          // personalMonthlyIncomeTotal includes all personal entries (shared and unshared)
+          // householdTotal includes all shared entries from all members (including this user)
+          // Combined = household + personal entries that are NOT shared
+          const personalOnlyIncome = personalMonthlyIncomeTotal - thisMonthSharedByUser;
+          monthlyIncomeTotal = householdTotal + Math.max(0, personalOnlyIncome);
+        }
+      }
+    }
 
     res.json({
       currentMonthTotal: currentMonthTotal.toFixed(2),
@@ -741,7 +767,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       recurringMonthlyTotal: recurringMonthlyTotal.toFixed(2),
       combinedMonthlyTotal: combinedMonthlyTotal.toFixed(2),
       crossCurrencyGroupExpenseCount,
-      monthlyIncomeTotal: monthlyIncomeTotal.toFixed(2),
+      monthlyIncomeTotal: Math.max(0, monthlyIncomeTotal).toFixed(2),
       hasIncomeEntries,
     });
   });
@@ -1225,14 +1251,16 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         date: z.date().optional(),
         isRecurring: z.boolean().optional().default(false),
         recurringInterval: z.enum(["weekly", "monthly", "tri-monthly"]).optional().nullable(),
-        shareDetails: z.boolean().optional().default(false),
+        shareDetails: z.boolean().nullable().optional(),
       });
       const data = schema.parse(body);
-      const shareDetails = data.shareDetails ?? false;
+      // null = not shared; false = total only; true = full details
+      const shareDetails = data.shareDetails ?? null;
+      const isShared = shareDetails !== null && user.familyId;
       const entry = await storage.createIncomeEntry({
         ...data,
         userId: user.id,
-        familyId: shareDetails && user.familyId ? user.familyId : null,
+        familyId: isShared ? user.familyId : null,
         date: data.date || new Date(),
         isRecurring: data.isRecurring ?? false,
         recurringInterval: data.recurringInterval || null,
@@ -1267,12 +1295,15 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         date: z.date().optional(),
         isRecurring: z.boolean().optional(),
         recurringInterval: z.enum(["weekly", "monthly", "tri-monthly"]).optional().nullable(),
-        shareDetails: z.boolean().optional(),
+        shareDetails: z.boolean().nullable().optional(),
       });
       const updates = schema.parse(body);
-      const shareDetails = updates.shareDetails ?? existing.shareDetails;
-      const familyId = shareDetails && user.familyId ? user.familyId : null;
-      const updated = await storage.updateIncomeEntry(id, { ...updates, familyId });
+      // Determine shareDetails: use provided value or fall back to existing
+      const shareDetails = "shareDetails" in updates ? updates.shareDetails : existing.shareDetails;
+      // null = not shared; false = total only; true = full details
+      const isShared = shareDetails !== null && shareDetails !== undefined && user.familyId;
+      const familyId = isShared ? user.familyId : null;
+      const updated = await storage.updateIncomeEntry(id, { ...updates, familyId, shareDetails: shareDetails ?? null });
       res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -1295,7 +1326,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.get("/api/family/income", requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(403).json({ message: "No group" });
+    if (!user.familyId) return res.status(400).json({ message: "No group" });
     const entries = await storage.getFamilyIncomeEntries(user.familyId);
     res.json(entries);
   });
