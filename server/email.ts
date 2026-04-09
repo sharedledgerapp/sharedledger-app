@@ -218,7 +218,10 @@ export async function sendWhatsNewEmail(toEmail: string, name: string): Promise<
   const textBody = [
     `Hi ${name},`,
     ``,
-    `One of the most consistent pieces of feedback we heard from you was this:`,
+    `Thank you for being part of the SharedLedger beta. Your feedback has been`,
+    `shaping the product from the start and we genuinely appreciate it.`,
+    ``,
+    `One of the most consistent pieces of feedback we heard from many of you was this:`,
     `it is hard to understand your spending when you can only see what goes out.`,
     `You wanted to see what comes in too, so that the numbers actually add up`,
     `and your financial picture makes sense.`,
@@ -257,7 +260,11 @@ export async function sendWhatsNewEmail(toEmail: string, name: string): Promise<
   </div>
   <p style="font-size:15px;color:#374151;line-height:1.6">Hi <strong>${name}</strong>,</p>
   <p style="font-size:15px;color:#374151;line-height:1.6">
-    One of the most consistent pieces of feedback we heard from you was this: it is hard to
+    Thank you for being part of the SharedLedger beta. Your feedback has been shaping the
+    product from the start and we genuinely appreciate it.
+  </p>
+  <p style="font-size:15px;color:#374151;line-height:1.6">
+    One of the most consistent pieces of feedback we heard from many of you was this: it is hard to
     understand your spending when you can only see what goes out. You wanted to see what
     comes in too, so that the numbers actually add up and your financial picture makes sense.
   </p>
