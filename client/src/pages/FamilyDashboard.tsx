@@ -455,7 +455,7 @@ export default function FamilyDashboard() {
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
-                          data={data.categoryBreakdown}
+                          data={data.categoryBreakdown.map(d => ({ ...d, amount: Number(d.amount) }))}
                           cx="50%"
                           cy="50%"
                           innerRadius={55}

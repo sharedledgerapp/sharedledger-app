@@ -1518,6 +1518,7 @@ function CreateExpenseDialog({
     const expenseData: any = {
       userId: user.id,
       amount,
+      currency: userCurrencyCode,
       category,
       note,
       visibility: effectiveVisibility as "public" | "private",
