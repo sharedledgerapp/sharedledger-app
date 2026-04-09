@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, User, Users, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat, Sparkles, ChevronDown, MessageCircle, CheckCircle, QrCode, Copy, Share2, TrendingUp, Info } from "lucide-react";
+import { LogOut, User, Users, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat, Sparkles, ChevronDown, MessageCircle, CheckCircle, QrCode, Copy, Share2, TrendingUp, Info, Sun, Moon, Monitor } from "lucide-react";
+import { useTheme } from "next-themes";
 import { QRCodeCanvas } from "qrcode.react";
 import { shareOrCopy, canNativeShare } from "@/lib/share";
 import { Switch } from "@/components/ui/switch";
@@ -33,6 +34,7 @@ export const DEFAULT_INCOME_SOURCES = ["Family / Parents", "Work", "Gift or Unex
 export default function SettingsPage() {
   const { user, logoutMutation } = useAuth();
   const { language, setLanguage, t, isUpdating: isLanguageUpdating } = useLanguage();
+  const { theme, setTheme } = useTheme();
   const { startTutorial } = useTutorial();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -645,6 +647,38 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Sun className="w-5 h-5 text-primary" />
+            Appearance
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { value: "light", label: "Light", icon: Sun },
+              { value: "dark", label: "Dark", icon: Moon },
+              { value: "system", label: "System", icon: Monitor },
+            ].map(({ value, label, icon: Icon }) => (
+              <button
+                key={value}
+                onClick={() => setTheme(value)}
+                data-testid={`button-theme-${value}`}
+                className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                  theme === value
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:border-primary/40"
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                <span className="text-xs font-medium">{label}</span>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card
         className="border-border/50 cursor-pointer hover:border-primary/40 transition-colors"
