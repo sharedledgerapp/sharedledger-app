@@ -14,7 +14,7 @@ import {
   Users, Wallet, TrendingUp, ChevronLeft, ChevronRight, 
   Target, Calendar, Utensils, Bus, Gamepad2, ShoppingBag, 
   Lightbulb, GraduationCap, Heart, Package, Home as HomeIcon,
-  Flag, PiggyBank, Info
+  Flag, PiggyBank, Info, Banknote
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, addWeeks, subMonths, subWeeks, differenceInDays } from "date-fns";
 import { getCurrencySymbol, toFixedAmount } from "@/lib/currency";
@@ -183,6 +183,24 @@ export default function FamilyDashboard() {
 
   const { data: sharedBudgetsData } = useQuery<{ budgets: SharedBudgetSummary[] }>({
     queryKey: ["/api/family/shared-budgets"],
+    enabled: !!user?.familyId,
+    staleTime: 10_000,
+  });
+
+  type FamilyIncomeEntry = {
+    id: number;
+    userId: number;
+    amount: string;
+    source: string;
+    note: string | null;
+    date: string;
+    isRecurring: boolean;
+    shareDetails: boolean;
+    userName: string;
+  };
+
+  const { data: familyIncomeEntries } = useQuery<FamilyIncomeEntry[]>({
+    queryKey: ["/api/family/income"],
     enabled: !!user?.familyId,
     staleTime: 10_000,
   });
@@ -511,6 +529,44 @@ export default function FamilyDashboard() {
               </Card>
             ))}
           </div>
+        </section>
+      )}
+
+      {familyIncomeEntries && familyIncomeEntries.length > 0 && (
+        <section data-testid="section-household-income">
+          <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2">
+            <Banknote className="w-5 h-5 text-primary" />
+            Household Income
+          </h3>
+          <Card className="border-border/50 shadow-sm">
+            <CardContent className="p-4 space-y-3">
+              {familyIncomeEntries.map((entry) => (
+                <div key={entry.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-700 dark:text-green-400 font-bold text-xs">
+                      {entry.userName[0]?.toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{entry.userName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {entry.source}
+                        {entry.isRecurring && <span className="ml-1.5 text-primary">· recurring</span>}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="font-bold text-green-600 dark:text-green-400">
+                    +{currencySymbol}{toFixedAmount(Number(entry.amount), groupCurrency)}
+                  </span>
+                </div>
+              ))}
+              <div className="pt-1 flex items-center justify-between text-sm font-semibold border-t border-border/50 mt-1">
+                <span className="text-muted-foreground">Combined household income</span>
+                <span className="text-green-600 dark:text-green-400">
+                  +{currencySymbol}{toFixedAmount(familyIncomeEntries.reduce((s, e) => s + Number(e.amount), 0), groupCurrency)}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
         </section>
       )}
 

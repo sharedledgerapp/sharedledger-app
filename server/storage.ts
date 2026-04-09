@@ -118,6 +118,7 @@ export interface IStorage {
   updateIncomeEntry(id: number, updates: Partial<InsertIncomeEntry>): Promise<IncomeEntry>;
   deleteIncomeEntry(id: number): Promise<void>;
   getMonthlyIncomeTotal(userId: number, monthStart: Date, monthEnd: Date): Promise<number>;
+  getFamilyIncomeEntries(familyId: number): Promise<(IncomeEntry & { userName: string })[]>;
 
   // Friend Groups
   getFriendGroupExpenses(groupId: number): Promise<(Expense & { splits: ExpenseSplit[] })[]>;
@@ -1027,6 +1028,32 @@ export class DatabaseStorage implements IStorage {
       }
     }
     return total;
+  }
+
+  async getFamilyIncomeEntries(familyId: number): Promise<(IncomeEntry & { userName: string })[]> {
+    const rows = await db
+      .select({
+        id: incomeEntries.id,
+        userId: incomeEntries.userId,
+        familyId: incomeEntries.familyId,
+        amount: incomeEntries.amount,
+        source: incomeEntries.source,
+        note: incomeEntries.note,
+        date: incomeEntries.date,
+        isRecurring: incomeEntries.isRecurring,
+        recurringInterval: incomeEntries.recurringInterval,
+        shareDetails: incomeEntries.shareDetails,
+        createdAt: incomeEntries.createdAt,
+        userName: users.name,
+      })
+      .from(incomeEntries)
+      .innerJoin(users, eq(incomeEntries.userId, users.id))
+      .where(and(
+        eq(incomeEntries.familyId, familyId),
+        eq(incomeEntries.shareDetails, true)
+      ))
+      .orderBy(desc(incomeEntries.date));
+    return rows as (IncomeEntry & { userName: string })[];
   }
 
   async getFriendGroupNetBalances(groupId: number): Promise<{ fromUserId: number; fromName: string; toUserId: number; toName: string; amount: number }[]> {

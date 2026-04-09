@@ -137,7 +137,10 @@ export default function ExpensesPage() {
     date: new Date().toISOString().split("T")[0],
     isRecurring: false,
     recurringInterval: "monthly" as "weekly" | "monthly" | "tri-monthly",
+    shareDetails: false,
   });
+
+  const isGroupMember = !!(familyData?.family && familyData.family.groupType !== "roommates");
 
   function resetIncomeForm() {
     setShowIncomeDialog(false);
@@ -149,6 +152,7 @@ export default function ExpensesPage() {
       date: new Date().toISOString().split("T")[0],
       isRecurring: false,
       recurringInterval: "monthly",
+      shareDetails: false,
     });
   }
 
@@ -161,6 +165,7 @@ export default function ExpensesPage() {
       date: new Date(entry.date).toISOString().split("T")[0],
       isRecurring: entry.isRecurring,
       recurringInterval: (entry.recurringInterval as "weekly" | "monthly" | "tri-monthly") || "monthly",
+      shareDetails: (entry as any).shareDetails ?? false,
     });
     setShowIncomeDialog(true);
   }
@@ -174,12 +179,17 @@ export default function ExpensesPage() {
         date: data.date,
         isRecurring: data.isRecurring,
         recurringInterval: data.isRecurring ? data.recurringInterval : null,
+        shareDetails: data.shareDetails,
       });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ["/api/income"] });
       qc.invalidateQueries({ queryKey: ["/api/spending/summary"] });
+      qc.invalidateQueries({ queryKey: ["/api/family/income"] });
+      if (variables.shareDetails) {
+        captureEvent("income_shared", { source: variables.source, isRecurring: variables.isRecurring });
+      }
       toast({ title: "Income added" });
       resetIncomeForm();
     },
@@ -195,12 +205,14 @@ export default function ExpensesPage() {
         date: data.date,
         isRecurring: data.isRecurring,
         recurringInterval: data.isRecurring ? data.recurringInterval : null,
+        shareDetails: data.shareDetails,
       });
       return res.json();
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/income"] });
       qc.invalidateQueries({ queryKey: ["/api/spending/summary"] });
+      qc.invalidateQueries({ queryKey: ["/api/family/income"] });
       toast({ title: "Income updated" });
       resetIncomeForm();
     },
@@ -214,6 +226,7 @@ export default function ExpensesPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/income"] });
       qc.invalidateQueries({ queryKey: ["/api/spending/summary"] });
+      qc.invalidateQueries({ queryKey: ["/api/family/income"] });
       toast({ title: "Income deleted" });
     },
     onError: () => toast({ title: "Failed to delete income", variant: "destructive" }),
@@ -1120,6 +1133,23 @@ export default function ExpensesPage() {
                     <SelectItem value="tri-monthly">Every 3 months</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+            {isGroupMember && (
+              <div className="rounded-xl border border-border/50 bg-muted/30 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">
+                      {familyData?.family?.groupType === "couple" ? "Share with partner" : "Share with household"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Visible on your group dashboard</p>
+                  </div>
+                  <Switch
+                    checked={incomeForm.shareDetails}
+                    onCheckedChange={(v) => setIncomeForm(f => ({ ...f, shareDetails: v }))}
+                    data-testid="switch-income-share"
+                  />
+                </div>
               </div>
             )}
           </div>

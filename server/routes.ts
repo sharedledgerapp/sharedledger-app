@@ -1225,15 +1225,18 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         date: z.date().optional(),
         isRecurring: z.boolean().optional().default(false),
         recurringInterval: z.enum(["weekly", "monthly", "tri-monthly"]).optional().nullable(),
+        shareDetails: z.boolean().optional().default(false),
       });
       const data = schema.parse(body);
+      const shareDetails = data.shareDetails ?? false;
       const entry = await storage.createIncomeEntry({
         ...data,
         userId: user.id,
-        familyId: null,
+        familyId: shareDetails && user.familyId ? user.familyId : null,
         date: data.date || new Date(),
         isRecurring: data.isRecurring ?? false,
         recurringInterval: data.recurringInterval || null,
+        shareDetails,
       });
       res.status(201).json(entry);
     } catch (err) {
@@ -1264,9 +1267,12 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         date: z.date().optional(),
         isRecurring: z.boolean().optional(),
         recurringInterval: z.enum(["weekly", "monthly", "tri-monthly"]).optional().nullable(),
+        shareDetails: z.boolean().optional(),
       });
       const updates = schema.parse(body);
-      const updated = await storage.updateIncomeEntry(id, updates);
+      const shareDetails = updates.shareDetails ?? existing.shareDetails;
+      const familyId = shareDetails && user.familyId ? user.familyId : null;
+      const updated = await storage.updateIncomeEntry(id, { ...updates, familyId });
       res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -1285,6 +1291,13 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     if (existing.userId !== user.id) return res.status(403).json({ message: "Forbidden" });
     await storage.deleteIncomeEntry(id);
     res.status(204).send();
+  });
+
+  app.get("/api/family/income", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    if (!user.familyId) return res.status(403).json({ message: "No group" });
+    const entries = await storage.getFamilyIncomeEntries(user.familyId);
+    res.json(entries);
   });
 
   // === EXPENSES ROUTES ===

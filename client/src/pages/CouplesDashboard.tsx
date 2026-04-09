@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Heart, Plus, Wallet,
+  Heart, Plus, Wallet, Banknote,
   Utensils, Bus, Gamepad2, ShoppingBag,
   Lightbulb, GraduationCap, Package, Home as HomeIcon,
   CheckCircle2, Clock, Trophy, ChevronLeft, ChevronRight
@@ -12,6 +12,7 @@ import {
 import { format } from "date-fns";
 import { getCurrencySymbol, toFixedAmount } from "@/lib/currency";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 
 interface CategoryBreakdown {
   category: string;
@@ -79,6 +80,18 @@ function getCategoryIcon(category: string) {
   return IconMap[category] || <Package className="w-4 h-4" />;
 }
 
+type FamilyIncomeEntry = {
+  id: number;
+  userId: number;
+  amount: string;
+  source: string;
+  note: string | null;
+  date: string;
+  isRecurring: boolean;
+  shareDetails: boolean;
+  userName: string;
+};
+
 export function CouplesDashboardView({
   summary,
   categoryBreakdown,
@@ -95,6 +108,12 @@ export function CouplesDashboardView({
   const currencySymbol = getCurrencySymbol(user?.currency);
   const displayExpenses = recentExpenses.slice(0, 5);
   const totalSpent = Number(summary.totalSpent);
+
+  const { data: familyIncomeEntries } = useQuery<FamilyIncomeEntry[]>({
+    queryKey: ["/api/family/income"],
+    enabled: !!user?.familyId,
+    staleTime: 10_000,
+  });
 
   return (
     <div className="space-y-6 pb-20">
@@ -270,6 +289,44 @@ export function CouplesDashboardView({
               <span className="text-sm text-muted-foreground">
                 Difference: <span className="font-semibold text-foreground">{currencySymbol}{contributions.difference}</span>
               </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {familyIncomeEntries && familyIncomeEntries.length > 0 && (
+        <Card className="border-border/50 shadow-sm" data-testid="section-couple-income">
+          <CardContent className="p-5">
+            <h3 className="font-display font-bold text-sm mb-4 flex items-center gap-2">
+              <Banknote className="w-4 h-4 text-primary" />
+              Household Income
+            </h3>
+            <div className="space-y-3">
+              {familyIncomeEntries.map((entry) => (
+                <div key={entry.id} className="flex items-center justify-between py-1 border-b last:border-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-700 dark:text-green-400 font-bold text-xs">
+                      {entry.userName[0]?.toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{entry.userName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {entry.source}
+                        {entry.isRecurring && <span className="ml-1.5 text-primary">· recurring</span>}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="font-bold text-green-600 dark:text-green-400 text-sm">
+                    +{currencySymbol}{toFixedAmount(Number(entry.amount), user?.currency)}
+                  </span>
+                </div>
+              ))}
+              <div className="pt-2 flex items-center justify-between text-sm font-semibold border-t border-border/50">
+                <span className="text-muted-foreground">Combined</span>
+                <span className="text-green-600 dark:text-green-400">
+                  +{currencySymbol}{toFixedAmount(familyIncomeEntries.reduce((s, e) => s + Number(e.amount), 0), user?.currency)}
+                </span>
+              </div>
             </div>
           </CardContent>
         </Card>
