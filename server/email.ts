@@ -232,8 +232,11 @@ export async function sendWhatsNewEmail(toEmail: string, name: string): Promise<
     `A few things worth knowing:`,
     ``,
     `- Your monthly net position updates in real time as you log income and expenses`,
-    `- If you are in a family or couple group, you can share your income with your`,
+    `- Shared household income is available for families and couples to start.`,
+    `  If you are in a couple or family group, you can share your income with your`,
     `  household so everyone sees the full picture together`,
+    `- We have not forgotten roommates. Shared income for roommate groups is`,
+    `  on our roadmap and we would love to hear your thoughts on how it should work`,
     `- Income you would rather keep private stays private by default`,
     ``,
     `Open the app to give it a try:`,
@@ -268,7 +271,8 @@ export async function sendWhatsNewEmail(toEmail: string, name: string): Promise<
     <h2 style="font-size:15px;font-weight:700;color:#4f46e5;margin:0 0 12px">A few things worth knowing</h2>
     <ul style="font-size:14px;color:#374151;line-height:1.9;margin:0;padding-left:20px">
       <li>Your monthly net position updates in real time as you log income and expenses</li>
-      <li>If you are in a family or couple group, you can share your income with your household so everyone sees the full picture together</li>
+      <li>Shared household income is rolling out for <strong>families and couples</strong> first. If you are in one of these groups, you can share your income with your household so everyone sees the full picture together</li>
+      <li>We have not forgotten roommates. Shared income for roommate groups is on our roadmap and we would love to hear how you think it should work. Just reply to this email</li>
       <li>Income you would rather keep private stays private by default</li>
     </ul>
   </div>

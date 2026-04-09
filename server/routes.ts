@@ -2453,6 +2453,12 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       if (!adminSecret || req.headers["x-admin-secret"] !== adminSecret) {
         return res.status(401).json({ message: "Unauthorised" });
       }
+      // ?testEmail=someone@example.com sends to just that one address (sample/test mode)
+      const testEmail = req.query.testEmail as string | undefined;
+      if (testEmail) {
+        await sendWhatsNewEmail(testEmail, testEmail.split("@")[0]);
+        return res.json({ total: 1, sent: 1, failed: 0, errors: [], test: true });
+      }
       const allUsers = await storage.getAllUsersWithEmail();
       let sent = 0;
       let failed = 0;
