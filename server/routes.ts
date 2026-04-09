@@ -1327,6 +1327,10 @@ If any field cannot be determined, use null. Be precise with the total amount. R
   app.get("/api/family/income", requireAuth, async (req, res) => {
     const user = req.user as any;
     if (!user.familyId) return res.status(400).json({ message: "No group" });
+    const family = await storage.getFamily(user.familyId);
+    if (!family || (family.groupType !== "family" && family.groupType !== "couple")) {
+      return res.status(400).json({ message: "Household income only available for family and couple groups" });
+    }
     const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
     const start = startDate ? new Date(startDate) : undefined;
     const end = endDate ? new Date(endDate) : undefined;
