@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LogOut, User, Users, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat, Sparkles, ChevronDown, MessageCircle, CheckCircle, QrCode, Copy, Share2, TrendingUp, Info, Sun, Moon, Monitor } from "lucide-react";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/contexts/ThemeContext";
 import { QRCodeCanvas } from "qrcode.react";
 import { shareOrCopy, canNativeShare } from "@/lib/share";
 import { Switch } from "@/components/ui/switch";
