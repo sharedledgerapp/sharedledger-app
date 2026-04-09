@@ -21,6 +21,7 @@ import { db } from "./db";
 import { GoogleGenAI } from "@google/genai";
 import { startPushScheduler } from "./push-scheduler";
 import { sendFeedbackEmail, sendWelcomeEmail, sendPasswordResetEmail, sendWhatsNewEmail } from "./email";
+import { scheduleWhatsNewEmail, cancelWhatsNewEmail, getWhatsNewStatus } from "./email-scheduler";
 import rateLimit from "express-rate-limit";
 
 // Rate limiters
@@ -2479,7 +2480,27 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
   });
 
+  // Admin: check scheduled email status
+  app.get("/api/admin/send-whats-new/status", (req, res) => {
+    const adminSecret = process.env.ADMIN_SECRET;
+    if (!adminSecret || req.headers["x-admin-secret"] !== adminSecret) {
+      return res.status(401).json({ message: "Unauthorised" });
+    }
+    return res.json(getWhatsNewStatus());
+  });
+
+  // Admin: cancel scheduled email (before it fires)
+  app.post("/api/admin/send-whats-new/cancel", (req, res) => {
+    const adminSecret = process.env.ADMIN_SECRET;
+    if (!adminSecret || req.headers["x-admin-secret"] !== adminSecret) {
+      return res.status(401).json({ message: "Unauthorised" });
+    }
+    const cancelled = cancelWhatsNewEmail();
+    return res.json({ cancelled, message: cancelled ? "Scheduled send cancelled." : "Already sent — cannot cancel." });
+  });
+
   startPushScheduler();
+  scheduleWhatsNewEmail(() => storage.getAllUsersWithEmail());
 
   return httpServer;
 }
