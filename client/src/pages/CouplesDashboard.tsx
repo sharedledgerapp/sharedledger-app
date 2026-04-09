@@ -7,12 +7,14 @@ import {
   Heart, Plus, Wallet, Banknote,
   Utensils, Bus, Gamepad2, ShoppingBag,
   Lightbulb, GraduationCap, Package, Home as HomeIcon,
-  CheckCircle2, Clock, Trophy, ChevronLeft, ChevronRight
+  CheckCircle2, Clock, Trophy, ChevronLeft, ChevronRight, Trash2
 } from "lucide-react";
 import { format } from "date-fns";
 import { getCurrencySymbol, toFixedAmount } from "@/lib/currency";
 import { Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface CategoryBreakdown {
   category: string;
@@ -109,9 +111,24 @@ export function CouplesDashboardView({
 }: CouplesDashboardProps) {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const { toast } = useToast();
+  const qc = useQueryClient();
   const currencySymbol = getCurrencySymbol(user?.currency);
   const displayExpenses = recentExpenses.slice(0, 5);
   const totalSpent = Number(summary.totalSpent);
+
+  const deleteSharedIncomeMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/income/${id}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/income"] });
+      qc.invalidateQueries({ queryKey: ["/api/spending/summary"] });
+      qc.invalidateQueries({ queryKey: ["/api/family/income"] });
+      toast({ title: "Income deleted" });
+    },
+    onError: () => toast({ title: "Failed to delete income", variant: "destructive" }),
+  });
 
   const incomeStartStr = periodStart.toISOString();
   const incomeEndStr = periodEnd.toISOString();
@@ -333,9 +350,22 @@ export function CouplesDashboardView({
                         </p>
                       </div>
                     </div>
-                    <span className="font-bold text-green-600 dark:text-green-400 text-sm">
-                      +{currencySymbol}{toFixedAmount(Number(entry.amount), user?.currency)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-green-600 dark:text-green-400 text-sm">
+                        +{currencySymbol}{toFixedAmount(Number(entry.amount), user?.currency)}
+                      </span>
+                      {isOwner && (
+                        <button
+                          onClick={() => deleteSharedIncomeMutation.mutate(entry.id)}
+                          disabled={deleteSharedIncomeMutation.isPending}
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                          data-testid={`button-delete-couple-income-${entry.id}`}
+                          aria-label="Delete income"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}

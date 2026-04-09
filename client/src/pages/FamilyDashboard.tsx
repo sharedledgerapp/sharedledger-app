@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLocation } from "wouter";
@@ -14,11 +14,13 @@ import {
   Users, Wallet, TrendingUp, ChevronLeft, ChevronRight, 
   Target, Calendar, Utensils, Bus, Gamepad2, ShoppingBag, 
   Lightbulb, GraduationCap, Heart, Package, Home as HomeIcon,
-  Flag, PiggyBank, Info, Banknote
+  Flag, PiggyBank, Info, Banknote, Trash2
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, addWeeks, subMonths, subWeeks, differenceInDays } from "date-fns";
 import { getCurrencySymbol, toFixedAmount } from "@/lib/currency";
 import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import { BalanceBoard } from "@/components/BalanceBoard";
 import { RoommatesDashboardView } from "@/pages/RoommatesDashboard";
 import { CouplesDashboardView } from "@/pages/CouplesDashboard";
@@ -129,8 +131,23 @@ function getGoalStatus(goal: FamilyDashboardData["sharedGoals"][0]) {
 export default function FamilyDashboard() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const { toast } = useToast();
+  const qc = useQueryClient();
   const { data: familyData } = useFamily();
   const isRoommates = familyData?.family?.groupType === "roommates";
+
+  const deleteSharedIncomeMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/income/${id}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/income"] });
+      qc.invalidateQueries({ queryKey: ["/api/spending/summary"] });
+      qc.invalidateQueries({ queryKey: ["/api/family/income"] });
+      toast({ title: "Income deleted" });
+    },
+    onError: () => toast({ title: "Failed to delete income", variant: "destructive" }),
+  });
   
   const [periodType, setPeriodType] = useState<"month" | "week">("month");
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -569,9 +586,22 @@ export default function FamilyDashboard() {
                         </p>
                       </div>
                     </div>
-                    <span className="font-bold text-green-600 dark:text-green-400">
-                      +{currencySymbol}{toFixedAmount(Number(entry.amount), groupCurrency)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-green-600 dark:text-green-400">
+                        +{currencySymbol}{toFixedAmount(Number(entry.amount), groupCurrency)}
+                      </span>
+                      {isOwner && (
+                        <button
+                          onClick={() => deleteSharedIncomeMutation.mutate(entry.id)}
+                          disabled={deleteSharedIncomeMutation.isPending}
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                          data-testid={`button-delete-family-income-${entry.id}`}
+                          aria-label="Delete income"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}

@@ -149,7 +149,7 @@ export default function ExpensesPage() {
     shareDetails: null,
   });
 
-  const isGroupMember = !!(familyData?.family && familyData.family.groupType !== "roommates");
+  const isGroupMember = !!(familyData?.family && (familyData.family.groupType === "family" || familyData.family.groupType === "couple"));
 
   function resetIncomeForm() {
     setShowIncomeDialog(false);

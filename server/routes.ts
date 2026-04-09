@@ -1240,8 +1240,13 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       });
       const data = schema.parse(body);
       // null = not shared; false = total only; true = full details
+      // Only family/couple groups may share income; roommates/friends excluded
       const shareDetails = data.shareDetails ?? null;
-      const isShared = shareDetails !== null && user.familyId;
+      let isShared = false;
+      if (shareDetails !== null && user.familyId) {
+        const userFamily = await storage.getFamily(user.familyId);
+        isShared = !!(userFamily && (userFamily.groupType === "family" || userFamily.groupType === "couple"));
+      }
       const entry = await storage.createIncomeEntry({
         ...data,
         userId: user.id,
@@ -1249,7 +1254,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         date: data.date || new Date(),
         isRecurring: data.isRecurring ?? false,
         recurringInterval: data.recurringInterval || null,
-        shareDetails,
+        shareDetails: isShared ? shareDetails : null,
       });
       res.status(201).json(entry);
     } catch (err) {
@@ -1286,9 +1291,14 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       // Determine shareDetails: use provided value or fall back to existing
       const shareDetails = "shareDetails" in updates ? updates.shareDetails : existing.shareDetails;
       // null = not shared; false = total only; true = full details
-      const isShared = shareDetails !== null && shareDetails !== undefined && user.familyId;
+      // Only family/couple groups may share income; roommates/friends excluded
+      let isShared = false;
+      if (shareDetails !== null && shareDetails !== undefined && user.familyId) {
+        const userFamily = await storage.getFamily(user.familyId);
+        isShared = !!(userFamily && (userFamily.groupType === "family" || userFamily.groupType === "couple"));
+      }
       const familyId = isShared ? user.familyId : null;
-      const updated = await storage.updateIncomeEntry(id, { ...updates, familyId, shareDetails: shareDetails ?? null });
+      const updated = await storage.updateIncomeEntry(id, { ...updates, familyId, shareDetails: isShared ? (shareDetails ?? null) : null });
       res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) {
