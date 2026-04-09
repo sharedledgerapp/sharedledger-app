@@ -55,6 +55,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     try {
       localStorage.setItem("sl-theme", newTheme);
     } catch {}
+    const resolved: ResolvedTheme = newTheme === "system" ? getSystemTheme() : (newTheme as ResolvedTheme);
+    applyTheme(resolved);
     setThemeState(newTheme);
   };
 
