@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { TutorialProvider } from "@/contexts/TutorialContext";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { WhatsNewBanner } from "@/components/WhatsNewBanner";
 import { Layout } from "@/components/Layout";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/AuthPage";
@@ -205,6 +206,7 @@ function App() {
             <TutorialProvider>
               <Router />
               <TutorialOverlay />
+              <WhatsNewBanner />
               <Toaster />
             </TutorialProvider>
           </LanguageProvider>

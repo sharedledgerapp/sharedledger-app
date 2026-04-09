@@ -29,6 +29,7 @@ export interface IStorage {
   getUserByGoogleId(googleId: string): Promise<User | undefined>;
   getUserByAppleId(appleId: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getAllUsersWithEmail(): Promise<{ id: number; name: string; email: string }[]>;
   createUser(user: InsertUser & { familyId?: number; googleId?: string | null; appleId?: string | null }): Promise<User>;
   updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId' | 'onboardingCompleted' | 'includeQuickGroupInSummary'>>): Promise<User>;
   deleteUser(id: number): Promise<void>;
@@ -172,6 +173,14 @@ export class DatabaseStorage implements IStorage {
   async getUserByEmail(email: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.email, email));
     return user;
+  }
+
+  async getAllUsersWithEmail(): Promise<{ id: number; name: string; email: string }[]> {
+    const rows = await db
+      .select({ id: users.id, name: users.name, email: users.email })
+      .from(users)
+      .where(sql`${users.email} IS NOT NULL AND ${users.email} != ''`);
+    return rows.filter((r) => r.email) as { id: number; name: string; email: string }[];
   }
 
   async setPasswordResetToken(userId: number, token: string, expiry: Date): Promise<void> {

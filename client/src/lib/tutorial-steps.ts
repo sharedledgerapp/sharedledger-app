@@ -47,6 +47,14 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     page: "/app/family",
   },
   {
+    id: "income-tracking",
+    title: "Track Your Income",
+    description: "Open the Expenses page and tap the \"Money In\" tab to log your income — salary, freelance, or one-off. Families and couples can also share income with their household for a complete financial picture.",
+    target: "button-money-in-tab",
+    placement: "bottom",
+    page: "/app/expenses",
+  },
+  {
     id: "settings-currency",
     title: "Change Your Currency",
     description: "You can change your currency here at any time. SharedLedger supports dozens of currencies — pick the one that matches your location.",

@@ -28,8 +28,8 @@ export function InviteSection({ familyCode, groupName }: InviteSectionProps) {
       url: inviteUrl,
       title: "Join my group on SharedLedger",
       text: groupName
-        ? `Join "${groupName}" on SharedLedger — shared finances made easy.`
-        : "Join my group on SharedLedger — shared finances made easy.",
+        ? `Join "${groupName}" on SharedLedger — track expenses, income, and budgets together.`
+        : "Join my group on SharedLedger — track expenses, income, and budgets together.",
       onShared: () => {},
       onCopied: () => {
         setCopied(true);

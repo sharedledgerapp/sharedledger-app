@@ -20,7 +20,7 @@ import passport from "passport";
 import { db } from "./db";
 import { GoogleGenAI } from "@google/genai";
 import { startPushScheduler } from "./push-scheduler";
-import { sendFeedbackEmail, sendWelcomeEmail, sendPasswordResetEmail } from "./email";
+import { sendFeedbackEmail, sendWelcomeEmail, sendPasswordResetEmail, sendWhatsNewEmail } from "./email";
 import rateLimit from "express-rate-limit";
 
 // Rate limiters
@@ -2442,6 +2442,33 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         return res.status(400).json({ message: err.errors[0].message });
       }
       console.error("[feedback] Failed to send feedback email:", err);
+      next(err);
+    }
+  });
+
+  // Admin: bulk "What's New" email
+  app.post("/api/admin/send-whats-new", async (req, res, next) => {
+    try {
+      const adminSecret = process.env.ADMIN_SECRET;
+      if (!adminSecret || req.headers["x-admin-secret"] !== adminSecret) {
+        return res.status(401).json({ message: "Unauthorised" });
+      }
+      const allUsers = await storage.getAllUsersWithEmail();
+      let sent = 0;
+      let failed = 0;
+      const errors: string[] = [];
+      for (const u of allUsers) {
+        try {
+          await sendWhatsNewEmail(u.email, u.name);
+          sent++;
+        } catch (err: any) {
+          failed++;
+          errors.push(`${u.email}: ${err?.message ?? err}`);
+          console.error("[admin] Failed to send whats-new email to", u.email, err);
+        }
+      }
+      return res.json({ total: allUsers.length, sent, failed, errors });
+    } catch (err) {
       next(err);
     }
   });

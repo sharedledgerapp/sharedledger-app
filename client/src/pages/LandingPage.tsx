@@ -31,6 +31,7 @@ import {
   Layers,
   MessageSquareHeart,
   AlertTriangle,
+  TrendingUp,
 } from "lucide-react";
 
 function UseCaseCard({ icon: Icon, title, description }: { icon: LucideIcon; title: string; description: string }) {
@@ -455,6 +456,7 @@ export default function LandingPage() {
               { icon: BarChart3, titleKey: "landingFeature4Title" as const, descKey: "landingFeature4Desc" as const },
               { icon: Bell, titleKey: "landingFeature5Title" as const, descKey: "landingFeature5Desc" as const },
               { icon: MessageCircle, titleKey: "landingFeature6Title" as const, descKey: "landingFeature6Desc" as const },
+              { icon: TrendingUp, titleKey: "landingFeature7Title" as const, descKey: "landingFeature7Desc" as const },
             ].map(({ icon: Icon, titleKey, descKey }) => (
               <div key={titleKey} className="bg-white rounded-2xl p-6 border border-border/50 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-200">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-accent flex items-center justify-center mb-4 shadow-sm shadow-primary/20">
@@ -484,6 +486,7 @@ export default function LandingPage() {
               { labelKey: "landingGrowItem3Label" as const, detailKey: "landingGrowItem3Detail" as const },
               { labelKey: "landingGrowItem4Label" as const, detailKey: "landingGrowItem4Detail" as const },
               { labelKey: "landingGrowItem5Label" as const, detailKey: "landingGrowItem5Detail" as const },
+              { labelKey: "landingGrowItem6Label" as const, detailKey: "landingGrowItem6Detail" as const },
             ].map(({ labelKey, detailKey }) => (
               <div key={labelKey} className="flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />

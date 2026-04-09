@@ -208,3 +208,72 @@ export async function sendFeedbackEmail(payload: FeedbackPayload): Promise<void>
   });
   if (error) throw error;
 }
+
+export async function sendWhatsNewEmail(toEmail: string, name: string): Promise<void> {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("[email] RESEND_API_KEY is not set — whats-new email not sent.");
+    return;
+  }
+
+  const textBody = [
+    `Hi ${name},`,
+    ``,
+    `We've just shipped a new feature in SharedLedger: Income Tracking.`,
+    ``,
+    `You can now log your income — salary, freelance work, or any one-off payment —`,
+    `under the "Money In" tab on the Expenses page.`,
+    ``,
+    `If you're in a family or couple group, you can also choose to share your income`,
+    `with your household. The Group Dashboard will show a combined household income view`,
+    `alongside your shared spending.`,
+    ``,
+    `Open the app to give it a try:`,
+    `https://sharedledger.app/app/expenses`,
+    ``,
+    `— The SharedLedger Team`,
+  ].join("\n");
+
+  const htmlBody = `
+<div style="font-family:sans-serif;max-width:600px;margin:auto;padding:32px 24px;background:#ffffff">
+  <div style="text-align:center;margin-bottom:28px">
+    <img src="https://sharedledger.app/icons/icon-192.png" alt="SharedLedger" width="72" height="72"
+         style="border-radius:16px;margin-bottom:16px" />
+    <h1 style="font-size:26px;font-weight:700;color:#1d1d1f;margin:0">New in SharedLedger</h1>
+    <p style="color:#6b7280;font-size:15px;margin-top:8px">Income Tracking is here</p>
+  </div>
+  <p style="font-size:15px;color:#374151;line-height:1.6">Hi <strong>${name}</strong>,</p>
+  <p style="font-size:15px;color:#374151;line-height:1.6">
+    We've just shipped a feature many of you have been asking for: <strong>Income Tracking</strong>.
+  </p>
+  <div style="background:#f5f3ff;border:1px solid #ede9fe;border-radius:12px;padding:20px;margin:20px 0">
+    <h2 style="font-size:17px;font-weight:700;color:#4f46e5;margin:0 0 10px">💰 What's new</h2>
+    <ul style="font-size:14px;color:#374151;line-height:1.8;margin:0;padding-left:20px">
+      <li>Log salary, freelance income, or one-off payments under <strong>Money In</strong> on the Expenses page</li>
+      <li>See your real net position — income minus spending — each month</li>
+      <li>Families and couples can share income privately with their household</li>
+      <li>Group Dashboards now show a combined household income overview</li>
+    </ul>
+  </div>
+  <div style="text-align:center;margin:28px 0">
+    <a href="https://sharedledger.app/app/expenses"
+       style="display:inline-block;background:#4f46e5;color:#ffffff;font-size:15px;font-weight:600;
+              padding:12px 28px;border-radius:8px;text-decoration:none">
+      Try Income Tracking
+    </a>
+  </div>
+  <p style="font-size:14px;color:#6b7280;line-height:1.6">
+    As always, if you have feedback or questions just reply to this email — we read every message.
+  </p>
+  <p style="font-size:14px;color:#6b7280;margin-top:24px">— The SharedLedger Team</p>
+</div>
+`.trim();
+
+  const { error } = await getResend().emails.send({
+    from: FROM_EMAIL,
+    to: toEmail,
+    subject: "New in SharedLedger: Income Tracking is live",
+    text: textBody,
+    html: htmlBody,
+  });
+  if (error) throw error;
+}
