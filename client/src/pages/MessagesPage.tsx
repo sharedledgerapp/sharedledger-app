@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/use-auth";
@@ -17,6 +17,10 @@ import {
   Trash2,
   Check,
   X,
+  List,
+  ListOrdered,
+  ListTodo,
+  AlignLeft,
 } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
 
@@ -41,6 +45,282 @@ interface NoteItem {
   createdAt: string;
   creatorName: string;
 }
+
+// ─── Content parsing ──────────────────────────────────────────────────────────
+
+type ParsedBlock =
+  | { kind: "text"; text: string }
+  | { kind: "bullet"; text: string }
+  | { kind: "ordered"; text: string; num: number }
+  | { kind: "todo"; text: string; checked: boolean; lineIdx: number };
+
+function parseContent(raw: string | null): ParsedBlock[] {
+  if (!raw) return [];
+  const lines = raw.split("\n");
+  let orderedCounter = 0;
+
+  return lines.map((line, i) => {
+    if (line.startsWith("- ")) {
+      orderedCounter = 0;
+      return { kind: "bullet", text: line.slice(2) };
+    }
+    if (line.startsWith("[ ] ")) {
+      orderedCounter = 0;
+      return { kind: "todo", text: line.slice(4), checked: false, lineIdx: i };
+    }
+    if (line.startsWith("[x] ")) {
+      orderedCounter = 0;
+      return { kind: "todo", text: line.slice(4), checked: true, lineIdx: i };
+    }
+    const orderedMatch = line.match(/^(\d+)\. (.*)/);
+    if (orderedMatch) {
+      orderedCounter++;
+      return { kind: "ordered", text: orderedMatch[2], num: parseInt(orderedMatch[1]) };
+    }
+    orderedCounter = 0;
+    return { kind: "text", text: line };
+  });
+}
+
+function toggleTodoInContent(raw: string, lineIdx: number): string {
+  const lines = raw.split("\n");
+  const line = lines[lineIdx];
+  if (line.startsWith("[ ] ")) {
+    lines[lineIdx] = "[x] " + line.slice(4);
+  } else if (line.startsWith("[x] ")) {
+    lines[lineIdx] = "[ ] " + line.slice(4);
+  }
+  return lines.join("\n");
+}
+
+/** Returns the format prefix of a line, or '' for plain text */
+function detectLinePrefix(line: string): string {
+  if (line.startsWith("- ")) return "- ";
+  if (line.startsWith("[ ] ") || line.startsWith("[x] ")) return "[ ] ";
+  const m = line.match(/^(\d+)\. /);
+  if (m) return `${parseInt(m[1]) + 1}. `;
+  return "";
+}
+
+function stripLinePrefix(line: string): string {
+  if (line.startsWith("- ")) return line.slice(2);
+  if (line.startsWith("[ ] ") || line.startsWith("[x] ")) return line.slice(4);
+  const m = line.match(/^\d+\. (.*)/);
+  if (m) return m[1];
+  return line;
+}
+
+// ─── Format toolbar ───────────────────────────────────────────────────────────
+
+type FormatType = "text" | "bullet" | "ordered" | "todo";
+
+function applyFormatToLine(line: string, fmt: FormatType, lineNum: number): string {
+  const text = stripLinePrefix(line);
+  switch (fmt) {
+    case "bullet": return "- " + text;
+    case "ordered": return `${lineNum}. ` + text;
+    case "todo": return "[ ] " + text;
+    default: return text;
+  }
+}
+
+function getLineRange(value: string, cursorPos: number): [number, number] {
+  const lineStart = value.lastIndexOf("\n", cursorPos - 1) + 1;
+  let lineEnd = value.indexOf("\n", cursorPos);
+  if (lineEnd === -1) lineEnd = value.length;
+  return [lineStart, lineEnd];
+}
+
+interface FormatToolbarProps {
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  value: string;
+  onChange: (v: string) => void;
+}
+
+function FormatToolbar({ textareaRef, value, onChange }: FormatToolbarProps) {
+  const applyFormat = (fmt: FormatType) => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const cursor = ta.selectionStart ?? 0;
+    const [lineStart, lineEnd] = getLineRange(value, cursor);
+    const currentLine = value.slice(lineStart, lineEnd);
+
+    const linesBefore = value.slice(0, lineStart).split("\n");
+    const lineNum = linesBefore.length;
+    const newLine = applyFormatToLine(currentLine, fmt, lineNum);
+    const newValue = value.slice(0, lineStart) + newLine + value.slice(lineEnd);
+    onChange(newValue);
+
+    const newCursor = lineStart + newLine.length;
+    setTimeout(() => {
+      ta.focus();
+      ta.setSelectionRange(newCursor, newCursor);
+    }, 0);
+  };
+
+  const tools: { fmt: FormatType; icon: React.ReactNode; label: string }[] = [
+    { fmt: "text", icon: <AlignLeft className="w-4 h-4" />, label: "Plain text" },
+    { fmt: "bullet", icon: <List className="w-4 h-4" />, label: "Bullet list" },
+    { fmt: "ordered", icon: <ListOrdered className="w-4 h-4" />, label: "Numbered list" },
+    { fmt: "todo", icon: <ListTodo className="w-4 h-4" />, label: "To-do item" },
+  ];
+
+  return (
+    <div className="flex items-center gap-1 p-1 bg-muted/60 rounded-lg">
+      {tools.map(({ fmt, icon, label }) => (
+        <button
+          key={fmt}
+          type="button"
+          title={label}
+          onClick={() => applyFormat(fmt)}
+          data-testid={`button-note-format-${fmt}`}
+          className="flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:bg-background hover:text-foreground transition-colors"
+        >
+          {icon}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── Note content renderer ────────────────────────────────────────────────────
+
+function NoteContentRenderer({
+  blocks,
+  noteId,
+  rawContent,
+  onToggleTodo,
+}: {
+  blocks: ParsedBlock[];
+  noteId: number;
+  rawContent: string;
+  onToggleTodo: (noteId: number, newContent: string) => void;
+}) {
+  if (blocks.length === 0) return null;
+
+  const allEmpty = blocks.every((b) => b.text === "");
+  if (allEmpty) return null;
+
+  return (
+    <div className="mt-1.5 space-y-0.5">
+      {blocks.map((block, i) => {
+        if (block.kind === "text") {
+          if (!block.text) return <div key={i} className="h-1" />;
+          return (
+            <p key={i} className="text-xs text-muted-foreground leading-relaxed">
+              {block.text}
+            </p>
+          );
+        }
+
+        if (block.kind === "bullet") {
+          return (
+            <div key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+              <span className="text-primary mt-0.5 shrink-0 font-bold">•</span>
+              <span>{block.text}</span>
+            </div>
+          );
+        }
+
+        if (block.kind === "ordered") {
+          return (
+            <div key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+              <span className="text-primary shrink-0 font-semibold tabular-nums min-w-[1.25rem]">
+                {block.num}.
+              </span>
+              <span>{block.text}</span>
+            </div>
+          );
+        }
+
+        if (block.kind === "todo") {
+          const handleToggle = () => {
+            const newContent = toggleTodoInContent(rawContent, block.lineIdx);
+            onToggleTodo(noteId, newContent);
+          };
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={handleToggle}
+              data-testid={`button-todo-item-${noteId}-${i}`}
+              className="flex items-start gap-2 text-xs text-left w-full group py-0.5"
+            >
+              <span
+                className={cn(
+                  "mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors",
+                  block.checked
+                    ? "bg-primary border-primary text-primary-foreground"
+                    : "border-muted-foreground/40 group-hover:border-primary/60"
+                )}
+              >
+                {block.checked && <Check className="w-2.5 h-2.5" />}
+              </span>
+              <span
+                className={cn(
+                  "text-muted-foreground transition-colors",
+                  block.checked && "line-through opacity-50"
+                )}
+              >
+                {block.text}
+              </span>
+            </button>
+          );
+        }
+        return null;
+      })}
+    </div>
+  );
+}
+
+// ─── Smart textarea ───────────────────────────────────────────────────────────
+
+function useSmartTextarea(
+  value: string,
+  onChange: (v: string) => void,
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>
+) {
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key !== "Enter") return;
+      const ta = textareaRef.current;
+      if (!ta) return;
+
+      const cursor = ta.selectionStart;
+      const [lineStart, lineEnd] = getLineRange(value, cursor);
+      const currentLine = value.slice(lineStart, lineEnd);
+      const prefix = detectLinePrefix(currentLine);
+      const text = stripLinePrefix(currentLine);
+
+      if (!prefix) return;
+
+      if (!text.trim()) {
+        // Empty list item → break out of list format
+        e.preventDefault();
+        const newValue = value.slice(0, lineStart) + value.slice(lineEnd);
+        onChange(newValue);
+        setTimeout(() => {
+          ta.setSelectionRange(lineStart, lineStart);
+        }, 0);
+        return;
+      }
+
+      e.preventDefault();
+      const insertion = "\n" + prefix;
+      const newValue = value.slice(0, cursor) + insertion + value.slice(cursor);
+      onChange(newValue);
+      const newCursor = cursor + insertion.length;
+      setTimeout(() => {
+        ta.setSelectionRange(newCursor, newCursor);
+      }, 0);
+    },
+    [value, onChange, textareaRef]
+  );
+
+  return { handleKeyDown };
+}
+
+// ─── Messages tab ─────────────────────────────────────────────────────────────
 
 function formatMessageTime(dateStr: string) {
   const date = new Date(dateStr);
@@ -118,12 +398,19 @@ function MessagesTab() {
             {messages.map((msg, index) => {
               const isOwn = msg.userId === user?.id;
               const showSender = !isOwn && (index === 0 || messages[index - 1].userId !== msg.userId);
-              const showTime = index === messages.length - 1 ||
+              const showTime =
+                index === messages.length - 1 ||
                 messages[index + 1].userId !== msg.userId ||
-                new Date(messages[index + 1].createdAt).getTime() - new Date(msg.createdAt).getTime() > 300000;
+                new Date(messages[index + 1].createdAt).getTime() -
+                  new Date(msg.createdAt).getTime() >
+                  300000;
 
               return (
-                <div key={msg.id} className={cn("flex flex-col", isOwn ? "items-end" : "items-start")} data-testid={`message-item-${msg.id}`}>
+                <div
+                  key={msg.id}
+                  className={cn("flex flex-col", isOwn ? "items-end" : "items-start")}
+                  data-testid={`message-item-${msg.id}`}
+                >
                   {showSender && (
                     <span className="text-[11px] text-muted-foreground ml-3 mb-0.5 font-medium">
                       {msg.senderName}
@@ -177,12 +464,15 @@ function MessagesTab() {
   );
 }
 
+// ─── Notes tab ────────────────────────────────────────────────────────────────
+
 function NotesTab() {
   const { t } = useLanguage();
   const { user } = useAuth();
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
+  const newContentRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: notesList, isLoading } = useQuery<NoteItem[]>({
     queryKey: ["/api/notes"],
@@ -206,18 +496,22 @@ function NotesTab() {
       const res = await apiRequest("PATCH", `/api/notes/${id}`, { isCompleted });
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notes"] });
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notes"] }),
+  });
+
+  const updateContentMutation = useMutation({
+    mutationFn: async ({ id, content }: { id: number; content: string }) => {
+      const res = await apiRequest("PATCH", `/api/notes/${id}`, { content });
+      return res.json();
     },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notes"] }),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/notes/${id}`);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notes"] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notes"] }),
   });
 
   const handleCreate = () => {
@@ -225,6 +519,12 @@ function NotesTab() {
       createMutation.mutate({ title: newTitle.trim(), content: newContent.trim() });
     }
   };
+
+  const { handleKeyDown: handleSmartKeyDown } = useSmartTextarea(
+    newContent,
+    setNewContent,
+    newContentRef
+  );
 
   if (isLoading) {
     return (
@@ -259,14 +559,26 @@ function NotesTab() {
             placeholder={t("noteTitlePlaceholder")}
             data-testid="input-note-title"
           />
-          <Textarea
-            value={newContent}
-            onChange={(e) => setNewContent(e.target.value)}
-            placeholder={t("noteContentPlaceholder")}
-            rows={3}
-            className="resize-none"
-            data-testid="input-note-content"
-          />
+          <div className="space-y-2">
+            <FormatToolbar
+              textareaRef={newContentRef}
+              value={newContent}
+              onChange={setNewContent}
+            />
+            <Textarea
+              ref={newContentRef}
+              value={newContent}
+              onChange={(e) => setNewContent(e.target.value)}
+              onKeyDown={handleSmartKeyDown}
+              placeholder={t("noteContentPlaceholder")}
+              rows={4}
+              className="resize-none font-mono text-sm"
+              data-testid="input-note-content"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Use the toolbar above to add bullets, numbered lists, or to-do items. Press Enter to continue a list.
+            </p>
+          </div>
           <Button
             onClick={handleCreate}
             disabled={!newTitle.trim() || createMutation.isPending}
@@ -291,8 +603,11 @@ function NotesTab() {
           key={note.id}
           note={note}
           currentUserId={user?.id}
-          onToggle={() => toggleMutation.mutate({ id: note.id, isCompleted: true })}
+          onToggleNote={() => toggleMutation.mutate({ id: note.id, isCompleted: true })}
           onDelete={() => deleteMutation.mutate(note.id)}
+          onToggleTodo={(noteId, newContent) =>
+            updateContentMutation.mutate({ id: noteId, content: newContent })
+          }
           t={t}
         />
       ))}
@@ -307,8 +622,11 @@ function NotesTab() {
               key={note.id}
               note={note}
               currentUserId={user?.id}
-              onToggle={() => toggleMutation.mutate({ id: note.id, isCompleted: false })}
+              onToggleNote={() => toggleMutation.mutate({ id: note.id, isCompleted: false })}
               onDelete={() => deleteMutation.mutate(note.id)}
+              onToggleTodo={(noteId, newContent) =>
+                updateContentMutation.mutate({ id: noteId, content: newContent })
+              }
               t={t}
             />
           ))}
@@ -318,19 +636,25 @@ function NotesTab() {
   );
 }
 
+// ─── Note card ────────────────────────────────────────────────────────────────
+
 function NoteCard({
   note,
   currentUserId,
-  onToggle,
+  onToggleNote,
   onDelete,
+  onToggleTodo,
   t,
 }: {
   note: NoteItem;
   currentUserId?: number;
-  onToggle: () => void;
+  onToggleNote: () => void;
   onDelete: () => void;
+  onToggleTodo: (noteId: number, newContent: string) => void;
   t: (key: any) => string;
 }) {
+  const blocks = parseContent(note.content);
+
   return (
     <Card
       className={cn("p-4 transition-all", note.isCompleted && "opacity-60")}
@@ -338,26 +662,38 @@ function NoteCard({
     >
       <div className="flex items-start gap-3">
         <button
-          onClick={onToggle}
+          onClick={onToggleNote}
           className={cn(
             "mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors",
             note.isCompleted
               ? "bg-primary border-primary text-primary-foreground"
               : "border-muted-foreground/30 hover:border-primary/50"
           )}
+          title={note.isCompleted ? "Mark as active" : "Mark note as done"}
           data-testid={`button-toggle-note-${note.id}`}
         >
           {note.isCompleted && <Check className="w-3 h-3" />}
         </button>
+
         <div className="flex-1 min-w-0">
-          <p className={cn("font-medium text-sm", note.isCompleted && "line-through text-muted-foreground")}>
+          <p
+            className={cn(
+              "font-medium text-sm",
+              note.isCompleted && "line-through text-muted-foreground"
+            )}
+          >
             {note.title}
           </p>
-          {note.content && (
-            <p className={cn("text-xs text-muted-foreground mt-1 whitespace-pre-wrap", note.isCompleted && "line-through")}>
-              {note.content}
-            </p>
+
+          {blocks.length > 0 && (
+            <NoteContentRenderer
+              blocks={blocks}
+              noteId={note.id}
+              rawContent={note.content ?? ""}
+              onToggleTodo={onToggleTodo}
+            />
           )}
+
           <div className="flex items-center gap-2 mt-2">
             <span className="text-[10px] text-muted-foreground">
               {t("by")} {note.creatorName}
@@ -367,6 +703,7 @@ function NoteCard({
             </span>
           </div>
         </div>
+
         <Button
           size="icon"
           variant="ghost"
@@ -381,12 +718,17 @@ function NoteCard({
   );
 }
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function MessagesPage() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabType>("messages");
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] lg:h-[calc(100vh-2rem)] -m-4 md:-m-8" data-tutorial="messages-area">
+    <div
+      className="flex flex-col h-[calc(100vh-8rem)] lg:h-[calc(100vh-2rem)] -m-4 md:-m-8"
+      data-tutorial="messages-area"
+    >
       <div className="px-4 pt-4 pb-2">
         <div className="flex items-center gap-1 p-1 bg-secondary/50 rounded-xl">
           <button
