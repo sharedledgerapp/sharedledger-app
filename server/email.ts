@@ -218,19 +218,30 @@ export async function sendWhatsNewEmail(toEmail: string, name: string): Promise<
   const textBody = [
     `Hi ${name},`,
     ``,
-    `We've just shipped a new feature in SharedLedger: Income Tracking.`,
+    `One of the most consistent pieces of feedback we heard from you was this:`,
+    `it is hard to understand your spending when you can only see what goes out.`,
+    `You wanted to see what comes in too, so that the numbers actually add up`,
+    `and your financial picture makes sense.`,
     ``,
-    `You can now log your income — salary, freelance work, or any one-off payment —`,
-    `under the "Money In" tab on the Expenses page.`,
+    `So we built it.`,
     ``,
-    `If you're in a family or couple group, you can also choose to share your income`,
-    `with your household. The Group Dashboard will show a combined household income view`,
-    `alongside your shared spending.`,
+    `Income Tracking is now live in SharedLedger. Head to the Expenses page`,
+    `and tap "Money In" to log your salary, freelance work, or any one-off payment.`,
+    `The more you log, the clearer your real net position becomes each month.`,
+    ``,
+    `A few things worth knowing:`,
+    ``,
+    `- Your monthly net position updates in real time as you log income and expenses`,
+    `- If you are in a family or couple group, you can share your income with your`,
+    `  household so everyone sees the full picture together`,
+    `- Income you would rather keep private stays private by default`,
     ``,
     `Open the app to give it a try:`,
     `https://sharedledger.app/app/expenses`,
     ``,
-    `— The SharedLedger Team`,
+    `As always, reply to this email with any thoughts. We read every message.`,
+    ``,
+    `The SharedLedger Team`,
   ].join("\n");
 
   const htmlBody = `
@@ -239,19 +250,26 @@ export async function sendWhatsNewEmail(toEmail: string, name: string): Promise<
     <img src="https://sharedledger.app/icons/icon-192.png" alt="SharedLedger" width="72" height="72"
          style="border-radius:16px;margin-bottom:16px" />
     <h1 style="font-size:26px;font-weight:700;color:#1d1d1f;margin:0">New in SharedLedger</h1>
-    <p style="color:#6b7280;font-size:15px;margin-top:8px">Income Tracking is here</p>
+    <p style="color:#6b7280;font-size:15px;margin-top:8px">Income Tracking is now live</p>
   </div>
   <p style="font-size:15px;color:#374151;line-height:1.6">Hi <strong>${name}</strong>,</p>
   <p style="font-size:15px;color:#374151;line-height:1.6">
-    We've just shipped a feature many of you have been asking for: <strong>Income Tracking</strong>.
+    One of the most consistent pieces of feedback we heard from you was this: it is hard to
+    understand your spending when you can only see what goes out. You wanted to see what
+    comes in too, so that the numbers actually add up and your financial picture makes sense.
   </p>
-  <div style="background:#f5f3ff;border:1px solid #ede9fe;border-radius:12px;padding:20px;margin:20px 0">
-    <h2 style="font-size:17px;font-weight:700;color:#4f46e5;margin:0 0 10px">💰 What's new</h2>
-    <ul style="font-size:14px;color:#374151;line-height:1.8;margin:0;padding-left:20px">
-      <li>Log salary, freelance income, or one-off payments under <strong>Money In</strong> on the Expenses page</li>
-      <li>See your real net position — income minus spending — each month</li>
-      <li>Families and couples can share income privately with their household</li>
-      <li>Group Dashboards now show a combined household income overview</li>
+  <p style="font-size:15px;color:#374151;line-height:1.6;font-weight:600">So we built it.</p>
+  <p style="font-size:15px;color:#374151;line-height:1.6">
+    <strong>Income Tracking</strong> is now live in SharedLedger. Head to the Expenses page
+    and tap <strong>Money In</strong> to log your salary, freelance work, or any one-off
+    payment. The more you log, the clearer your real net position becomes each month.
+  </p>
+  <div style="background:#f5f3ff;border:1px solid #ede9fe;border-radius:12px;padding:20px;margin:24px 0">
+    <h2 style="font-size:15px;font-weight:700;color:#4f46e5;margin:0 0 12px">A few things worth knowing</h2>
+    <ul style="font-size:14px;color:#374151;line-height:1.9;margin:0;padding-left:20px">
+      <li>Your monthly net position updates in real time as you log income and expenses</li>
+      <li>If you are in a family or couple group, you can share your income with your household so everyone sees the full picture together</li>
+      <li>Income you would rather keep private stays private by default</li>
     </ul>
   </div>
   <div style="text-align:center;margin:28px 0">
@@ -262,9 +280,9 @@ export async function sendWhatsNewEmail(toEmail: string, name: string): Promise<
     </a>
   </div>
   <p style="font-size:14px;color:#6b7280;line-height:1.6">
-    As always, if you have feedback or questions just reply to this email — we read every message.
+    As always, reply to this email with any thoughts. We read every message.
   </p>
-  <p style="font-size:14px;color:#6b7280;margin-top:24px">— The SharedLedger Team</p>
+  <p style="font-size:14px;color:#6b7280;margin-top:24px">The SharedLedger Team</p>
 </div>
 `.trim();
 
