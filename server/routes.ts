@@ -730,16 +730,21 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
     const personalMonthlyIncomeTotal = await storage.getMonthlyIncomeTotal(user.id, currentMonthStart, currentMonthEnd);
     const incomeEntriesList = await storage.getIncomeEntries(user.id);
-    const hasIncomeEntries = incomeEntriesList.length > 0;
 
     // For family/couple groups, Money In = combined household shared income (all members' shared entries)
     // For personal-only users (or roommates), Money In = personal income only
     let monthlyIncomeTotal = personalMonthlyIncomeTotal;
+    let hasIncomeEntries = incomeEntriesList.length > 0;
     if (user.familyId) {
       const family = await storage.getFamily(user.familyId);
       if (family && (family.groupType === "family" || family.groupType === "couple")) {
         const householdTotal = await storage.getFamilyMonthlyIncomeTotal(user.familyId, currentMonthStart, currentMonthEnd);
         monthlyIncomeTotal = householdTotal;
+        // For group users, show income card if there are ANY household shared entries (not just personal)
+        if (!hasIncomeEntries) {
+          const householdEntries = await storage.getFamilyIncomeEntries(user.familyId);
+          hasIncomeEntries = householdEntries.length > 0;
+        }
       }
     }
 

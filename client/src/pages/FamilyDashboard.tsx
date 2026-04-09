@@ -581,7 +581,7 @@ export default function FamilyDashboard() {
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {isHidden ? <span className="italic">Amount only</span> : entry.source}
+                          {isHidden ? <span className="italic">Income</span> : entry.source}
                           {entry.isRecurring && <span className="ml-1.5 text-primary">· recurring</span>}
                         </p>
                       </div>
