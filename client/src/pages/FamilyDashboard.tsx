@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,7 +14,7 @@ import {
   Users, Wallet, TrendingUp, ChevronLeft, ChevronRight, 
   Target, Calendar, Utensils, Bus, Gamepad2, ShoppingBag, 
   Lightbulb, GraduationCap, Heart, Package, Home as HomeIcon,
-  Flag, PiggyBank, Info, Banknote, Trash2
+  Flag, PiggyBank, Info, Banknote, Trash2, LogOut
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, addWeeks, subMonths, subWeeks, differenceInDays } from "date-fns";
 import { getCurrencySymbol, toFixedAmount } from "@/lib/currency";
@@ -154,6 +154,20 @@ export default function FamilyDashboard() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [viewingMember, setViewingMember] = useState<MemberSpending | null>(null);
   const [bottomView, setBottomView] = useState<"expenses" | "goals">("expenses");
+  const [leaveDialog, setLeaveDialog] = useState(false);
+
+  const leaveGroupMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/group/leave");
+      if (!res.ok) throw new Error("Failed to leave group");
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/user"] });
+      qc.invalidateQueries({ queryKey: ["/api/family"] });
+      toast({ title: t("leaveGroup"), description: t("confirmLeaveGroup") });
+    },
+  });
 
   const periodStart = periodType === "month" 
     ? startOfMonth(currentDate) 
@@ -807,6 +821,39 @@ export default function FamilyDashboard() {
       </div>
 
       {familyCode && <InviteSection familyCode={familyCode} groupName={data?.summary.familyName} />}
+
+      <Button
+        variant="ghost"
+        className="w-full text-destructive hover:bg-destructive/5 hover:text-destructive"
+        onClick={() => setLeaveDialog(true)}
+        data-testid="button-leave-group"
+      >
+        <LogOut className="w-4 h-4 mr-2" />
+        {t("leaveGroup")}
+      </Button>
+
+      <Dialog open={leaveDialog} onOpenChange={setLeaveDialog}>
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>{t("leaveGroup")}</DialogTitle>
+            <DialogDescription>{t("confirmLeaveGroup")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 flex-col sm:flex-row">
+            <Button variant="outline" className="flex-1" onClick={() => setLeaveDialog(false)}>
+              {t("cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={() => { leaveGroupMutation.mutate(); setLeaveDialog(false); }}
+              disabled={leaveGroupMutation.isPending}
+              data-testid="button-confirm-leave-group"
+            >
+              {t("leaveGroup")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {viewingMember && (
         <MemberDetailsDialog
