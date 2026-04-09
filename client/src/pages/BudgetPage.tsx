@@ -92,6 +92,16 @@ export default function BudgetPage() {
   });
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("openCreate") === "true") {
+      const isShared = params.get("shared") === "true";
+      setForm(f => ({ ...f, scope: isShared ? "shared" : "personal" }));
+      setShowDialog(true);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  useEffect(() => {
     if (summary?.budgets) {
       checkBudgetThresholdNotifications(
         summary.budgets.map(b => ({

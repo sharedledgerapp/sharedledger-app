@@ -14,7 +14,7 @@ import {
   Users, Wallet, TrendingUp, ChevronLeft, ChevronRight, 
   Target, Calendar, Utensils, Bus, Gamepad2, ShoppingBag, 
   Lightbulb, GraduationCap, Heart, Package, Home as HomeIcon,
-  Flag, PiggyBank
+  Flag, PiggyBank, Info
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, addWeeks, subMonths, subWeeks, differenceInDays } from "date-fns";
 import { getCurrencySymbol, toFixedAmount } from "@/lib/currency";
@@ -291,8 +291,6 @@ export default function FamilyDashboard() {
         </Badge>
       </div>
 
-      {familyCode && <InviteSection familyCode={familyCode} groupName={data?.summary.familyName} />}
-
       <div className="flex items-center justify-between gap-2">
         <div className="flex gap-2">
           <Button
@@ -348,95 +346,6 @@ export default function FamilyDashboard() {
               {data?.summary.expenseCount} {t(data?.summary.expenseCount === 1 ? "expense" : "expensesPlural")}
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {data?.memberSpending && data.memberSpending.length > 0 && (
-        <section>
-          <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2">
-            <Users className="w-5 h-5 text-primary" />
-            {t("members")}
-          </h3>
-          <div className="grid gap-3">
-            {data.memberSpending.map((member) => (
-              <Card
-                key={member.id}
-                className="border-border/50 shadow-sm cursor-pointer hover:border-primary/30 transition-all active:scale-[0.98]"
-                onClick={() => setViewingMember(member)}
-                data-testid={`member-card-${member.id}`}
-              >
-                <CardContent className="p-4 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                      {member.name[0]?.toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold">{member.name}</p>
-                        <ChevronRight className="w-3 h-3 text-muted-foreground" />
-                      </div>
-                      <p className="text-xs text-muted-foreground capitalize">{member.role}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-lg font-bold">{currencySymbol}{toFixedAmount(Number(member.total), groupCurrency)}</span>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                      {member.expenseCount} {t(member.expenseCount === 1 ? "expense" : "expensesPlural")}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <Card className="border-border/50 shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Wallet className="w-4 h-4 text-primary" />
-            {t("moneySourceSplit")}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 pt-0">
-          {Number(data?.summary.totalSpent) > 0 ? (
-            <>
-              <div className="flex gap-2 mb-3">
-                <div className="flex-1">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-muted-foreground">{t("familyMoneySource")}</span>
-                    <span className="font-medium">{data?.moneySourceSplit.familyPercentage}%</span>
-                  </div>
-                  <Progress 
-                    value={Number(data?.moneySourceSplit.familyPercentage)} 
-                    className="h-2"
-                  />
-                  <div className="text-xs text-muted-foreground mt-1" data-testid="text-family-money-amount">
-                    {currencySymbol}{toFixedAmount(Number(data?.moneySourceSplit.familyMoney || 0), groupCurrency)}
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-muted-foreground">{t("personalMoneySource")}</span>
-                    <span className="font-medium">{data?.moneySourceSplit.personalPercentage}%</span>
-                  </div>
-                  <Progress 
-                    value={Number(data?.moneySourceSplit.personalPercentage)} 
-                    className="h-2 [&>div]:bg-accent"
-                  />
-                  <div className="text-xs text-muted-foreground mt-1" data-testid="text-personal-money-amount">
-                    {currencySymbol}{toFixedAmount(Number(data?.moneySourceSplit.personalMoney || 0), groupCurrency)}
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-4 text-muted-foreground text-sm">
-              {t("noSharedExpenses")}
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -501,16 +410,16 @@ export default function FamilyDashboard() {
           <Card className="border-border/50 shadow-sm">
             <CardContent className="p-4">
               {data?.categoryBreakdown.length ? (
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="h-[200px] flex-1">
+                <div className="flex flex-col gap-4">
+                  <div style={{ width: "100%", height: 220 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
                           data={data.categoryBreakdown}
                           cx="50%"
                           cy="50%"
-                          innerRadius={50}
-                          outerRadius={70}
+                          innerRadius={55}
+                          outerRadius={80}
                           paddingAngle={5}
                           dataKey="amount"
                           nameKey="category"
@@ -526,7 +435,7 @@ export default function FamilyDashboard() {
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
-                  <div className="flex-1 space-y-2">
+                  <div className="space-y-2">
                     {data.categoryBreakdown.map((cat, index) => (
                       <button
                         key={cat.category}
@@ -562,6 +471,103 @@ export default function FamilyDashboard() {
               )}
             </CardContent>
           </Card>
+        </section>
+      )}
+
+      {data?.memberSpending && data.memberSpending.length > 0 && (
+        <section>
+          <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2">
+            <Users className="w-5 h-5 text-primary" />
+            {t("members")}
+          </h3>
+          <div className="grid gap-3">
+            {data.memberSpending.map((member) => (
+              <Card
+                key={member.id}
+                className="border-border/50 shadow-sm cursor-pointer hover:border-primary/30 transition-all active:scale-[0.98]"
+                onClick={() => setViewingMember(member)}
+                data-testid={`member-card-${member.id}`}
+              >
+                <CardContent className="p-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                      {member.name[0]?.toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold">{member.name}</p>
+                        <ChevronRight className="w-3 h-3 text-muted-foreground" />
+                      </div>
+                      <p className="text-xs text-muted-foreground capitalize">{member.role}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-lg font-bold">{currencySymbol}{toFixedAmount(Number(member.total), groupCurrency)}</span>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                      {member.expenseCount} {t(member.expenseCount === 1 ? "expense" : "expensesPlural")}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {user?.familyId && (
+        <section data-testid="section-shared-budgets">
+          <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2">
+            <PiggyBank className="w-5 h-5 text-primary" />
+            Shared Budgets
+          </h3>
+          {sharedBudgetsData?.budgets.length ? (
+            <div className="space-y-3">
+              {sharedBudgetsData.budgets.map((budget) => {
+                const pct = Math.min(100, budget.percentUsed);
+                const isOver = budget.percentUsed >= 100;
+                const isNear = budget.percentUsed >= 80 && !isOver;
+                return (
+                  <Card key={budget.id} className="border-border/50 shadow-sm" data-testid={`shared-budget-card-${budget.id}`}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-lg bg-secondary/50 flex items-center justify-center">
+                            {getCategoryIcon(budget.category)}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-sm">{budget.category}</p>
+                            <p className="text-xs text-muted-foreground capitalize">{budget.periodType}</p>
+                          </div>
+                        </div>
+                        <Badge
+                          variant={isOver ? "destructive" : isNear ? "outline" : "secondary"}
+                          className={`text-xs ${isNear ? "border-orange-400 text-orange-600" : ""}`}
+                        >
+                          {pct}%
+                        </Badge>
+                      </div>
+                      <Progress
+                        value={pct}
+                        className={`h-2 mb-2 ${isOver ? "[&>div]:bg-destructive" : isNear ? "[&>div]:bg-orange-500" : ""}`}
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>{currencySymbol}{toFixedAmount(budget.spent, groupCurrency)} spent</span>
+                        <span>{currencySymbol}{toFixedAmount(Number(budget.amount), groupCurrency)} limit</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <Link href="/app/budget?openCreate=true&shared=true">
+              <div className="text-center py-6 bg-muted/30 rounded-xl border border-dashed border-border hover:border-primary/40 transition-colors cursor-pointer" data-testid="shared-budget-empty-cta">
+                <PiggyBank className="w-8 h-8 mx-auto mb-2 text-muted-foreground opacity-50" />
+                <p className="text-sm text-muted-foreground">No shared budgets yet</p>
+                <p className="text-xs text-primary mt-1">Tap to set one up</p>
+              </div>
+            </Link>
+          )}
         </section>
       )}
 
@@ -691,62 +697,14 @@ export default function FamilyDashboard() {
       </section>
 
 
-      {user?.familyId && (
-        <section data-testid="section-shared-budgets">
-          <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2">
-            <PiggyBank className="w-5 h-5 text-primary" />
-            Shared Budgets
-          </h3>
-          {sharedBudgetsData?.budgets.length ? (
-            <div className="space-y-3">
-              {sharedBudgetsData.budgets.map((budget) => {
-                const pct = Math.min(100, budget.percentUsed);
-                const isOver = budget.percentUsed >= 100;
-                const isNear = budget.percentUsed >= 80 && !isOver;
-                return (
-                  <Card key={budget.id} className="border-border/50 shadow-sm" data-testid={`shared-budget-card-${budget.id}`}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-lg bg-secondary/50 flex items-center justify-center">
-                            {getCategoryIcon(budget.category)}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-sm">{budget.category}</p>
-                            <p className="text-xs text-muted-foreground capitalize">{budget.periodType}</p>
-                          </div>
-                        </div>
-                        <Badge
-                          variant={isOver ? "destructive" : isNear ? "outline" : "secondary"}
-                          className={`text-xs ${isNear ? "border-orange-400 text-orange-600" : ""}`}
-                        >
-                          {pct}%
-                        </Badge>
-                      </div>
-                      <Progress
-                        value={pct}
-                        className={`h-2 mb-2 ${isOver ? "[&>div]:bg-destructive" : isNear ? "[&>div]:bg-orange-500" : ""}`}
-                      />
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{currencySymbol}{toFixedAmount(budget.spent, groupCurrency)} spent</span>
-                        <span>{currencySymbol}{toFixedAmount(Number(budget.amount), groupCurrency)} limit</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          ) : (
-            <Link href="/app/budget">
-              <div className="text-center py-6 bg-muted/30 rounded-xl border border-dashed border-border hover:border-primary/40 transition-colors cursor-pointer" data-testid="shared-budget-empty-cta">
-                <PiggyBank className="w-8 h-8 mx-auto mb-2 text-muted-foreground opacity-50" />
-                <p className="text-sm text-muted-foreground">No shared budgets yet</p>
-                <p className="text-xs text-primary mt-1">Tap to set one up in Budget</p>
-              </div>
-            </Link>
-          )}
-        </section>
-      )}
+      <div className="flex items-start gap-2 px-4 py-3 bg-muted/40 rounded-xl border border-border/30" data-testid="notice-data-accuracy-group">
+        <Info className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          These figures reflect what your group has logged so far. The more consistently members record expenses, the more accurate this picture becomes.
+        </p>
+      </div>
+
+      {familyCode && <InviteSection familyCode={familyCode} groupName={data?.summary.familyName} />}
 
       {viewingMember && (
         <MemberDetailsDialog

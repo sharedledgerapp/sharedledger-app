@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, ScanLine, Check, X, DollarSign, Trash2, Wallet, Repeat, Pause, Play, Settings, Search, Globe, ChevronDown, ChevronRight, Archive, TrendingUp, Banknote } from "lucide-react";
+import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, ScanLine, Check, X, DollarSign, Trash2, Wallet, Repeat, Pause, Play, Settings, Search, Globe, ChevronDown, ChevronRight, Archive, TrendingUp, Banknote, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Keypad } from "@/components/Keypad";
 import { format } from "date-fns";
@@ -556,19 +556,27 @@ export default function ExpensesPage() {
       </div>
 
       {moneyTab === "in" ? (
-        <MoneyInSection
-          incomeEntries={incomeEntries || []}
-          incomeLoading={incomeLoading}
-          currencySymbol={currencySymbol}
-          user={user}
-          onEdit={openEditIncomeDialog}
-          onDelete={(id) => {
-            if (confirm("Delete this income entry?")) {
-              deleteIncomeMutation.mutate(id);
-            }
-          }}
-          onAdd={() => { resetIncomeForm(); setShowIncomeDialog(true); }}
-        />
+        <>
+          <div className="flex items-start gap-2 px-3 py-2.5 bg-muted/40 rounded-xl border border-border/30" data-testid="notice-data-accuracy-money">
+            <Info className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Your net position is only as accurate as what you log. Regular entries give you the clearest picture of where you stand.
+            </p>
+          </div>
+          <MoneyInSection
+            incomeEntries={incomeEntries || []}
+            incomeLoading={incomeLoading}
+            currencySymbol={currencySymbol}
+            user={user}
+            onEdit={openEditIncomeDialog}
+            onDelete={(id) => {
+              if (confirm("Delete this income entry?")) {
+                deleteIncomeMutation.mutate(id);
+              }
+            }}
+            onAdd={() => { resetIncomeForm(); setShowIncomeDialog(true); }}
+          />
+        </>
       ) : (
         <>
       {/* Money Out: Everyday / Recurring sub-tabs */}
