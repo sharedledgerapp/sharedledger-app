@@ -191,7 +191,7 @@ export default function FamilyDashboard() {
     id: number;
     userId: number;
     amount: string;
-    source: string;
+    source: string | null;
     note: string | null;
     date: string;
     isRecurring: boolean;
@@ -199,8 +199,11 @@ export default function FamilyDashboard() {
     userName: string;
   };
 
+  const familyIncomeStartStr = periodStart.toISOString();
+  const familyIncomeEndStr = periodEnd.toISOString();
   const { data: familyIncomeEntries } = useQuery<FamilyIncomeEntry[]>({
-    queryKey: ["/api/family/income"],
+    queryKey: ["/api/family/income", familyIncomeStartStr, familyIncomeEndStr],
+    queryFn: () => fetch(`/api/family/income?startDate=${encodeURIComponent(familyIncomeStartStr)}&endDate=${encodeURIComponent(familyIncomeEndStr)}`).then(r => r.json()),
     enabled: !!user?.familyId,
     staleTime: 10_000,
   });
@@ -285,6 +288,8 @@ export default function FamilyDashboard() {
           setPeriodType={setPeriodType}
           navigatePeriod={navigatePeriod}
           periodLabel={periodLabel}
+          periodStart={periodStart}
+          periodEnd={periodEnd}
         />
       </>
     );
@@ -542,7 +547,7 @@ export default function FamilyDashboard() {
             <CardContent className="p-4 space-y-3">
               {familyIncomeEntries.map((entry) => {
                 const isOwner = entry.userId === user?.id;
-                const isHidden = entry.source === "Hidden";
+                const isHidden = entry.source === null;
                 return (
                   <div key={entry.id} className="flex items-center justify-between py-2 border-b last:border-0" data-testid={`family-income-entry-${entry.id}`}>
                     <div className="flex items-center gap-3">

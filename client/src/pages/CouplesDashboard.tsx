@@ -61,6 +61,8 @@ interface CouplesDashboardProps {
   setPeriodType: (type: "month" | "week") => void;
   navigatePeriod: (direction: "prev" | "next") => void;
   periodLabel: string;
+  periodStart: Date;
+  periodEnd: Date;
 }
 
 const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#a78bfa", "#fb923c", "#4ade80"];
@@ -84,7 +86,7 @@ type FamilyIncomeEntry = {
   id: number;
   userId: number;
   amount: string;
-  source: string;
+  source: string | null;
   note: string | null;
   date: string;
   isRecurring: boolean;
@@ -102,6 +104,8 @@ export function CouplesDashboardView({
   setPeriodType,
   navigatePeriod,
   periodLabel,
+  periodStart,
+  periodEnd,
 }: CouplesDashboardProps) {
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -109,8 +113,11 @@ export function CouplesDashboardView({
   const displayExpenses = recentExpenses.slice(0, 5);
   const totalSpent = Number(summary.totalSpent);
 
+  const incomeStartStr = periodStart.toISOString();
+  const incomeEndStr = periodEnd.toISOString();
   const { data: familyIncomeEntries } = useQuery<FamilyIncomeEntry[]>({
-    queryKey: ["/api/family/income"],
+    queryKey: ["/api/family/income", incomeStartStr, incomeEndStr],
+    queryFn: () => fetch(`/api/family/income?startDate=${encodeURIComponent(incomeStartStr)}&endDate=${encodeURIComponent(incomeEndStr)}`).then(r => r.json()),
     enabled: !!user?.familyId,
     staleTime: 10_000,
   });
@@ -304,7 +311,7 @@ export function CouplesDashboardView({
             <div className="space-y-3">
               {familyIncomeEntries.map((entry) => {
                 const isOwner = entry.userId === user?.id;
-                const isHidden = entry.source === "Hidden";
+                const isHidden = entry.source === null;
                 return (
                   <div key={entry.id} className="flex items-center justify-between py-1 border-b last:border-0" data-testid={`couple-income-entry-${entry.id}`}>
                     <div className="flex items-center gap-3">

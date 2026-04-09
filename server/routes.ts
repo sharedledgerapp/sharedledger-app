@@ -732,29 +732,14 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const incomeEntriesList = await storage.getIncomeEntries(user.id);
     const hasIncomeEntries = incomeEntriesList.length > 0;
 
-    // For family/couple groups, include household shared income in the home net card total
-    // Strategy: personal unshared income + all household shared income (from all members)
-    // This avoids double-counting: shared entries from this user go into the household total,
-    // personal (unshared) entries are added on top.
+    // For family/couple groups, Money In = combined household shared income (all members' shared entries)
+    // For personal-only users (or roommates), Money In = personal income only
     let monthlyIncomeTotal = personalMonthlyIncomeTotal;
     if (user.familyId) {
       const family = await storage.getFamily(user.familyId);
       if (family && (family.groupType === "family" || family.groupType === "couple")) {
         const householdTotal = await storage.getFamilyMonthlyIncomeTotal(user.familyId, currentMonthStart, currentMonthEnd);
-        if (householdTotal > 0) {
-          // Sum of this user's own income that is shared (to avoid double-counting)
-          const thisMonthSharedByUser = incomeEntriesList
-            .filter(e => e.familyId === user.familyId)
-            .reduce((sum, e) => {
-              const d = new Date(e.date);
-              return (d >= currentMonthStart && d <= currentMonthEnd) ? sum + Number(e.amount) : sum;
-            }, 0);
-          // personalMonthlyIncomeTotal includes all personal entries (shared and unshared)
-          // householdTotal includes all shared entries from all members (including this user)
-          // Combined = household + personal entries that are NOT shared
-          const personalOnlyIncome = personalMonthlyIncomeTotal - thisMonthSharedByUser;
-          monthlyIncomeTotal = householdTotal + Math.max(0, personalOnlyIncome);
-        }
+        monthlyIncomeTotal = householdTotal;
       }
     }
 
@@ -767,7 +752,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       recurringMonthlyTotal: recurringMonthlyTotal.toFixed(2),
       combinedMonthlyTotal: combinedMonthlyTotal.toFixed(2),
       crossCurrencyGroupExpenseCount,
-      monthlyIncomeTotal: Math.max(0, monthlyIncomeTotal).toFixed(2),
+      monthlyIncomeTotal: monthlyIncomeTotal.toFixed(2),
       hasIncomeEntries,
     });
   });
@@ -1327,7 +1312,10 @@ If any field cannot be determined, use null. Be precise with the total amount. R
   app.get("/api/family/income", requireAuth, async (req, res) => {
     const user = req.user as any;
     if (!user.familyId) return res.status(400).json({ message: "No group" });
-    const entries = await storage.getFamilyIncomeEntries(user.familyId);
+    const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
+    const start = startDate ? new Date(startDate) : undefined;
+    const end = endDate ? new Date(endDate) : undefined;
+    const entries = await storage.getFamilyIncomeEntries(user.familyId, start, end);
     res.json(entries);
   });
 

@@ -118,7 +118,7 @@ export interface IStorage {
   updateIncomeEntry(id: number, updates: Partial<InsertIncomeEntry>): Promise<IncomeEntry>;
   deleteIncomeEntry(id: number): Promise<void>;
   getMonthlyIncomeTotal(userId: number, monthStart: Date, monthEnd: Date): Promise<number>;
-  getFamilyIncomeEntries(familyId: number): Promise<(IncomeEntry & { userName: string })[]>;
+  getFamilyIncomeEntries(familyId: number, startDate?: Date, endDate?: Date): Promise<(IncomeEntry & { userName: string })[]>;
   getFamilyMonthlyIncomeTotal(familyId: number, monthStart: Date, monthEnd: Date): Promise<number>;
 
   // Friend Groups
@@ -1031,7 +1031,7 @@ export class DatabaseStorage implements IStorage {
     return total;
   }
 
-  async getFamilyIncomeEntries(familyId: number): Promise<(IncomeEntry & { userName: string })[]> {
+  async getFamilyIncomeEntries(familyId: number, startDate?: Date, endDate?: Date): Promise<(IncomeEntry & { userName: string })[]> {
     const rows = await db
       .select({
         id: incomeEntries.id,
@@ -1051,10 +1051,20 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(users, eq(incomeEntries.userId, users.id))
       .where(eq(incomeEntries.familyId, familyId))
       .orderBy(desc(incomeEntries.date));
+
+    // Filter by date range when provided (non-recurring by date, recurring always included if started before end)
+    const filtered = (startDate && endDate)
+      ? rows.filter(row => {
+          const d = new Date(row.date);
+          if (row.isRecurring) return d <= endDate;
+          return d >= startDate && d <= endDate;
+        })
+      : rows;
+
     // Redact source/note for entries where shareDetails = false (total-only sharing)
-    return rows.map(row => ({
+    return filtered.map(row => ({
       ...row,
-      source: row.shareDetails === false ? "Hidden" : row.source,
+      source: row.shareDetails === false ? null : row.source,
       note: row.shareDetails === false ? null : row.note,
     })) as (IncomeEntry & { userName: string })[];
   }
