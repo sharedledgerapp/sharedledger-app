@@ -140,6 +140,9 @@ export const recurringExpenses = pgTable("recurring_expenses", {
   frequency: text("frequency", { enum: ["monthly", "quarterly", "yearly"] }).default("monthly").notNull(),
   note: text("note"),
   isActive: boolean("is_active").default(true).notNull(),
+  dueDay: integer("due_day"),
+  reminderEnabled: boolean("reminder_enabled").default(false).notNull(),
+  reminderDaysBefore: integer("reminder_days_before").default(3),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -346,6 +349,8 @@ export const incomeEntries = pgTable("income_entries", {
   isRecurring: boolean("is_recurring").default(false).notNull(),
   recurringInterval: text("recurring_interval", { enum: ["weekly", "monthly", "tri-monthly"] }),
   shareDetails: boolean("share_details"),
+  reminderEnabled: boolean("reminder_enabled").default(false).notNull(),
+  reminderDaysBefore: integer("reminder_days_before").default(3),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

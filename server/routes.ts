@@ -1244,6 +1244,8 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         isRecurring: z.boolean().optional().default(false),
         recurringInterval: z.enum(["weekly", "monthly", "tri-monthly"]).optional().nullable(),
         shareDetails: z.boolean().nullable().optional(),
+        reminderEnabled: z.boolean().optional().default(false),
+        reminderDaysBefore: z.number().int().min(1).max(7).optional().default(3),
       });
       const data = schema.parse(body);
       // null = not shared; false = total only; true = full details
@@ -1293,6 +1295,8 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         isRecurring: z.boolean().optional(),
         recurringInterval: z.enum(["weekly", "monthly", "tri-monthly"]).optional().nullable(),
         shareDetails: z.boolean().nullable().optional(),
+        reminderEnabled: z.boolean().optional(),
+        reminderDaysBefore: z.number().int().min(1).max(7).optional(),
       });
       const updates = schema.parse(body);
       // Determine shareDetails: use provided value or fall back to existing
@@ -1479,6 +1483,9 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       frequency: z.enum(["monthly", "quarterly", "yearly"]).default("monthly"),
       note: z.string().max(500).optional().nullable(),
       isActive: z.boolean().default(true),
+      dueDay: z.number().int().min(1).max(28).optional().nullable(),
+      reminderEnabled: z.boolean().optional().default(false),
+      reminderDaysBefore: z.number().int().min(1).max(7).optional().default(3),
     });
     const data = schema.parse(req.body);
     const expense = await storage.createRecurringExpense({
@@ -1503,6 +1510,9 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       frequency: z.enum(["monthly", "quarterly", "yearly"]).optional(),
       note: z.string().max(500).optional().nullable(),
       isActive: z.boolean().optional(),
+      dueDay: z.number().int().min(1).max(28).optional().nullable(),
+      reminderEnabled: z.boolean().optional(),
+      reminderDaysBefore: z.number().int().min(1).max(7).optional(),
     });
     const updates = schema.parse(req.body);
     const updated = await storage.updateRecurringExpense(id, updates);

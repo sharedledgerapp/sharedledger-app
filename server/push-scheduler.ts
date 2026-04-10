@@ -1,7 +1,7 @@
 import webpush from "web-push";
 import { storage } from "./storage";
 import { db } from "./db";
-import { users, expenses, budgets, pushNotificationLog } from "@shared/schema";
+import { users, expenses, budgets, pushNotificationLog, recurringExpenses, incomeEntries } from "@shared/schema";
 import { eq, and, gte, lte, lt, sql } from "drizzle-orm";
 
 async function wasNotifiedToday(userId: number, type: string): Promise<boolean> {
@@ -300,6 +300,97 @@ async function checkBudgetAlerts() {
   }
 }
 
+async function checkRecurringReminders() {
+  const now = new Date();
+  if (now.getHours() < 9 || now.getHours() >= 10) return;
+
+  const todayDay = now.getDate();
+  const todayMonth = now.getMonth();
+  const todayYear = now.getFullYear();
+  const periodKey = `${todayYear}-${String(todayMonth + 1).padStart(2, "0")}`;
+
+  const allRecurring = await db.select().from(recurringExpenses)
+    .where(and(
+      eq(recurringExpenses.reminderEnabled, true),
+      eq(recurringExpenses.isActive, true),
+    ));
+
+  for (const expense of allRecurring) {
+    try {
+      const dueDay = expense.dueDay;
+      const daysBefore = expense.reminderDaysBefore ?? 3;
+      if (!dueDay) continue;
+
+      const targetDay = dueDay - daysBefore;
+      if (targetDay < 1) continue;
+      if (todayDay !== targetDay) continue;
+
+      const notifKey = `recurring-expense-reminder-${expense.id}-${periodKey}`;
+      if (await wasNotifiedSince(expense.userId, notifKey, new Date(todayYear, todayMonth, 1))) continue;
+
+      const sent = await sendPushToUser(expense.userId, {
+        title: `${expense.name} is due soon`,
+        body: `Your ${expense.name} payment of ${expense.amount} is due in ${daysBefore} day${daysBefore > 1 ? "s" : ""}.`,
+        tag: `recurring-reminder-${expense.id}`,
+        url: "/expenses?view=recurring",
+      });
+      if (sent) await markNotified(expense.userId, notifKey);
+    } catch (err) {
+      console.error(`[Push] recurring reminder failed for expense ${expense.id}:`, err);
+    }
+  }
+
+  const allIncome = await db.select().from(incomeEntries)
+    .where(and(
+      eq(incomeEntries.isRecurring, true),
+      eq(incomeEntries.reminderEnabled, true),
+    ));
+
+  for (const entry of allIncome) {
+    try {
+      const daysBefore = entry.reminderDaysBefore ?? 3;
+      if (!entry.recurringInterval) continue;
+
+      const lastDate = new Date(entry.date);
+      const nextDate = new Date(lastDate);
+      switch (entry.recurringInterval) {
+        case "weekly":
+          nextDate.setDate(nextDate.getDate() + 7);
+          break;
+        case "monthly":
+          nextDate.setMonth(nextDate.getMonth() + 1);
+          break;
+        case "tri-monthly":
+          nextDate.setMonth(nextDate.getMonth() + 3);
+          break;
+      }
+
+      const reminderDate = new Date(nextDate);
+      reminderDate.setDate(reminderDate.getDate() - daysBefore);
+
+      if (
+        todayDay !== reminderDate.getDate() ||
+        todayMonth !== reminderDate.getMonth() ||
+        todayYear !== reminderDate.getFullYear()
+      ) continue;
+
+      const notifKey = `income-reminder-${entry.id}-${periodKey}`;
+      if (await wasNotifiedSince(entry.userId, notifKey, new Date(todayYear, todayMonth, 1))) continue;
+
+      const daysStr = daysBefore === 1 ? "tomorrow" : `in ${daysBefore} days`;
+      const sent = await sendPushToUser(entry.userId, {
+        title: "Expected income reminder",
+        body: `Your ${entry.source} income is expected ${daysStr}. Log it when you receive it!`,
+        tag: `income-reminder-${entry.id}`,
+        url: "/expenses?tab=in",
+      });
+      if (sent) await markNotified(entry.userId, notifKey);
+    } catch (err) {
+      console.error(`[Push] income reminder failed for entry ${entry.id}:`, err);
+    }
+  }
+}
+
 let schedulerInterval: ReturnType<typeof setInterval> | null = null;
 let schedulerStarted = false;
 
@@ -328,6 +419,7 @@ export function startPushScheduler() {
       { name: "weeklyReminders", fn: checkWeeklyReminders },
       { name: "monthlyReminders", fn: checkMonthlyReminders },
       { name: "budgetAlerts", fn: checkBudgetAlerts },
+      { name: "recurringReminders", fn: checkRecurringReminders },
     ];
     for (const { name, fn } of checks) {
       try {

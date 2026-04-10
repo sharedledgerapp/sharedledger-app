@@ -144,6 +144,8 @@ export default function ExpensesPage() {
     isRecurring: boolean;
     recurringInterval: "weekly" | "monthly" | "tri-monthly";
     shareDetails: boolean | null;
+    reminderEnabled: boolean;
+    reminderDaysBefore: number;
   }>({
     amount: "",
     source: "Work",
@@ -152,6 +154,8 @@ export default function ExpensesPage() {
     isRecurring: false,
     recurringInterval: "monthly",
     shareDetails: null,
+    reminderEnabled: false,
+    reminderDaysBefore: 3,
   });
 
   const isGroupMember = !!(familyData?.family && (familyData.family.groupType === "family" || familyData.family.groupType === "couple"));
@@ -167,6 +171,8 @@ export default function ExpensesPage() {
       isRecurring: false,
       recurringInterval: "monthly",
       shareDetails: null,
+      reminderEnabled: false,
+      reminderDaysBefore: 3,
     });
   }
 
@@ -180,6 +186,8 @@ export default function ExpensesPage() {
       isRecurring: entry.isRecurring,
       recurringInterval: (entry.recurringInterval as "weekly" | "monthly" | "tri-monthly") || "monthly",
       shareDetails: entry.shareDetails,
+      reminderEnabled: (entry as any).reminderEnabled ?? false,
+      reminderDaysBefore: (entry as any).reminderDaysBefore ?? 3,
     });
     setShowIncomeDialog(true);
   }
@@ -194,6 +202,8 @@ export default function ExpensesPage() {
         isRecurring: data.isRecurring,
         recurringInterval: data.isRecurring ? data.recurringInterval : null,
         shareDetails: data.shareDetails,
+        reminderEnabled: data.isRecurring ? data.reminderEnabled : false,
+        reminderDaysBefore: data.reminderDaysBefore,
       });
       return res.json();
     },
@@ -220,6 +230,8 @@ export default function ExpensesPage() {
         isRecurring: data.isRecurring,
         recurringInterval: data.isRecurring ? data.recurringInterval : null,
         shareDetails: data.shareDetails,
+        reminderEnabled: data.isRecurring ? data.reminderEnabled : false,
+        reminderDaysBefore: data.reminderDaysBefore,
       });
       return res.json();
     },
@@ -262,6 +274,9 @@ export default function ExpensesPage() {
     category: RECURRING_CATEGORIES[0] || "Subscriptions",
     frequency: "monthly" as typeof FREQUENCIES[number],
     note: "",
+    dueDay: "" as string | number,
+    reminderEnabled: false,
+    reminderDaysBefore: 3,
   });
 
   const { data: recurringExpenses, isLoading: recurringLoading } = useQuery<RecurringExpense[]>({
@@ -270,7 +285,10 @@ export default function ExpensesPage() {
 
   const createRecurringMutation = useMutation({
     mutationFn: async (data: typeof recurringForm) => {
-      const res = await apiRequest("POST", "/api/recurring-expenses", data);
+      const res = await apiRequest("POST", "/api/recurring-expenses", {
+        ...data,
+        dueDay: data.dueDay !== "" ? Number(data.dueDay) : null,
+      });
       return res.json();
     },
     onSuccess: (_data, variables) => {
@@ -283,7 +301,10 @@ export default function ExpensesPage() {
 
   const updateRecurringMutation = useMutation({
     mutationFn: async ({ id, ...data }: typeof recurringForm & { id: number }) => {
-      const res = await apiRequest("PATCH", `/api/recurring-expenses/${id}`, data);
+      const res = await apiRequest("PATCH", `/api/recurring-expenses/${id}`, {
+        ...data,
+        dueDay: data.dueDay !== "" ? Number(data.dueDay) : null,
+      });
       return res.json();
     },
     onSuccess: () => {
@@ -319,7 +340,7 @@ export default function ExpensesPage() {
   function resetRecurringForm() {
     setShowRecurringDialog(false);
     setEditingRecurring(null);
-    setRecurringForm({ name: "", amount: "", category: RECURRING_CATEGORIES[0] || "Subscriptions", frequency: "monthly", note: "" });
+    setRecurringForm({ name: "", amount: "", category: RECURRING_CATEGORIES[0] || "Subscriptions", frequency: "monthly", note: "", dueDay: "", reminderEnabled: false, reminderDaysBefore: 3 });
   }
 
   function openEditRecurringDialog(expense: RecurringExpense) {
@@ -330,6 +351,9 @@ export default function ExpensesPage() {
       category: expense.category,
       frequency: expense.frequency as typeof FREQUENCIES[number],
       note: expense.note || "",
+      dueDay: (expense as any).dueDay ?? "",
+      reminderEnabled: (expense as any).reminderEnabled ?? false,
+      reminderDaysBefore: (expense as any).reminderDaysBefore ?? 3,
     });
     setShowRecurringDialog(true);
   }
@@ -1132,22 +1156,56 @@ export default function ExpensesPage() {
               />
             </div>
             {incomeForm.isRecurring && (
-              <div>
-                <Label>Interval</Label>
-                <Select
-                  value={incomeForm.recurringInterval}
-                  onValueChange={(v) => setIncomeForm(f => ({ ...f, recurringInterval: v as "weekly" | "monthly" | "tri-monthly" }))}
-                >
-                  <SelectTrigger data-testid="select-income-interval">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="tri-monthly">Every 3 months</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <>
+                <div>
+                  <Label>Interval</Label>
+                  <Select
+                    value={incomeForm.recurringInterval}
+                    onValueChange={(v) => setIncomeForm(f => ({ ...f, recurringInterval: v as "weekly" | "monthly" | "tri-monthly" }))}
+                  >
+                    <SelectTrigger data-testid="select-income-interval">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                      <SelectItem value="tri-monthly">Every 3 months</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="rounded-xl border border-border/50 bg-muted/30 p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">Remind me when it's expected</p>
+                      <p className="text-xs text-muted-foreground">Get a push notification before the next payment</p>
+                    </div>
+                    <Switch
+                      checked={incomeForm.reminderEnabled}
+                      onCheckedChange={(v) => setIncomeForm(f => ({ ...f, reminderEnabled: v }))}
+                      data-testid="switch-income-reminder"
+                    />
+                  </div>
+                  {incomeForm.reminderEnabled && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Notify how many days before</Label>
+                      <Select
+                        value={String(incomeForm.reminderDaysBefore)}
+                        onValueChange={(v) => setIncomeForm(f => ({ ...f, reminderDaysBefore: Number(v) }))}
+                      >
+                        <SelectTrigger className="mt-1" data-testid="select-income-reminder-days">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 day before</SelectItem>
+                          <SelectItem value="3">3 days before</SelectItem>
+                          <SelectItem value="5">5 days before</SelectItem>
+                          <SelectItem value="7">7 days before</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
             {isGroupMember && (
               <div className="rounded-xl border border-border/50 bg-muted/30 p-3 space-y-3">
@@ -1286,6 +1344,53 @@ export default function ExpensesPage() {
                 placeholder=""
                 data-testid="input-recurring-note"
               />
+            </div>
+            <div className="rounded-xl border border-border/50 bg-muted/30 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Remind me before it's due</p>
+                  <p className="text-xs text-muted-foreground">Get a push notification ahead of time</p>
+                </div>
+                <Switch
+                  checked={recurringForm.reminderEnabled}
+                  onCheckedChange={(v) => setRecurringForm(f => ({ ...f, reminderEnabled: v }))}
+                  data-testid="switch-recurring-reminder"
+                />
+              </div>
+              {recurringForm.reminderEnabled && (
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Due on day of month</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="28"
+                      value={recurringForm.dueDay}
+                      onChange={(e) => setRecurringForm(f => ({ ...f, dueDay: e.target.value }))}
+                      placeholder="e.g. 15"
+                      className="mt-1"
+                      data-testid="input-recurring-due-day"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Notify how many days before</Label>
+                    <Select
+                      value={String(recurringForm.reminderDaysBefore)}
+                      onValueChange={(v) => setRecurringForm(f => ({ ...f, reminderDaysBefore: Number(v) }))}
+                    >
+                      <SelectTrigger className="mt-1" data-testid="select-recurring-reminder-days">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 day before</SelectItem>
+                        <SelectItem value="3">3 days before</SelectItem>
+                        <SelectItem value="5">5 days before</SelectItem>
+                        <SelectItem value="7">7 days before</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter className="gap-2">
