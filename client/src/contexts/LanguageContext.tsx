@@ -107,6 +107,9 @@ type TranslationKey =
   | "landingFeature5Title" | "landingFeature5Desc"
   | "landingFeature6Title" | "landingFeature6Desc"
   | "landingFeature7Title" | "landingFeature7Desc"
+  | "landingSageBadge" | "landingSageTitle" | "landingSageSubtitle"
+  | "landingSageWhat1" | "landingSageWhat2" | "landingSageWhat3" | "landingSageWhat4"
+  | "landingSageDisclaimer" | "landingSageCta"
   | "landingGrowItem1Label" | "landingGrowItem1Detail"
   | "landingGrowItem2Label" | "landingGrowItem2Detail"
   | "landingGrowItem3Label" | "landingGrowItem3Detail"
@@ -491,6 +494,15 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     landingFeature6Desc: "Chat with your group right inside the app. Discuss expenses, ask questions, and stay in sync.",
     landingFeature7Title: "Income Tracking",
     landingFeature7Desc: "Log your income — salary, freelance, or one-off — and see your true net position each month. Families and couples can share income privately, giving the whole household a complete financial picture.",
+    landingSageBadge: "Beta · Powered by Gemini · Still in testing",
+    landingSageTitle: "Meet Sage, your AI financial advisor",
+    landingSageSubtitle: "Sage is built into SharedLedger and reads your actual spending and income data to help you understand your finances. Ask it anything about your money, or wait for your monthly analysis.",
+    landingSageWhat1: "Generates a monthly spending analysis with patterns and standout moments",
+    landingSageWhat2: "Answers questions about your actual income and expense data",
+    landingSageWhat3: "Highlights categories where you're consistently overspending",
+    landingSageWhat4: "Suggests ways to stay on track with your savings goals",
+    landingSageDisclaimer: "Sage is still being refined. Responses are based on your real data, but always use your own judgment for important financial decisions.",
+    landingSageCta: "Try Sage in the App",
     landingGrowItem1Label: "Solo tracking",
     landingGrowItem1Detail: "Available from day one",
     landingGrowItem2Label: "Budgets & goals",
@@ -908,6 +920,15 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     landingFeature6Desc: "Discutez avec votre groupe directement dans l'application. Parlez de dépenses, posez des questions et restez synchronisés.",
     landingFeature7Title: "Suivi des revenus",
     landingFeature7Desc: "Enregistrez vos revenus — salaire, freelance ou ponctuel — et voyez votre position nette réelle chaque mois. Familles et couples peuvent partager leurs revenus en privé pour une vision complète du foyer.",
+    landingSageBadge: "Bêta · Propulsé par Gemini · En cours de test",
+    landingSageTitle: "Rencontrez Sage, votre conseiller financier IA",
+    landingSageSubtitle: "Sage est intégré à SharedLedger et analyse vos données réelles de dépenses et revenus pour vous aider à comprendre vos finances. Posez-lui n'importe quelle question sur votre argent, ou attendez votre analyse mensuelle.",
+    landingSageWhat1: "Génère une analyse mensuelle des dépenses avec tendances et points marquants",
+    landingSageWhat2: "Répond aux questions sur vos données réelles de revenus et dépenses",
+    landingSageWhat3: "Identifie les catégories où vous dépensez régulièrement trop",
+    landingSageWhat4: "Propose des façons de rester sur la bonne voie avec vos objectifs d'épargne",
+    landingSageDisclaimer: "Sage est encore en cours d'amélioration. Ses réponses sont basées sur vos données réelles, mais faites toujours preuve de discernement pour les décisions financières importantes.",
+    landingSageCta: "Essayer Sage dans l'appli",
     landingGrowItem1Label: "Suivi solo",
     landingGrowItem1Detail: "Disponible dès le premier jour",
     landingGrowItem2Label: "Budgets & objectifs",
@@ -1325,6 +1346,15 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     landingFeature6Desc: "Chat met je groep direct in de app. Bespreek uitgaven, stel vragen en blijf gesynchroniseerd.",
     landingFeature7Title: "Inkomen bijhouden",
     landingFeature7Desc: "Registreer je inkomen — salaris, freelance of eenmalig — en zie je werkelijke nettopositie elke maand. Families en stellen kunnen inkomen privé delen voor een compleet huishoudelijk financieel beeld.",
+    landingSageBadge: "Bèta · Aangedreven door Gemini · Nog in testen",
+    landingSageTitle: "Maak kennis met Sage, je AI-financieel adviseur",
+    landingSageSubtitle: "Sage is ingebouwd in SharedLedger en leest je werkelijke uitgaven- en inkomensgegevens om je te helpen je financiën te begrijpen. Stel het alles over je geld, of wacht op je maandelijkse analyse.",
+    landingSageWhat1: "Genereert een maandelijkse uitgavenanalyse met patronen en opvallende momenten",
+    landingSageWhat2: "Beantwoordt vragen over je werkelijke inkomsten- en uitgavengegevens",
+    landingSageWhat3: "Markeert categorieën waar je consequent te veel uitgeeft",
+    landingSageWhat4: "Stelt manieren voor om op koers te blijven met je spaardoelen",
+    landingSageDisclaimer: "Sage wordt nog verfijnd. Antwoorden zijn gebaseerd op je echte gegevens, maar gebruik altijd je eigen oordeel voor belangrijke financiële beslissingen.",
+    landingSageCta: "Probeer Sage in de app",
     landingGrowItem1Label: "Solo bijhouden",
     landingGrowItem1Detail: "Beschikbaar vanaf dag één",
     landingGrowItem2Label: "Budgetten & doelen",

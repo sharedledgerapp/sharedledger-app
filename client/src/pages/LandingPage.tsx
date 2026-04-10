@@ -33,6 +33,7 @@ import {
   MessageSquareHeart,
   AlertTriangle,
   TrendingUp,
+  Sparkles,
 } from "lucide-react";
 
 function UseCaseCard({ icon: Icon, title, description }: { icon: LucideIcon; title: string; description: string }) {
@@ -286,6 +287,7 @@ export default function LandingPage() {
                   { label: "Who it's for", href: "#why-section" },
                   { label: "How it works", href: "#how-it-works" },
                   { label: "Features", href: "#features" },
+                  { label: "Sage AI", href: "#sage-section" },
                   { label: "Why install?", href: "#why-install" },
                 ].map(({ label, href }) => (
                   <a
@@ -509,6 +511,61 @@ export default function LandingPage() {
                 <p className="text-sm text-muted-foreground leading-relaxed">{t(descKey)}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 6b. Sage AI */}
+      <section id="sage-section" className="py-20 px-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-violet-600 via-primary to-accent p-1 shadow-2xl shadow-primary/25">
+            <div className="rounded-[22px] bg-background/95 backdrop-blur-sm p-8 md:p-12">
+              <div className="flex flex-col md:flex-row gap-10 items-start">
+
+                {/* Left — icon + badge + title */}
+                <div className="flex-1">
+                  <div className="flex items-center gap-4 mb-5">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-violet-500 to-primary flex items-center justify-center shadow-lg shadow-primary/25 shrink-0">
+                      <Sparkles className="w-7 h-7 text-white animate-sparkle" />
+                    </div>
+                    <span className="text-xs font-semibold bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full">
+                      {t("landingSageBadge")}
+                    </span>
+                  </div>
+                  <h2 className="font-display font-bold text-2xl md:text-3xl text-foreground mb-3 leading-tight">
+                    {t("landingSageTitle")}
+                  </h2>
+                  <p className="text-muted-foreground leading-relaxed text-sm md:text-base">
+                    {t("landingSageSubtitle")}
+                  </p>
+                  <div className="mt-6">
+                    <Link href="/app">
+                      <Button
+                        className="rounded-xl bg-gradient-to-r from-violet-500 to-primary hover:opacity-90 text-white shadow-md shadow-primary/20 font-semibold"
+                        data-testid="button-landing-try-sage"
+                      >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        {t("landingSageCta")}
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Right — feature list */}
+                <div className="flex-1 space-y-3">
+                  {(["landingSageWhat1", "landingSageWhat2", "landingSageWhat3", "landingSageWhat4"] as const).map((key) => (
+                    <div key={key} className="flex items-start gap-3 bg-primary/5 rounded-xl p-3.5 border border-primary/10">
+                      <Sparkles className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                      <span className="text-sm text-foreground leading-snug">{t(key)}</span>
+                    </div>
+                  ))}
+                  <p className="text-xs text-muted-foreground italic pt-1 px-1">
+                    {t("landingSageDisclaimer")}
+                  </p>
+                </div>
+
+              </div>
+            </div>
           </div>
         </div>
       </section>
