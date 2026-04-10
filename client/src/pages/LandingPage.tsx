@@ -38,7 +38,7 @@ import {
 
 function UseCaseCard({ icon: Icon, title, description }: { icon: LucideIcon; title: string; description: string }) {
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-border/50 flex flex-col gap-3 hover:shadow-md hover:border-primary/20 transition-all duration-200">
+    <div className="bg-card rounded-2xl p-6 shadow-sm border border-border/50 flex flex-col gap-3 hover:shadow-md hover:border-primary/20 transition-all duration-200">
       <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-accent flex items-center justify-center shadow-sm shadow-primary/20">
         <Icon className="w-5 h-5 text-white" />
       </div>
@@ -154,7 +154,7 @@ export default function LandingPage() {
                   data-testid={`lang-option-${lang}`}
                   className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-150 ${
                     language === lang
-                      ? "bg-white text-primary shadow-sm"
+                      ? "bg-background text-primary shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
@@ -214,8 +214,8 @@ export default function LandingPage() {
               className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
               data-testid="button-revisit-intro"
             >
-              <ChevronDown className="w-4 h-4" />
-              New here? View the app overview
+              <Zap className="w-4 h-4" />
+              View intro slides
             </button>
           </div>
         </div>
@@ -266,11 +266,11 @@ export default function LandingPage() {
               {summaryOpen ? (
                 <>
                   <ChevronUp className="w-4 h-4" />
-                  Close overview
+                  Close
                 </>
               ) : (
                 <>
-                  <span>Quick overview</span>
+                  <span>Jump to a section</span>
                   <ChevronDown className="w-4 h-4" />
                 </>
               )}
@@ -294,7 +294,7 @@ export default function LandingPage() {
                     key={href}
                     href={href}
                     onClick={() => setSummaryOpen(false)}
-                    className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors px-3 py-1.5 rounded-full bg-white border border-border/50 hover:border-primary/30 hover:shadow-sm"
+                    className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors px-3 py-1.5 rounded-full bg-card border border-border/50 hover:border-primary/30 hover:shadow-sm"
                   >
                     {label}
                   </a>
@@ -309,14 +309,14 @@ export default function LandingPage() {
                 <a
                   href="#feedback-section"
                   onClick={() => setSummaryOpen(false)}
-                  className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors px-3 py-1.5 rounded-full bg-white border border-border/50 hover:border-primary/30 hover:shadow-sm"
+                  className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors px-3 py-1.5 rounded-full bg-card border border-border/50 hover:border-primary/30 hover:shadow-sm"
                 >
                   Give Feedback
                 </a>
               </div>
 
               {/* PWA explanation card */}
-              <div className="bg-white rounded-2xl border border-primary/20 shadow-sm p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="bg-card rounded-2xl border border-primary/20 shadow-sm p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 <div className="flex items-start gap-3 flex-1">
                   <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-primary to-accent flex items-center justify-center shrink-0 shadow-sm shadow-primary/20 mt-0.5">
                     <Smartphone className="w-4 h-4 text-white" />
@@ -369,7 +369,7 @@ export default function LandingPage() {
       {/* 2. Mock UI */}
       <section className="py-12 px-6">
         <div className="max-w-sm mx-auto">
-          <div className="bg-white rounded-3xl shadow-2xl shadow-black/10 border border-border/50 overflow-hidden">
+          <div className="bg-card rounded-3xl shadow-2xl shadow-black/10 border border-border/50 overflow-hidden">
             <div className="bg-gradient-to-tr from-primary to-accent p-6 text-white">
               <p className="text-sm font-medium opacity-80 mb-1">{t("landingMockThisMonth")}</p>
               <p className="font-display font-bold text-4xl">$1,847</p>
@@ -426,7 +426,7 @@ export default function LandingPage() {
             { icon: Smartphone, labelKey: "landingTrustMobile" as const },
             { icon: MessageCircle, labelKey: "landingTrustLanguages" as const },
           ].map(({ icon: Icon, labelKey }) => (
-            <div key={labelKey} className="bg-white rounded-2xl p-5 border border-border/50 flex flex-col items-center gap-2 shadow-sm">
+            <div key={labelKey} className="bg-card rounded-2xl p-5 border border-border/50 flex flex-col items-center gap-2 shadow-sm">
               <Icon className="w-6 h-6 text-primary" />
               <p className="text-sm font-medium text-foreground text-center">{t(labelKey)}</p>
             </div>
@@ -503,7 +503,7 @@ export default function LandingPage() {
               { icon: MessageCircle, titleKey: "landingFeature6Title" as const, descKey: "landingFeature6Desc" as const },
               { icon: TrendingUp, titleKey: "landingFeature7Title" as const, descKey: "landingFeature7Desc" as const },
             ].map(({ icon: Icon, titleKey, descKey }) => (
-              <div key={titleKey} className="bg-white rounded-2xl p-6 border border-border/50 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-200">
+              <div key={titleKey} className="bg-card rounded-2xl p-6 border border-border/50 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-200">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-accent flex items-center justify-center mb-4 shadow-sm shadow-primary/20">
                   <Icon className="w-5 h-5 text-white" />
                 </div>
@@ -579,7 +579,7 @@ export default function LandingPage() {
           <p className="text-muted-foreground text-lg leading-relaxed mb-8">
             {t("landingGrowBody")}
           </p>
-          <div className="bg-white rounded-2xl border border-border/50 shadow-sm p-8 text-left space-y-4">
+          <div className="bg-card rounded-2xl border border-border/50 shadow-sm p-8 text-left space-y-4">
             {[
               { labelKey: "landingGrowItem1Label" as const, detailKey: "landingGrowItem1Detail" as const },
               { labelKey: "landingGrowItem2Label" as const, detailKey: "landingGrowItem2Detail" as const },
@@ -651,7 +651,7 @@ export default function LandingPage() {
           )}
           <div className="grid md:grid-cols-2 gap-8">
             {/* iPhone */}
-            <div className="bg-white rounded-2xl border border-border/50 shadow-sm p-8">
+            <div className="bg-card rounded-2xl border border-border/50 shadow-sm p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-accent flex items-center justify-center shadow-sm shadow-primary/20">
                   <Smartphone className="w-5 h-5 text-white" />
@@ -673,7 +673,7 @@ export default function LandingPage() {
               </ol>
             </div>
             {/* Android */}
-            <div className="bg-white rounded-2xl border border-border/50 shadow-sm p-8">
+            <div className="bg-card rounded-2xl border border-border/50 shadow-sm p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-accent flex items-center justify-center">
                   <Smartphone className="w-5 h-5 text-white" />
@@ -709,7 +709,7 @@ export default function LandingPage() {
               { titleKey: "landingWhyInstall3Title" as const, detailKey: "landingWhyInstall3Desc" as const },
               { titleKey: "landingWhyInstall4Title" as const, detailKey: "landingWhyInstall4Desc" as const },
             ].map(({ titleKey, detailKey }) => (
-              <div key={titleKey} className="bg-white rounded-2xl p-5 border border-border/50 shadow-sm flex gap-3">
+              <div key={titleKey} className="bg-card rounded-2xl p-5 border border-border/50 shadow-sm flex gap-3">
                 <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                 <div>
                   <p className="font-medium text-foreground">{t(titleKey)}</p>
@@ -758,7 +758,7 @@ export default function LandingPage() {
             <p className="text-sm text-muted-foreground mb-1">{t("landingFeedbackAlsoIn")}</p>
             <p className="text-sm text-muted-foreground">{t("landingFeedbackEmail")} <a href="mailto:sharedledger.app@gmail.com" className="text-primary font-medium hover:underline">sharedledger.app@gmail.com</a></p>
           </div>
-          <form onSubmit={handleFeedbackSubmit} className="bg-white rounded-2xl border border-border/50 shadow-sm p-8 space-y-5">
+          <form onSubmit={handleFeedbackSubmit} className="bg-card rounded-2xl border border-border/50 shadow-sm p-8 space-y-5">
             <div>
               <label htmlFor="feedback-name" className="text-sm font-medium text-foreground block mb-2">{t("landingFormName")}</label>
               <Input
