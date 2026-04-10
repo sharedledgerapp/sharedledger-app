@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LandingIntroSlides } from "@/components/LandingIntroSlides";
 import type { LucideIcon } from "lucide-react";
 import {
   Users,
@@ -79,6 +80,35 @@ export default function LandingPage() {
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [summaryOpen, setSummaryOpen] = useState(false);
   const { isIOS, isChromeIOS, isInApp, isNativeSafari, isPWA } = useIOSBrowserState();
+
+  // Show intro slides for first-time visitors
+  const [showIntro, setShowIntro] = useState(() => {
+    try {
+      return !localStorage.getItem("sl_seen_intro");
+    } catch {
+      return false;
+    }
+  });
+  const scrollToInstallRef = useRef(false);
+
+  useEffect(() => {
+    if (!showIntro && scrollToInstallRef.current) {
+      scrollToInstallRef.current = false;
+      const el = document.getElementById("install-section");
+      if (el) setTimeout(() => el.scrollIntoView({ behavior: "smooth" }), 120);
+    }
+  }, [showIntro]);
+
+  if (showIntro) {
+    return (
+      <LandingIntroSlides
+        onDone={(scrollTo) => {
+          if (scrollTo === "install") scrollToInstallRef.current = true;
+          setShowIntro(false);
+        }}
+      />
+    );
+  }
 
   const copyInstallLink = () => {
     navigator.clipboard.writeText("https://sharedledger.app").then(() => {

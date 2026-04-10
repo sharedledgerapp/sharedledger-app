@@ -125,6 +125,41 @@
   --popover-border: 222 25% 17%;
 }
 
+/* ─── Intro slide transitions ─── */
+@keyframes slide-from-right {
+  from { opacity: 0; transform: translateX(52px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slide-from-left {
+  from { opacity: 0; transform: translateX(-52px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.animate-slide-from-right {
+  animation: slide-from-right 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+.animate-slide-from-left {
+  animation: slide-from-left 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+/* ─── Staggered text entrance ─── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Background highlight pop (key phrases) ─── */
+@keyframes highlight-pop {
+  from { transform: scaleX(0); opacity: 0; }
+  to   { transform: scaleX(1); opacity: 1; }
+}
+
+/* ─── SVG circle draw-in ─── */
+@keyframes circle-draw {
+  from { stroke-dashoffset: 320; opacity: 0; }
+  8%   { opacity: 1; }
+  to   { stroke-dashoffset: 0;   opacity: 1; }
+}
+
 @keyframes ring-pulse {
   0% {
     transform: scale(1);
