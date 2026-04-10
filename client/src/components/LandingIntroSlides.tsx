@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { useLanguage } from "@/contexts/LanguageContext";
+
 import {
   Users, Wallet, PieChart, Trophy, Bell, BarChart3,
   ChevronRight, ChevronLeft, X, Download, Share2, Plus,
@@ -78,24 +78,24 @@ function Circled({
       <svg
         className="absolute pointer-events-none"
         style={{
-          inset: "-8px -12px",
-          width: "calc(100% + 24px)",
-          height: "calc(100% + 16px)",
+          inset: "-3px -8px",
+          width: "calc(100% + 16px)",
+          height: "calc(100% + 6px)",
           overflow: "visible",
         }}
-        viewBox="0 0 200 40"
+        viewBox="0 0 200 36"
         preserveAspectRatio="none"
       >
         <ellipse
           cx="100"
-          cy="20"
-          rx="96"
-          ry="18"
+          cy="18"
+          rx="95"
+          ry="14"
           fill="none"
           stroke="hsl(var(--primary))"
           strokeWidth="2.5"
           strokeLinecap="round"
-          strokeDasharray="320"
+          strokeDasharray="310"
           style={{
             animation: `circle-draw 0.75s ease-out ${delay}ms both`,
           }}
@@ -202,11 +202,11 @@ function Slide1() {
 ══════════════════════════════════════ */
 function Slide2() {
   const pains = [
-    { emoji: "😬", text: "Forgot what you actually spent last month" },
-    { emoji: "🤷", text: "Who owes what for rent, groceries, and bills?" },
-    { emoji: "📊", text: "Spreadsheet that nobody remembers to update" },
-    { emoji: "😰", text: "End of month arrives and your balance is a surprise" },
-    { emoji: "🎯", text: "No idea if you're making progress on savings" },
+    { emoji: "🧾", text: "Forgot what you actually spent last month" },
+    { emoji: "💸", text: "Who owes what for rent, groceries, and bills?" },
+    { emoji: "📋", text: "Spreadsheet that nobody remembers to update" },
+    { emoji: "😱", text: "End of month arrives and your balance is a surprise" },
+    { emoji: "📈", text: "No idea if you're making progress on savings" },
   ];
 
   return (
@@ -236,7 +236,7 @@ function Slide2() {
       <FadeUp delay={560}>
         <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-2xl border border-primary/20 p-4 text-center">
           <p className="text-sm font-semibold text-foreground">
-            SharedLedger gives your household one clear place for all of this
+            SharedLedger gives you and your household one clear place for all of this
           </p>
         </div>
       </FadeUp>
@@ -330,7 +330,7 @@ function Slide4() {
     { icon: Receipt, text: "Log everyday expenses or scan a receipt to fill in the details" },
     { icon: DollarSign, text: "Track income alongside spending for a complete monthly picture" },
     { icon: PieChart, text: "Visual spending breakdowns by category, week, or month" },
-    { icon: LayoutDashboard, text: "Personal dashboard and shared group dashboard, side by side" },
+    { icon: LayoutDashboard, text: "Switch between your personal view and your household's shared dashboard" },
     { icon: Trophy, text: "Savings goals with progress tracking and deadlines" },
     { icon: RefreshCw, text: "Recurring bills and subscriptions tracked automatically" },
     { icon: Bell, text: "Budget alerts when you're approaching your limits" },
@@ -471,9 +471,9 @@ function Slide6() {
       </FadeUp>
 
       <FadeUp delay={480}>
-        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
-          <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
-            <strong>Coming later:</strong> Optional bank account linking will
+        <div className="bg-muted/60 border border-border rounded-xl p-4">
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            <span className="font-semibold text-foreground">Coming later:</span> Optional bank account linking will
             be added as a feature. It will always be your choice whether to
             use it. Privacy remains central to how SharedLedger works.
           </p>
@@ -896,7 +896,6 @@ export function LandingIntroSlides({ onDone }: Props) {
     useDeviceState();
   const [installOS, setInstallOS] = useState<"ios" | "android" | null>(null);
   const touchStartX = useRef<number | null>(null);
-  const { language, setLanguage } = useLanguage();
 
   useEffect(() => {
     if (isIOS) setInstallOS("ios");
@@ -969,32 +968,13 @@ export function LandingIntroSlides({ onDone }: Props) {
           <span className="font-display font-bold text-primary">SharedLedger</span>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Language switcher */}
-          <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
-            {(["en", "fr", "nl"] as const).map((lang) => (
-              <button
-                key={lang}
-                onClick={() => setLanguage(lang)}
-                className={`px-2 py-1 rounded-md text-xs font-medium transition-all duration-150 ${
-                  language === lang
-                    ? "bg-white dark:bg-card text-primary shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {lang.toUpperCase()}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={() => done()}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 px-2.5 py-1.5 rounded-full hover:bg-muted"
-            data-testid="button-intro-skip"
-          >
-            Skip <X className="w-3 h-3" />
-          </button>
-        </div>
+        <button
+          onClick={() => done()}
+          className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 px-2.5 py-1.5 rounded-full hover:bg-muted"
+          data-testid="button-intro-skip"
+        >
+          Skip <X className="w-3 h-3" />
+        </button>
       </div>
 
       {/* Slide content */}
