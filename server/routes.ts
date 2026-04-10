@@ -1539,12 +1539,12 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         const familyMembers = await storage.getFamilyMembers(user.familyId);
         const expenseName = parsed.name ?? existing.name;
         const expenseAmount = parsed.amount ?? existing.amount;
-        const ownerName = (user as any).name ?? "A member";
+        const ownerName = user.name ?? "A member";
 
         for (const member of familyMembers) {
           if (member.id === user.id) continue;
           try {
-            const notifKey = `group_recurring_shared_${id}_${member.id}`;
+            const notifKey = `group_recurring_shared_${id}`;
             if (await wasNotifiedSince(member.id, notifKey, new Date(0))) continue;
             const sent = await sendPushToUser(member.id, {
               title: "New shared expense",
