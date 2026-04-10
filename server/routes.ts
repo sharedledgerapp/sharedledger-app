@@ -21,7 +21,7 @@ import { db } from "./db";
 import { GoogleGenAI } from "@google/genai";
 import { startPushScheduler, sendPushToUser, markNotified, wasNotifiedSince } from "./push-scheduler";
 import { generateSageReply, generateAnalysis, checkSageDailyLimit } from "./sage";
-import { sendFeedbackEmail, sendWelcomeEmail, sendPasswordResetEmail, sendWhatsNewEmail } from "./email";
+import { sendFeedbackEmail, sendWelcomeEmail, sendPasswordResetEmail, sendWhatsNewEmail, sendSageUpdateEmail } from "./email";
 import { scheduleWhatsNewEmail, cancelWhatsNewEmail, getWhatsNewStatus } from "./email-scheduler";
 import rateLimit from "express-rate-limit";
 
@@ -2607,6 +2607,48 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
     const cancelled = cancelWhatsNewEmail();
     return res.json({ cancelled, message: cancelled ? "Scheduled send cancelled." : "Already sent — cannot cancel." });
+  });
+
+  // Admin: bulk "Sage Update" email
+  app.post("/api/admin/send-sage-update", async (req, res, next) => {
+    try {
+      const adminSecret = process.env.ADMIN_SECRET;
+      if (!adminSecret || req.headers["x-admin-secret"] !== adminSecret) {
+        return res.status(401).json({ message: "Unauthorised" });
+      }
+      // ?testEmail=someone@example.com sends to just that one address (test mode)
+      const testEmail = req.query.testEmail as string | undefined;
+      if (testEmail) {
+        await sendSageUpdateEmail(testEmail, testEmail.split("@")[0]);
+        return res.json({ total: 1, sent: 1, failed: 0, errors: [], test: true });
+      }
+      const allUsers = await storage.getAllUsersWithEmail();
+      let sent = 0;
+      let failed = 0;
+      const errors: string[] = [];
+      for (const u of allUsers) {
+        try {
+          await sendSageUpdateEmail(u.email, u.name);
+          sent++;
+        } catch (err: any) {
+          failed++;
+          errors.push(`${u.email}: ${err?.message ?? err}`);
+          console.error("[admin] Failed to send sage-update email to", u.email, err);
+        }
+      }
+      return res.json({ total: allUsers.length, sent, failed, errors });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Admin: preview Sage update email HTML (GET)
+  app.get("/api/admin/send-sage-update/preview", (req, res) => {
+    const adminSecret = process.env.ADMIN_SECRET;
+    if (!adminSecret || req.headers["x-admin-secret"] !== adminSecret) {
+      return res.status(401).json({ message: "Unauthorised" });
+    }
+    return res.json({ ok: true, message: "Use ?testEmail= on POST to send a test copy to yourself." });
   });
 
   // ═══════════════════════════════════════════════════════════════

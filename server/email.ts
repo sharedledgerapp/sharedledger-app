@@ -306,3 +306,130 @@ export async function sendWhatsNewEmail(toEmail: string, name: string): Promise<
   });
   if (error) throw error;
 }
+
+export async function sendSageUpdateEmail(toEmail: string, name: string): Promise<void> {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("[email] RESEND_API_KEY is not set — sage update email not sent.");
+    return;
+  }
+
+  const textBody = [
+    `Hi ${name},`,
+    ``,
+    `We have been quietly building something new inside SharedLedger,`,
+    `and we think you will find it genuinely useful.`,
+    ``,
+    `Introducing Sage — an AI financial advisor that lives right inside the app.`,
+    ``,
+    `Unlike generic AI tools, Sage reads your actual SharedLedger data:`,
+    `your real expenses, categories, income, and spending patterns.`,
+    `It uses all of that to give you answers and insights that are specific to you,`,
+    `not just generic financial advice.`,
+    ``,
+    `Here is what Sage can do for you right now:`,
+    ``,
+    `- Generate a monthly spending analysis with trends and highlights`,
+    `- Answer questions about your actual income and expense data`,
+    `- Identify categories where you consistently overspend`,
+    `- Suggest ways to stay on track with your savings goals`,
+    ``,
+    `You will find Sage in the Messages tab inside the app.`,
+    `Just tap the Sage tab and ask it anything — or let it run`,
+    `your monthly analysis automatically.`,
+    ``,
+    `One honest note: Sage is still early. It is powered by Google Gemini`,
+    `and getting smarter every week. Answers are grounded in your real data,`,
+    `but use your own judgement for big financial decisions.`,
+    `We would love to hear what you think of it.`,
+    ``,
+    `Try Sage now:`,
+    `https://sharedledger.app/app`,
+    ``,
+    `As always, reply to this email with any thoughts. We read every message.`,
+    ``,
+    `The SharedLedger Team`,
+  ].join("\n");
+
+  const htmlBody = `
+<div style="font-family:sans-serif;max-width:600px;margin:auto;padding:32px 24px;background:#ffffff">
+  <div style="text-align:center;margin-bottom:28px">
+    <img src="https://sharedledger.app/icons/icon-192.png" alt="SharedLedger" width="72" height="72"
+         style="border-radius:16px;margin-bottom:16px" />
+    <h1 style="font-size:26px;font-weight:700;color:#1d1d1f;margin:0">Meet Sage</h1>
+    <p style="color:#6b7280;font-size:15px;margin-top:8px">Your AI financial advisor, now inside SharedLedger</p>
+  </div>
+
+  <p style="font-size:15px;color:#374151;line-height:1.6">Hi <strong>${name}</strong>,</p>
+  <p style="font-size:15px;color:#374151;line-height:1.6">
+    We have been quietly building something new inside SharedLedger,
+    and we think you will find it genuinely useful.
+  </p>
+
+  <!-- Sage hero block -->
+  <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:16px;padding:28px 24px;margin:24px 0;text-align:center">
+    <div style="font-size:40px;margin-bottom:12px">✦</div>
+    <h2 style="font-size:22px;font-weight:700;color:#ffffff;margin:0 0 10px">Introducing Sage</h2>
+    <p style="font-size:14px;color:#c4b5fd;margin:0;line-height:1.6">
+      An AI financial advisor that reads your <em>actual</em> SharedLedger data —
+      your real expenses, income, categories, and patterns — and gives you
+      insights that are specific to you.
+    </p>
+    <div style="margin-top:6px">
+      <span style="display:inline-block;background:rgba(255,255,255,0.18);color:#e0d9ff;font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.25)">
+        Beta · Powered by Gemini · Still in testing
+      </span>
+    </div>
+  </div>
+
+  <p style="font-size:15px;color:#374151;line-height:1.6">
+    Here is what Sage can do for you right now:
+  </p>
+
+  <div style="background:#f5f3ff;border:1px solid #ede9fe;border-radius:12px;padding:20px;margin:0 0 24px">
+    <ul style="font-size:14px;color:#374151;line-height:2;margin:0;padding-left:20px">
+      <li>Generate a monthly spending analysis with trends and highlights</li>
+      <li>Answer questions about your actual income and expense data</li>
+      <li>Identify categories where you consistently overspend</li>
+      <li>Suggest ways to stay on track with your savings goals</li>
+    </ul>
+  </div>
+
+  <p style="font-size:15px;color:#374151;line-height:1.6">
+    You will find Sage in the <strong>Messages tab</strong> inside the app.
+    Just tap the <strong>Sage tab</strong> and ask it anything — or let it
+    generate your monthly analysis automatically.
+  </p>
+
+  <div style="text-align:center;margin:28px 0">
+    <a href="https://sharedledger.app/app"
+       style="display:inline-block;background:#4f46e5;color:#ffffff;font-size:15px;font-weight:600;
+              padding:12px 28px;border-radius:8px;text-decoration:none">
+      ✦ Try Sage
+    </a>
+  </div>
+
+  <div style="background:#fafafa;border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin-bottom:24px">
+    <p style="font-size:13px;color:#6b7280;line-height:1.6;margin:0">
+      <strong style="color:#374151">One honest note:</strong>
+      Sage is still early. It is powered by Google Gemini and getting smarter every week.
+      Answers are grounded in your real data, but use your own judgement for big financial decisions.
+      We would love to hear what you think of it — just reply to this email.
+    </p>
+  </div>
+
+  <p style="font-size:14px;color:#6b7280;line-height:1.6">
+    As always, reply to this email with any thoughts. We read every message.
+  </p>
+  <p style="font-size:14px;color:#6b7280;margin-top:24px">The SharedLedger Team</p>
+</div>
+`.trim();
+
+  const { error } = await getResend().emails.send({
+    from: FROM_EMAIL,
+    to: toEmail,
+    subject: "Introducing Sage — your AI financial advisor inside SharedLedger",
+    text: textBody,
+    html: htmlBody,
+  });
+  if (error) throw error;
+}
