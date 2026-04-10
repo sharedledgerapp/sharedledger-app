@@ -1500,10 +1500,11 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     res.status(201).json(expense);
 
     // When creating as group-shared, notify all other group members (fire-and-forget)
-    if (data.isGroupShared && user.familyId && process.env.VAPID_PUBLIC_KEY) {
+    if (data.isGroupShared && user.familyId && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
       try {
         const familyMembers = await storage.getFamilyMembers(user.familyId);
         const ownerName = user.name ?? "A member";
+        const freqLabel = expense.frequency === "yearly" ? "year" : expense.frequency === "quarterly" ? "quarter" : "month";
 
         for (const member of familyMembers) {
           if (member.id === user.id) continue;
@@ -1512,7 +1513,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
             if (await wasNotifiedSince(member.id, notifKey, new Date(0))) continue;
             const sent = await sendPushToUser(member.id, {
               title: "New shared expense",
-              body: `${ownerName} shared ${expense.name} (${expense.amount}/month) with the group.`,
+              body: `${ownerName} shared ${expense.name} (${expense.amount}/${freqLabel}) with the group.`,
               tag: `group-shared-${expense.id}`,
               url: "/expenses?view=recurring",
             });
@@ -1561,11 +1562,13 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     res.json(updated);
 
     // When isGroupShared flips false → true, notify all other group members (fire-and-forget)
-    if (parsed.isGroupShared === true && !existing.isGroupShared && user.familyId && process.env.VAPID_PUBLIC_KEY) {
+    if (parsed.isGroupShared === true && !existing.isGroupShared && user.familyId && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
       try {
         const familyMembers = await storage.getFamilyMembers(user.familyId);
         const expenseName = parsed.name ?? existing.name;
         const expenseAmount = parsed.amount ?? existing.amount;
+        const expenseFreq = parsed.frequency ?? existing.frequency;
+        const freqLabel = expenseFreq === "yearly" ? "year" : expenseFreq === "quarterly" ? "quarter" : "month";
         const ownerName = user.name ?? "A member";
 
         for (const member of familyMembers) {
@@ -1575,7 +1578,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
             if (await wasNotifiedSince(member.id, notifKey, new Date(0))) continue;
             const sent = await sendPushToUser(member.id, {
               title: "New shared expense",
-              body: `${ownerName} shared ${expenseName} (${expenseAmount}/month) with the group.`,
+              body: `${ownerName} shared ${expenseName} (${expenseAmount}/${freqLabel}) with the group.`,
               tag: `group-shared-${id}`,
               url: "/expenses?view=recurring",
             });
