@@ -744,10 +744,7 @@ export default function ExpensesPage() {
                     {sectionExpenses.map((expense) => {
                       const expFamilyId = (expense as any).familyId as number | null | undefined;
                       const friendGroup = expFamilyId != null ? friendGroupMap.get(expFamilyId) : undefined;
-                      const establishedFamilyCurrencyCode = (expFamilyId != null && expFamilyId === user?.familyId)
-                        ? (familyData?.family?.currency || user?.currency)
-                        : user?.currency;
-                      const expCurrencyCode = friendGroup ? friendGroup.currency : establishedFamilyCurrencyCode;
+                      const expCurrencyCode = friendGroup ? friendGroup.currency : user?.currency;
                       const expCurrencySymbol = getCurrencySymbol(expCurrencyCode);
                       const expCurrency = expCurrencyCode;
                       return (
@@ -836,10 +833,7 @@ export default function ExpensesPage() {
               {searchQuery && regularExpenses?.map((expense) => {
                 const expFamilyId = (expense as any).familyId as number | null | undefined;
                 const friendGroup = expFamilyId != null ? friendGroupMap.get(expFamilyId) : undefined;
-                const establishedFamilyCurrencyCode = (expFamilyId != null && expFamilyId === user?.familyId)
-                  ? (familyData?.family?.currency || user?.currency)
-                  : user?.currency;
-                const expCurrencyCode = friendGroup ? friendGroup.currency : establishedFamilyCurrencyCode;
+                const expCurrencyCode = friendGroup ? friendGroup.currency : user?.currency;
                 const expCurrencySymbol = getCurrencySymbol(expCurrencyCode);
                 const expCurrency = expCurrencyCode;
                 return (

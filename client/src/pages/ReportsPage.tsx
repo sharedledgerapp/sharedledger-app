@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useExpenses, useFamily, useDeleteExpense } from "@/hooks/use-data";
+import { useExpenses, useDeleteExpense } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
 import { captureEvent } from "@/lib/analytics";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -22,7 +22,6 @@ export default function ReportsPage() {
   const { data: expenses, isLoading } = useExpenses();
   const { user } = useAuth();
   const { t } = useLanguage();
-  const { data: familyData } = useFamily();
   const deleteMutation = useDeleteExpense();
   const { data: friendGroups } = useQuery<Array<{ id: number; name: string; currency: string }>>({
     queryKey: ["/api/friend-groups"],
@@ -40,14 +39,12 @@ export default function ReportsPage() {
     () => new Map<number, string>((friendGroups || []).map(g => [g.id, g.currency || "EUR"])),
     [friendGroups]
   );
-  const establishedFamilyCurrency = familyData?.family?.currency || null;
   const userCurrency = user?.currency || "EUR";
 
   const getExpenseCurrency = (expense: any): string => {
     const expFamilyId = expense.familyId as number | null | undefined;
     if (expFamilyId != null) {
-      const gc = friendGroupCurrencyMap.get(expFamilyId)
-        ?? (expFamilyId === user?.familyId ? establishedFamilyCurrency : null);
+      const gc = friendGroupCurrencyMap.get(expFamilyId);
       if (gc) return gc;
     }
     return userCurrency;
