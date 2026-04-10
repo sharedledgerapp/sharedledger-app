@@ -316,37 +316,64 @@ export async function sendSageUpdateEmail(toEmail: string, name: string): Promis
   const textBody = [
     `Hi ${name},`,
     ``,
-    `We have been quietly building something new inside SharedLedger,`,
-    `and we think you will find it genuinely useful.`,
+    `First — thank you. You have been part of the SharedLedger beta from early on,`,
+    `and that means a lot to us. Your usage, your patience with rough edges, and the`,
+    `feedback you have shared have directly shaped what the app is today. We genuinely`,
+    `could not have built this without people willing to try things before they are perfect.`,
     ``,
-    `Introducing Sage — an AI financial advisor that lives right inside the app.`,
+    `Now, we want to tell you about something we have been building for a while.`,
     ``,
-    `Unlike generic AI tools, Sage reads your actual SharedLedger data:`,
-    `your real expenses, categories, income, and spending patterns.`,
-    `It uses all of that to give you answers and insights that are specific to you,`,
-    `not just generic financial advice.`,
+    `Introducing Sage — an AI financial advisor built directly into SharedLedger.`,
     ``,
-    `Here is what Sage can do for you right now:`,
+    `Unlike generic AI tools, Sage reads your actual data: your real expenses,`,
+    `income entries, categories, budgets, and spending patterns. It uses all of that`,
+    `to give you answers and insights that are specific to you — not generic advice`,
+    `that could apply to anyone.`,
     ``,
-    `- Generate a monthly spending analysis with trends and highlights`,
-    `- Answer questions about your actual income and expense data`,
-    `- Identify categories where you consistently overspend`,
-    `- Suggest ways to stay on track with your savings goals`,
+    `Here is what Sage does right now:`,
     ``,
-    `You will find Sage in the Messages tab inside the app.`,
-    `Just tap the Sage tab and ask it anything — or let it run`,
-    `your monthly analysis automatically.`,
+    `Weekly spending breakdown`,
+    `Each week, the Spending Reflections section gives you a clear picture of what`,
+    `you spent, which categories led the way, and how it compares to your usual pattern.`,
     ``,
-    `One honest note: Sage is still early. It is powered by Google Gemini`,
-    `and getting smarter every week. Answers are grounded in your real data,`,
-    `but use your own judgement for big financial decisions.`,
-    `We would love to hear what you think of it.`,
+    `Mid-month check-in`,
+    `Around the 14th of each month, Sage generates an AI check-in: how is your`,
+    `spending tracking? Which budgets are at risk? What can you still adjust before`,
+    `the month is out?`,
     ``,
-    `Try Sage now:`,
+    `Monthly review`,
+    `At the start of each new month, Sage produces a full written review of the`,
+    `month that just ended — income vs spending, budget performance, top categories,`,
+    `notable patterns, and 2 or 3 specific suggestions for the month ahead.`,
+    ``,
+    `Ask it anything`,
+    `Open the Sage tab in Messages and ask Sage anything about your finances.`,
+    `"Where did most of my money go last month?" "Am I on track for my savings goal?"`,
+    `"What does the budget alert feature do?" Sage knows the app inside and out`,
+    `and can explain any feature — just ask.`,
+    ``,
+    `Group analysis, private by default`,
+    `If you share a household in SharedLedger, Sage can look at shared budgets,`,
+    `group goals, and collective spending patterns together. At the same time,`,
+    `each member's personal expenses stay private. Nobody sees anyone else's`,
+    `individual data — only what is explicitly shared.`,
+    ``,
+    `A direct line to us`,
+    `After a few messages in the Sage chat, you will see a small prompt appear:`,
+    `"Got a thought while chatting with Sage?" That goes directly to our inbox.`,
+    `If something feels off, a feature is missing, or you have an idea — that is`,
+    `the fastest way to reach us. We read every one.`,
+    ``,
+    `You will find Sage in the Messages tab. Tap the Sage tab to get started.`,
     `https://sharedledger.app/app`,
     ``,
-    `As always, reply to this email with any thoughts. We read every message.`,
+    `One honest note: Sage is still in testing. It is powered by Google Gemini`,
+    `and we are improving it every week. Answers are based on your real data but`,
+    `use your own judgement for important financial decisions.`,
     ``,
+    `Thank you again for being part of this.`,
+    ``,
+    `Daniel`,
     `The SharedLedger Team`,
   ].join("\n");
 
@@ -360,67 +387,127 @@ export async function sendSageUpdateEmail(toEmail: string, name: string): Promis
   </div>
 
   <p style="font-size:15px;color:#374151;line-height:1.6">Hi <strong>${name}</strong>,</p>
+
   <p style="font-size:15px;color:#374151;line-height:1.6">
-    We have been quietly building something new inside SharedLedger,
-    and we think you will find it genuinely useful.
+    First — thank you. You have been part of the SharedLedger beta from early on, and that means a
+    lot to us. Your usage, your patience with rough edges, and the feedback you have shared have
+    directly shaped what the app is today. We genuinely could not have built this without people
+    willing to try things before they are perfect.
+  </p>
+
+  <p style="font-size:15px;color:#374151;line-height:1.6">
+    Now, we want to tell you about something we have been building for a while.
   </p>
 
   <!-- Sage hero block -->
   <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:16px;padding:28px 24px;margin:24px 0;text-align:center">
-    <div style="font-size:40px;margin-bottom:12px">✦</div>
+    <div style="font-size:36px;margin-bottom:10px">✦</div>
     <h2 style="font-size:22px;font-weight:700;color:#ffffff;margin:0 0 10px">Introducing Sage</h2>
-    <p style="font-size:14px;color:#c4b5fd;margin:0;line-height:1.6">
-      An AI financial advisor that reads your <em>actual</em> SharedLedger data —
-      your real expenses, income, categories, and patterns — and gives you
-      insights that are specific to you.
+    <p style="font-size:14px;color:#c4b5fd;margin:0 0 14px;line-height:1.7">
+      An AI financial advisor built directly into SharedLedger. Sage reads your
+      <em>actual</em> data — real expenses, income, categories, budgets, and patterns —
+      and gives you insights specific to you. Not generic advice. Your numbers.
     </p>
-    <div style="margin-top:6px">
-      <span style="display:inline-block;background:rgba(255,255,255,0.18);color:#e0d9ff;font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.25)">
-        Beta · Powered by Gemini · Still in testing
-      </span>
-    </div>
+    <span style="display:inline-block;background:rgba(255,255,255,0.18);color:#e0d9ff;font-size:12px;font-weight:600;padding:4px 14px;border-radius:20px;border:1px solid rgba(255,255,255,0.25)">
+      Beta · Powered by Gemini · Still in testing
+    </span>
   </div>
 
-  <p style="font-size:15px;color:#374151;line-height:1.6">
-    Here is what Sage can do for you right now:
-  </p>
+  <!-- What Sage does -->
+  <p style="font-size:15px;font-weight:600;color:#1d1d1f;margin:24px 0 14px">Here is what Sage does right now:</p>
 
-  <div style="background:#f5f3ff;border:1px solid #ede9fe;border-radius:12px;padding:20px;margin:0 0 24px">
-    <ul style="font-size:14px;color:#374151;line-height:2;margin:0;padding-left:20px">
-      <li>Generate a monthly spending analysis with trends and highlights</li>
-      <li>Answer questions about your actual income and expense data</li>
-      <li>Identify categories where you consistently overspend</li>
-      <li>Suggest ways to stay on track with your savings goals</li>
-    </ul>
-  </div>
+  <!-- Feature rows -->
+  <table style="width:100%;border-collapse:collapse">
+    <tr>
+      <td style="padding:14px 16px;background:#f5f3ff;border:1px solid #ede9fe;border-radius:10px;vertical-align:top" colspan="2">
+        <p style="font-size:13px;font-weight:700;color:#4f46e5;margin:0 0 4px">✦&nbsp; Weekly spending breakdown</p>
+        <p style="font-size:13px;color:#374151;margin:0;line-height:1.6">
+          Each week, the Spending Reflections section gives you a clear picture of what you spent,
+          which categories led the way, and how it compares to your usual pattern.
+        </p>
+      </td>
+    </tr>
+    <tr><td colspan="2" style="padding:4px 0"></td></tr>
+    <tr>
+      <td style="padding:14px 16px;background:#f5f3ff;border:1px solid #ede9fe;border-radius:10px;vertical-align:top" colspan="2">
+        <p style="font-size:13px;font-weight:700;color:#4f46e5;margin:0 0 4px">✦&nbsp; Mid-month check-in</p>
+        <p style="font-size:13px;color:#374151;margin:0;line-height:1.6">
+          Around the 14th of each month, Sage generates an AI check-in: how is your spending tracking?
+          Which budgets are at risk? What can you still adjust before the month is out?
+        </p>
+      </td>
+    </tr>
+    <tr><td colspan="2" style="padding:4px 0"></td></tr>
+    <tr>
+      <td style="padding:14px 16px;background:#f5f3ff;border:1px solid #ede9fe;border-radius:10px;vertical-align:top" colspan="2">
+        <p style="font-size:13px;font-weight:700;color:#4f46e5;margin:0 0 4px">✦&nbsp; Monthly review</p>
+        <p style="font-size:13px;color:#374151;margin:0;line-height:1.6">
+          At the start of each new month, Sage produces a full written review of the month that just
+          ended — income vs spending, budget performance, top categories, notable patterns, and 2–3
+          specific suggestions for the month ahead.
+        </p>
+      </td>
+    </tr>
+    <tr><td colspan="2" style="padding:4px 0"></td></tr>
+    <tr>
+      <td style="padding:14px 16px;background:#f5f3ff;border:1px solid #ede9fe;border-radius:10px;vertical-align:top" colspan="2">
+        <p style="font-size:13px;font-weight:700;color:#4f46e5;margin:0 0 4px">✦&nbsp; Ask it anything</p>
+        <p style="font-size:13px;color:#374151;margin:0;line-height:1.6">
+          Open the Sage tab in Messages and ask Sage anything about your finances —
+          or about the app itself. Throughout SharedLedger you will notice the ✦ sparkle icon
+          marking AI-powered features. Ask Sage what any of them do and it will walk you through it.
+        </p>
+      </td>
+    </tr>
+    <tr><td colspan="2" style="padding:4px 0"></td></tr>
+    <tr>
+      <td style="padding:14px 16px;background:#f5f3ff;border:1px solid #ede9fe;border-radius:10px;vertical-align:top" colspan="2">
+        <p style="font-size:13px;font-weight:700;color:#4f46e5;margin:0 0 4px">✦&nbsp; Group analysis, private by default</p>
+        <p style="font-size:13px;color:#374151;margin:0;line-height:1.6">
+          If you share a household in SharedLedger, Sage can analyse shared budgets, group goals,
+          and collective spending patterns together. Each member's personal expenses stay private —
+          nobody sees anyone else's individual data. Only what is explicitly shared is visible.
+        </p>
+      </td>
+    </tr>
+    <tr><td colspan="2" style="padding:4px 0"></td></tr>
+    <tr>
+      <td style="padding:14px 16px;background:#f5f3ff;border:1px solid #ede9fe;border-radius:10px;vertical-align:top" colspan="2">
+        <p style="font-size:13px;font-weight:700;color:#4f46e5;margin:0 0 4px">✦&nbsp; A direct line to us</p>
+        <p style="font-size:13px;color:#374151;margin:0;line-height:1.6">
+          After a few messages in the Sage chat, you will see a small prompt appear asking if you
+          have a thought or suggestion. That goes straight to our inbox. If something feels off, a
+          feature is missing, or you have an idea — that is the fastest way to reach us.
+        </p>
+      </td>
+    </tr>
+  </table>
 
-  <p style="font-size:15px;color:#374151;line-height:1.6">
-    You will find Sage in the <strong>Messages tab</strong> inside the app.
-    Just tap the <strong>Sage tab</strong> and ask it anything — or let it
-    generate your monthly analysis automatically.
-  </p>
-
-  <div style="text-align:center;margin:28px 0">
+  <div style="text-align:center;margin:32px 0">
     <a href="https://sharedledger.app/app"
        style="display:inline-block;background:#4f46e5;color:#ffffff;font-size:15px;font-weight:600;
-              padding:12px 28px;border-radius:8px;text-decoration:none">
+              padding:12px 32px;border-radius:8px;text-decoration:none">
       ✦ Try Sage
     </a>
   </div>
 
-  <div style="background:#fafafa;border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin-bottom:24px">
+  <!-- Honest note -->
+  <div style="background:#fafafa;border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin-bottom:28px">
     <p style="font-size:13px;color:#6b7280;line-height:1.6;margin:0">
       <strong style="color:#374151">One honest note:</strong>
-      Sage is still early. It is powered by Google Gemini and getting smarter every week.
-      Answers are grounded in your real data, but use your own judgement for big financial decisions.
-      We would love to hear what you think of it — just reply to this email.
+      Sage is still in testing. It is powered by Google Gemini and we are improving it every week.
+      Answers are grounded in your real data, but use your own judgement for important financial
+      decisions. We would love to hear what you think — just reply to this email or use the
+      feedback prompt inside the Sage chat.
     </p>
   </div>
 
-  <p style="font-size:14px;color:#6b7280;line-height:1.6">
-    As always, reply to this email with any thoughts. We read every message.
+  <p style="font-size:15px;color:#374151;line-height:1.6">Thank you again for being part of this.</p>
+
+  <p style="font-size:14px;color:#374151;margin-top:20px;line-height:1.6">
+    Daniel<br>
+    <span style="color:#6b7280">The SharedLedger Team</span>
   </p>
-  <p style="font-size:14px;color:#6b7280;margin-top:24px">The SharedLedger Team</p>
 </div>
 `.trim();
 
