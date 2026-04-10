@@ -268,11 +268,17 @@ export default function HomePage() {
                   )}
                 </div>
 
-                {/* Net figure — headline */}
-                <div className={`text-5xl font-display font-bold mb-4 ${netTotal < 0 ? "text-red-200" : ""}`} data-testid="text-net-total">
-                  {netTotal >= 0 ? "+" : "-"}{currencySymbol}{toFixedAmount(Math.abs(netTotal), user?.currency)}
-                  <span className="text-sm font-normal text-white/70 ml-2">net</span>
-                </div>
+                {/* Net figure — headline, font shrinks for large numbers */}
+                {(() => {
+                  const netStr = `${netTotal >= 0 ? "+" : "-"}${currencySymbol}${toFixedAmount(Math.abs(netTotal), user?.currency)}`;
+                  const sizeClass = netStr.length > 14 ? "text-2xl" : netStr.length > 11 ? "text-3xl" : netStr.length > 8 ? "text-4xl" : "text-5xl";
+                  return (
+                    <div className={`${sizeClass} font-display font-bold mb-4 leading-tight ${netTotal < 0 ? "text-red-200" : ""}`} data-testid="text-net-total">
+                      {netStr}
+                      <span className="text-sm font-normal text-white/70 ml-2">net</span>
+                    </div>
+                  );
+                })()}
 
                 <div className="space-y-1.5 text-[11px] text-white/80">
                   <div className="flex items-center justify-between" data-testid="badge-income-total">
@@ -321,9 +327,15 @@ export default function HomePage() {
                     <Wallet className="w-4 h-4" />
                     <span className="text-sm font-medium">{t("personalSpending")}</span>
                   </div>
-                  <div className="text-4xl font-display font-bold" data-testid="text-monthly-total">
-                    {currencySymbol}{toFixedAmount(combinedTotal, user?.currency)}
-                  </div>
+                  {(() => {
+                    const totalStr = `${currencySymbol}${toFixedAmount(combinedTotal, user?.currency)}`;
+                    const sizeClass = totalStr.length > 13 ? "text-2xl" : totalStr.length > 10 ? "text-3xl" : "text-4xl";
+                    return (
+                      <div className={`${sizeClass} font-display font-bold leading-tight`} data-testid="text-monthly-total">
+                        {totalStr}
+                      </div>
+                    );
+                  })()}
                 </div>
                 {todayTotal > 0 && (
                   <div className="text-right bg-white/15 rounded-lg px-3 py-2 backdrop-blur-sm" data-testid="badge-today-total">

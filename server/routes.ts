@@ -664,24 +664,20 @@ If any field cannot be determined, use null. Be precise with the total amount. R
             const orphanEntry = orphanedGroupCurrencies.get(e.familyId);
             if (orphanEntry === undefined) {
               // Group row no longer exists — exclude as safe default
-              crossCurrencyGroupExpenseCount++;
               return null;
             }
             if (orphanEntry.groupType !== "friends") {
-              // Non-friend group expense (family/couple/roommates) — include if same currency,
-              // otherwise exclude to avoid corrupting the user-currency total
-              if (orphanEntry.currency && orphanEntry.currency !== userCurrency) {
-                crossCurrencyGroupExpenseCount++;
-                return null;
-              }
+              // Non-friend group expense (family/couple/roommates).
+              // Personal expenses have no currency of their own — family.currency is a display
+              // setting for shared group expenses only. Always include these.
               return e;
             }
-            // Orphaned friend group expense
+            // Orphaned friend group expense — exclude unless user opted in
             if (!includeQuickGroupInSummary) {
               crossCurrencyGroupExpenseCount++;
               return null;
             }
-            // Apply currency exclusion
+            // Apply currency exclusion for friend group expenses
             if (orphanEntry.currency !== userCurrency) {
               crossCurrencyGroupExpenseCount++;
               return null;
@@ -802,9 +798,11 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       if (e.paymentSource !== "personal") return false;
       const expFamilyId = (e as any).familyId as number | null | undefined;
       if (expFamilyId != null) {
-        const groupCurrency = fgCurrencyMap.get(expFamilyId)
-          ?? (expFamilyId === user.familyId ? establishedFamilyCurrency : null);
-        if (groupCurrency && groupCurrency !== activityUserCurrency) return false;
+        // Only apply currency filtering to friend group expenses — those can genuinely be
+        // in a different currency. Family/couple/roommate group expenses are personal and
+        // always in the user's own currency (family.currency is a display setting only).
+        const friendGroupCurrency = fgCurrencyMap.get(expFamilyId);
+        if (friendGroupCurrency && friendGroupCurrency !== activityUserCurrency) return false;
       }
       return true;
     });
