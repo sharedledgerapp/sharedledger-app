@@ -321,21 +321,39 @@ async function checkRecurringReminders() {
       const daysBefore = expense.reminderDaysBefore ?? 3;
       if (!dueDay) continue;
 
-      const targetDay = dueDay - daysBefore;
-      if (targetDay < 1) continue;
-      if (todayDay !== targetDay) continue;
+      // Check this month's occurrence and next month's (handles cross-month reminder dates)
+      const dueDateCandidates = [
+        new Date(todayYear, todayMonth, dueDay),
+        new Date(todayYear, todayMonth + 1, dueDay),
+      ];
 
-      const notifKey = `recurring-expense-reminder-${expense.id}-${periodKey}`;
-      const todayStart = new Date(todayYear, todayMonth, todayDay);
-      if (await wasNotifiedSince(expense.userId, notifKey, todayStart)) continue;
+      let fired = false;
+      for (const dueDate of dueDateCandidates) {
+        const reminderDate = new Date(dueDate);
+        reminderDate.setDate(reminderDate.getDate() - daysBefore);
 
-      const sent = await sendPushToUser(expense.userId, {
-        title: `${expense.name} is due soon`,
-        body: `Your ${expense.name} payment of ${expense.amount} is due in ${daysBefore} day${daysBefore > 1 ? "s" : ""}.`,
-        tag: `recurring-reminder-${expense.id}`,
-        url: "/expenses?view=recurring",
-      });
-      if (sent) await markNotified(expense.userId, notifKey);
+        if (
+          reminderDate.getFullYear() === todayYear &&
+          reminderDate.getMonth() === todayMonth &&
+          reminderDate.getDate() === todayDay
+        ) {
+          const dueDateKey = dueDate.toISOString().slice(0, 10);
+          const notifKey = `recurring-expense-reminder-${expense.id}-${dueDateKey}`;
+          const todayStart = new Date(todayYear, todayMonth, todayDay);
+          if (await wasNotifiedSince(expense.userId, notifKey, todayStart)) break;
+
+          const sent = await sendPushToUser(expense.userId, {
+            title: `${expense.name} is due soon`,
+            body: `Your ${expense.name} payment of ${expense.amount} is due in ${daysBefore} day${daysBefore > 1 ? "s" : ""}.`,
+            tag: `recurring-reminder-${expense.id}`,
+            url: "/expenses?view=recurring",
+          });
+          if (sent) await markNotified(expense.userId, notifKey);
+          fired = true;
+          break;
+        }
+      }
+      void fired;
     } catch (err) {
       console.error(`[Push] recurring reminder failed for expense ${expense.id}:`, err);
     }

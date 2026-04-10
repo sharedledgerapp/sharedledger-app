@@ -1389,6 +1389,9 @@ export default function ExpensesPage() {
                       className="mt-1"
                       data-testid="input-recurring-due-day"
                     />
+                    {recurringForm.reminderEnabled && !recurringForm.dueDay && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Set a due day to enable reminders</p>
+                    )}
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">Notify how many days before</Label>
