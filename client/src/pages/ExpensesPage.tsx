@@ -186,8 +186,8 @@ export default function ExpensesPage() {
       isRecurring: entry.isRecurring,
       recurringInterval: (entry.recurringInterval as "weekly" | "monthly" | "tri-monthly") || "monthly",
       shareDetails: entry.shareDetails,
-      reminderEnabled: (entry as any).reminderEnabled ?? false,
-      reminderDaysBefore: (entry as any).reminderDaysBefore ?? 3,
+      reminderEnabled: entry.reminderEnabled ?? false,
+      reminderDaysBefore: entry.reminderDaysBefore ?? 3,
     });
     setShowIncomeDialog(true);
   }
@@ -351,9 +351,9 @@ export default function ExpensesPage() {
       category: expense.category,
       frequency: expense.frequency as typeof FREQUENCIES[number],
       note: expense.note || "",
-      dueDay: (expense as any).dueDay ?? "",
-      reminderEnabled: (expense as any).reminderEnabled ?? false,
-      reminderDaysBefore: (expense as any).reminderDaysBefore ?? 3,
+      dueDay: expense.dueDay ?? "",
+      reminderEnabled: expense.reminderEnabled ?? false,
+      reminderDaysBefore: expense.reminderDaysBefore ?? 3,
     });
     setShowRecurringDialog(true);
   }
@@ -1173,6 +1173,24 @@ export default function ExpensesPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                {(() => {
+                  const baseDate = new Date(incomeForm.date);
+                  const next = new Date(baseDate);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  let iters = 0;
+                  while (next <= today && iters < 500) {
+                    if (incomeForm.recurringInterval === "weekly") next.setDate(next.getDate() + 7);
+                    else if (incomeForm.recurringInterval === "monthly") next.setMonth(next.getMonth() + 1);
+                    else next.setMonth(next.getMonth() + 3);
+                    iters++;
+                  }
+                  return (
+                    <p className="text-xs text-muted-foreground px-1" data-testid="text-income-next-expected">
+                      Next expected: <span className="font-medium text-foreground">{format(next, "MMM d, yyyy")}</span>
+                    </p>
+                  );
+                })()}
                 <div className="rounded-xl border border-border/50 bg-muted/30 p-3 space-y-3">
                   <div className="flex items-center justify-between">
                     <div>

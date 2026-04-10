@@ -351,18 +351,24 @@ async function checkRecurringReminders() {
       const daysBefore = entry.reminderDaysBefore ?? 3;
       if (!entry.recurringInterval) continue;
 
-      const lastDate = new Date(entry.date);
-      const nextDate = new Date(lastDate);
-      switch (entry.recurringInterval) {
-        case "weekly":
-          nextDate.setDate(nextDate.getDate() + 7);
-          break;
-        case "monthly":
-          nextDate.setMonth(nextDate.getMonth() + 1);
-          break;
-        case "tri-monthly":
-          nextDate.setMonth(nextDate.getMonth() + 3);
-          break;
+      const today = new Date(todayYear, todayMonth, todayDay);
+
+      // Advance from entry.date by the recurrence interval until nextDate is in the future
+      const nextDate = new Date(entry.date);
+      let iterations = 0;
+      while (nextDate <= today && iterations < 500) {
+        switch (entry.recurringInterval) {
+          case "weekly":
+            nextDate.setDate(nextDate.getDate() + 7);
+            break;
+          case "monthly":
+            nextDate.setMonth(nextDate.getMonth() + 1);
+            break;
+          case "tri-monthly":
+            nextDate.setMonth(nextDate.getMonth() + 3);
+            break;
+        }
+        iterations++;
       }
 
       const reminderDate = new Date(nextDate);
