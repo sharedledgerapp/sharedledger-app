@@ -316,25 +316,20 @@ export async function sendSageUpdateEmail(toEmail: string, name: string): Promis
   const textBody = [
     `Hi ${name},`,
     ``,
-    `First — thank you. You have been part of the SharedLedger beta from early on,`,
-    `and that means a lot to us. Your usage, your patience with rough edges, and the`,
-    `feedback you have shared have directly shaped what the app is today. We genuinely`,
-    `could not have built this without people willing to try things before they are perfect.`,
+    `First off, thank you for being part of the SharedLedger beta. Your patience with`,
+    `us with the hiccups and setbacks, coupled with your suggestions and feedback, has`,
+    `truly enriched the app and continues to make it better.`,
     ``,
     `Now, we want to tell you about something we have been building for a while.`,
     ``,
-    `Introducing Sage — an AI financial advisor built directly into SharedLedger.`,
+    `Introducing Sage — your in-house accountant inside SharedLedger.`,
     ``,
-    `Unlike generic AI tools, Sage reads your actual data: your real expenses,`,
-    `income entries, categories, budgets, and spending patterns. It uses all of that`,
-    `to give you answers and insights that are specific to you — not generic advice`,
-    `that could apply to anyone.`,
+    `Sage understands your data. It reads your actual expenses, income, categories,`,
+    `budgets, and spending patterns, then gives you personalised insights and answers`,
+    `based on what is really happening with your money — not generic advice that could`,
+    `apply to anyone.`,
     ``,
     `Here is what Sage does right now:`,
-    ``,
-    `Weekly spending breakdown`,
-    `Each week, the Spending Reflections section gives you a clear picture of what`,
-    `you spent, which categories led the way, and how it compares to your usual pattern.`,
     ``,
     `Mid-month check-in`,
     `Around the 14th of each month, Sage generates an AI check-in: how is your`,
@@ -389,10 +384,9 @@ export async function sendSageUpdateEmail(toEmail: string, name: string): Promis
   <p style="font-size:15px;color:#374151;line-height:1.6">Hi <strong>${name}</strong>,</p>
 
   <p style="font-size:15px;color:#374151;line-height:1.6">
-    First — thank you. You have been part of the SharedLedger beta from early on, and that means a
-    lot to us. Your usage, your patience with rough edges, and the feedback you have shared have
-    directly shaped what the app is today. We genuinely could not have built this without people
-    willing to try things before they are perfect.
+    First off, thank you for being part of the SharedLedger beta. Your patience with us with the
+    hiccups and setbacks, coupled with your suggestions and feedback, has truly enriched the app
+    and continues to make it better.
   </p>
 
   <p style="font-size:15px;color:#374151;line-height:1.6">
@@ -404,9 +398,10 @@ export async function sendSageUpdateEmail(toEmail: string, name: string): Promis
     <div style="font-size:36px;margin-bottom:10px">✦</div>
     <h2 style="font-size:22px;font-weight:700;color:#ffffff;margin:0 0 10px">Introducing Sage</h2>
     <p style="font-size:14px;color:#c4b5fd;margin:0 0 14px;line-height:1.7">
-      An AI financial advisor built directly into SharedLedger. Sage reads your
-      <em>actual</em> data — real expenses, income, categories, budgets, and patterns —
-      and gives you insights specific to you. Not generic advice. Your numbers.
+      Think of Sage as your in-house accountant inside SharedLedger. It understands your data —
+      your real expenses, income, categories, budgets, and spending patterns — and gives you
+      personalised insights and answers based on what is actually happening with your money.
+      Not generic advice. Your numbers, understood.
     </p>
     <span style="display:inline-block;background:rgba(255,255,255,0.18);color:#e0d9ff;font-size:12px;font-weight:600;padding:4px 14px;border-radius:20px;border:1px solid rgba(255,255,255,0.25)">
       Beta · Powered by Gemini · Still in testing
@@ -418,16 +413,6 @@ export async function sendSageUpdateEmail(toEmail: string, name: string): Promis
 
   <!-- Feature rows -->
   <table style="width:100%;border-collapse:collapse">
-    <tr>
-      <td style="padding:14px 16px;background:#f5f3ff;border:1px solid #ede9fe;border-radius:10px;vertical-align:top" colspan="2">
-        <p style="font-size:13px;font-weight:700;color:#4f46e5;margin:0 0 4px">✦&nbsp; Weekly spending breakdown</p>
-        <p style="font-size:13px;color:#374151;margin:0;line-height:1.6">
-          Each week, the Spending Reflections section gives you a clear picture of what you spent,
-          which categories led the way, and how it compares to your usual pattern.
-        </p>
-      </td>
-    </tr>
-    <tr><td colspan="2" style="padding:4px 0"></td></tr>
     <tr>
       <td style="padding:14px 16px;background:#f5f3ff;border:1px solid #ede9fe;border-radius:10px;vertical-align:top" colspan="2">
         <p style="font-size:13px;font-weight:700;color:#4f46e5;margin:0 0 4px">✦&nbsp; Mid-month check-in</p>
