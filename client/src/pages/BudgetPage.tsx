@@ -247,6 +247,7 @@ export default function BudgetPage() {
   }
 
   const budgetedCategories = summary?.budgets.map(b => b.category) || [];
+  const groupBudgetedCategories = sharedBudgetData?.budgets.map(b => b.category) || [];
   const unbudgetedCategories = categories.filter(c => !budgetedCategories.includes(c));
 
   if (isLoading) {
@@ -643,7 +644,7 @@ export default function BudgetPage() {
                     <SelectValue placeholder={t("categories")} />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.filter(c => !budgetedCategories.includes(c)).map(cat => (
+                    {categories.filter(c => form.scope === "shared" ? !groupBudgetedCategories.includes(c) : !budgetedCategories.includes(c)).map(cat => (
                       <SelectItem key={cat} value={cat} data-testid={`option-budget-category-${cat.toLowerCase()}`}>
                         {cat}
                       </SelectItem>

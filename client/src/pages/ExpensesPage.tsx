@@ -428,7 +428,7 @@ export default function ExpensesPage() {
   }, [expenses, searchQuery]);
 
   // Date section keys for collapsible groups
-  type DateSectionKey = "today" | "thisWeek" | "earlier";
+  type DateSectionKey = "today" | "thisWeek" | "earlier" | "older";
   const [collapsedDateSections, setCollapsedDateSections] = useState<Set<DateSectionKey>>(new Set());
   const toggleDateSection = useCallback((key: DateSectionKey) => {
     setCollapsedDateSections(prev => {
@@ -505,11 +505,14 @@ export default function ExpensesPage() {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekStart = new Date(todayStart);
     weekStart.setDate(todayStart.getDate() - 6);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
     type DS = { key: DateSectionKey; label: string; expenses: typeof regularExpenses };
     const sections: DS[] = [
       { key: "today", label: "Today", expenses: [] },
       { key: "thisWeek", label: "This Week", expenses: [] },
       { key: "earlier", label: "Earlier this month", expenses: [] },
+      { key: "older", label: "Older", expenses: [] },
     ];
 
     (regularExpenses || []).forEach(expense => {
@@ -518,8 +521,10 @@ export default function ExpensesPage() {
         sections[0].expenses.push(expense);
       } else if (d >= weekStart) {
         sections[1].expenses.push(expense);
-      } else {
+      } else if (d >= monthStart) {
         sections[2].expenses.push(expense);
+      } else {
+        sections[3].expenses.push(expense);
       }
     });
 

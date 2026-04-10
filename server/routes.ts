@@ -14,7 +14,7 @@ async function hashPassword(password: string): Promise<string> {
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
   return `${buf.toString("hex")}.${salt}`;
 }
-import { insertUserSchema, families, oauthGroupSetupSchema, type User } from "@shared/schema";
+import { insertUserSchema, families, oauthGroupSetupSchema, type User, type InsertRecurringExpense } from "@shared/schema";
 import multer from "multer";
 import passport from "passport";
 import { db } from "./db";
@@ -1516,14 +1516,17 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       reminderEnabled: z.boolean().optional(),
       reminderDaysBefore: z.number().int().min(1).max(7).optional(),
     });
-    const updates: any = schema.parse(req.body);
-    // When sharing with group, ensure familyId is set to the user's family
-    if (updates.isGroupShared === true) {
+    const parsed = schema.parse(req.body);
+    // When sharing with group, ensure familyId is stamped server-side
+    if (parsed.isGroupShared === true) {
       if (!user.familyId) {
         return res.status(400).json({ message: "You must be in a group to share a recurring expense" });
       }
-      updates.familyId = user.familyId;
     }
+    const updates: Partial<InsertRecurringExpense> = {
+      ...parsed,
+      ...(parsed.isGroupShared === true ? { familyId: user.familyId } : {}),
+    };
     const updated = await storage.updateRecurringExpense(id, updates);
     res.json(updated);
   });
