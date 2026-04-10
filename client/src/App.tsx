@@ -8,6 +8,7 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { TutorialProvider } from "@/contexts/TutorialContext";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { WhatsNewBanner } from "@/components/WhatsNewBanner";
+import { SageIntroBanner } from "@/components/SageIntroBanner";
 import { Layout } from "@/components/Layout";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/AuthPage";
@@ -212,6 +213,7 @@ function App() {
                 <Router />
                 <TutorialOverlay />
                 <WhatsNewBanner />
+                <SageIntroBanner />
                 <Toaster />
               </TutorialProvider>
             </LanguageProvider>
