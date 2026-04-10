@@ -1155,7 +1155,13 @@ function NoteCard({
   onToggleTodo: (noteId: number, newContent: string) => void;
   t: (key: any) => string;
 }) {
-  const blocks = parseContent(note.content);
+  const [localContent, setLocalContent] = useState(note.content);
+
+  useEffect(() => {
+    setLocalContent(note.content);
+  }, [note.content]);
+
+  const blocks = parseContent(localContent);
 
   return (
     <Card
@@ -1191,8 +1197,11 @@ function NoteCard({
             <NoteContentRenderer
               blocks={blocks}
               noteId={note.id}
-              rawContent={note.content ?? ""}
-              onToggleTodo={onToggleTodo}
+              rawContent={localContent ?? ""}
+              onToggleTodo={(noteId, newContent) => {
+                setLocalContent(newContent);
+                onToggleTodo(noteId, newContent);
+              }}
             />
           )}
 

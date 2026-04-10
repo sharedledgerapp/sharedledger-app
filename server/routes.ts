@@ -1782,6 +1782,23 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       content: content.trim(),
     });
     res.status(201).json({ ...message, senderName: user.name });
+
+    if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+      try {
+        const familyMembers = await storage.getFamilyMembers(user.familyId);
+        const senderName = user.name ?? "Someone";
+        const preview = content.trim().length > 60 ? content.trim().slice(0, 60) + "…" : content.trim();
+        for (const member of familyMembers) {
+          if (member.id === user.id) continue;
+          sendPushToUser(member.id, {
+            title: `${senderName} sent a message`,
+            body: preview,
+            tag: `group-message-${message.id}`,
+            url: "/app/messages",
+          }).catch(() => {});
+        }
+      } catch {}
+    }
   });
 
   app.get('/api/messages/unread', requireAuth, async (req, res) => {
@@ -1814,6 +1831,22 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       content: content || null,
     });
     res.status(201).json({ ...note, creatorName: user.name });
+
+    if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+      try {
+        const familyMembers = await storage.getFamilyMembers(user.familyId);
+        const creatorName = user.name ?? "Someone";
+        for (const member of familyMembers) {
+          if (member.id === user.id) continue;
+          sendPushToUser(member.id, {
+            title: `${creatorName} added a note`,
+            body: title.trim(),
+            tag: `group-note-${note.id}`,
+            url: "/app/messages",
+          }).catch(() => {});
+        }
+      } catch {}
+    }
   });
 
   app.patch('/api/notes/:id', requireAuth, async (req, res) => {
