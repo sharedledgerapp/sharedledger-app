@@ -98,6 +98,9 @@ function SageText({ content }: { content: string }) {
 
 // ─── Sage Tab ─────────────────────────────────────────────────────────────────
 
+// Minimum messages in the conversation before the feedback nudge appears
+const FEEDBACK_NUDGE_AFTER = 4;
+
 function SageTab() {
   const { user } = useAuth();
   const [activeConvId, setActiveConvId] = useState<number | null>(null);
@@ -105,6 +108,9 @@ function SageTab() {
   const [localMessages, setLocalMessages] = useState<SageMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [feedbackMap, setFeedbackMap] = useState<Record<number, number>>({});
+  const [nudgeDismissed, setNudgeDismissed] = useState(false);
+  const [nudgeSent, setNudgeSent] = useState(false);
+  const [nudgeText, setNudgeText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { data: conversations, isLoading: convsLoading } = useQuery<SageConversation[]>({
@@ -126,6 +132,12 @@ function SageTab() {
     }
   }, [localMessages.length, isGenerating]);
 
+  const resetNudge = () => {
+    setNudgeDismissed(false);
+    setNudgeSent(false);
+    setNudgeText("");
+  };
+
   const createConvMutation = useMutation({
     mutationFn: async (title?: string) => {
       const res = await apiRequest("POST", "/api/sage/conversations", { title });
@@ -135,6 +147,7 @@ function SageTab() {
       queryClient.invalidateQueries({ queryKey: ["/api/sage/conversations"] });
       setActiveConvId(conv.id);
       setLocalMessages([]);
+      resetNudge();
     },
   });
 
@@ -153,6 +166,20 @@ function SageTab() {
     mutationFn: async ({ id, feedback }: { id: number; feedback: number }) => {
       await apiRequest("PATCH", `/api/sage/messages/${id}/feedback`, { feedback });
     },
+  });
+
+  const nudgeFeedbackMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/feedback", {
+        group: "Sage AI – Chat Feedback",
+        message,
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to send");
+      }
+    },
+    onSuccess: () => setNudgeSent(true),
   });
 
   const handleSend = async (text?: string, convIdOverride?: number) => {
@@ -302,7 +329,7 @@ function SageTab() {
         <Button
           size="icon"
           variant="ghost"
-          onClick={() => { setActiveConvId(null); setLocalMessages([]); }}
+          onClick={() => { setActiveConvId(null); setLocalMessages([]); resetNudge(); }}
           data-testid="button-back-conversations"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -400,6 +427,59 @@ function SageTab() {
                 </div>
               </div>
             )}
+
+            {/* Feedback nudge — shown after enough back-and-forth, no AI involved */}
+            {localMessages.length >= FEEDBACK_NUDGE_AFTER && !isGenerating && !nudgeDismissed && (
+              <div
+                className="mx-1 mt-2 rounded-2xl border border-border/50 bg-secondary/30 p-3.5 space-y-2.5"
+                data-testid="sage-feedback-nudge"
+              >
+                {nudgeSent ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-1">
+                    <Check className="w-4 h-4 text-primary shrink-0" />
+                    <span>Thanks — we read every message.</span>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground leading-snug">
+                      Got a thought while chatting with Sage? A suggestion, something off, or just a note — we're listening.
+                    </p>
+                    <Textarea
+                      value={nudgeText}
+                      onChange={(e) => setNudgeText(e.target.value)}
+                      placeholder="Share a suggestion or something that could be better…"
+                      rows={2}
+                      className="text-sm resize-none bg-background/70 border-border/40 focus-visible:ring-1 rounded-xl"
+                      data-testid="textarea-sage-feedback"
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-xs text-muted-foreground h-8 px-3"
+                        onClick={() => setNudgeDismissed(true)}
+                        data-testid="button-dismiss-sage-feedback"
+                      >
+                        Not now
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="text-xs h-8 px-3"
+                        disabled={nudgeText.trim().length < 10 || nudgeFeedbackMutation.isPending}
+                        onClick={() => nudgeFeedbackMutation.mutate(nudgeText.trim())}
+                        data-testid="button-send-sage-feedback"
+                      >
+                        {nudgeFeedbackMutation.isPending ? (
+                          <RotateCcw className="w-3 h-3 mr-1 animate-spin" />
+                        ) : null}
+                        Send feedback
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
             <div ref={messagesEndRef} />
           </>
         )}
