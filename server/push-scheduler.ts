@@ -1,7 +1,7 @@
 import webpush from "web-push";
 import { storage } from "./storage";
 import { db } from "./db";
-import { users, expenses, budgets, pushNotificationLog, recurringExpenses, incomeEntries } from "@shared/schema";
+import { users, expenses, budgets, pushNotificationLog, recurringExpenses, incomeEntries, messages, families } from "@shared/schema";
 import { eq, and, gte, lte, lt, sql, inArray } from "drizzle-orm";
 import { generateAnalysis } from "./sage";
 import { format, subMonths, startOfMonth } from "date-fns";
@@ -543,6 +543,40 @@ async function checkSageAnalyses() {
   }
 }
 
+async function checkGroupIdleNudge() {
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+  const allFamilies = await db.select().from(families);
+
+  for (const family of allFamilies) {
+    try {
+      const members = await storage.getFamilyMembers(family.id);
+      if (members.length < 2) continue;
+
+      const [recentMsg] = await db
+        .select({ id: messages.id })
+        .from(messages)
+        .where(and(eq(messages.familyId, family.id), gte(messages.createdAt, threeDaysAgo)))
+        .limit(1);
+
+      if (recentMsg) continue;
+
+      const nudgeType = `group_idle_nudge_${family.id}`;
+      for (const member of members) {
+        if (await wasNotifiedSince(member.id, nudgeType, threeDaysAgo)) continue;
+        const sent = await sendPushToUser(member.id, {
+          title: "Check in with your group 💬",
+          body: "Nothing new from your group in a while — how's everyone tracking this month?",
+          tag: `group-idle-${family.id}`,
+          url: "/app/messages",
+        });
+        if (sent) await markNotified(member.id, nudgeType);
+      }
+    } catch (err) {
+      console.error(`[Push] Group idle nudge failed for family ${family.id}:`, err);
+    }
+  }
+}
+
 let schedulerInterval: ReturnType<typeof setInterval> | null = null;
 let schedulerStarted = false;
 
@@ -573,6 +607,7 @@ export function startPushScheduler() {
       { name: "budgetAlerts", fn: checkBudgetAlerts },
       { name: "recurringReminders", fn: checkRecurringReminders },
       { name: "sageAnalyses", fn: checkSageAnalyses },
+      { name: "groupIdleNudge", fn: checkGroupIdleNudge },
     ];
     for (const { name, fn } of checks) {
       try {

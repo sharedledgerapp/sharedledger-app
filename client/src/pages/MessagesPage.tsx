@@ -27,6 +27,7 @@ import {
   ThumbsDown,
   ChevronLeft,
   RotateCcw,
+  Share2,
 } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
 
@@ -112,6 +113,9 @@ function SageTab() {
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const [nudgeSent, setNudgeSent] = useState(false);
   const [nudgeText, setNudgeText] = useState("");
+  const [shareMessageId, setShareMessageId] = useState<number | null>(null);
+  const [shareText, setShareText] = useState("");
+  const [shareSentId, setShareSentId] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { data: conversations, isLoading: convsLoading } = useQuery<SageConversation[]>({
@@ -186,6 +190,29 @@ function SageTab() {
       captureEvent("sage_nudge_feedback_submitted");
     },
   });
+
+  const shareToGroupMutation = useMutation({
+    mutationFn: async (content: string) => {
+      const res = await apiRequest("POST", "/api/messages", { content });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
+      setShareSentId(shareMessageId);
+      setTimeout(() => {
+        setShareMessageId(null);
+        setShareText("");
+        setShareSentId(null);
+      }, 2000);
+    },
+  });
+
+  const openShare = (msg: SageMessage) => {
+    const plain = msg.content.replace(/[#*`_]/g, "").replace(/\n+/g, " ").trim();
+    const preview = plain.length > 200 ? plain.slice(0, 200) + "…" : plain;
+    setShareText(`💡 Sage says: ${preview}`);
+    setShareMessageId(msg.id);
+  };
 
   const handleSend = async (text?: string, convIdOverride?: number, isSuggested = false) => {
     const convId = convIdOverride ?? activeConvId;
@@ -407,25 +434,77 @@ function SageTab() {
                     {isUser ? msg.content : <SageText content={msg.content} />}
                   </div>
                   {!isUser && (
-                    <div className="flex items-center gap-1 mt-1 ml-1">
-                      <button
-                        onClick={() => handleFeedback(msg.id, 1)}
-                        className={cn("p-1 rounded hover:bg-secondary transition-colors", feedbackMap[msg.id] === 1 ? "text-primary" : "text-muted-foreground")}
-                        data-testid={`button-thumbs-up-${msg.id}`}
-                      >
-                        <ThumbsUp className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => handleFeedback(msg.id, -1)}
-                        className={cn("p-1 rounded hover:bg-secondary transition-colors", feedbackMap[msg.id] === -1 ? "text-destructive" : "text-muted-foreground")}
-                        data-testid={`button-thumbs-down-${msg.id}`}
-                      >
-                        <ThumbsDown className="w-3 h-3" />
-                      </button>
-                      <span className="text-[10px] text-muted-foreground ml-1">
-                        {format(new Date(msg.createdAt), "h:mm a")}
-                      </span>
-                    </div>
+                    <>
+                      <div className="flex items-center gap-1 mt-1 ml-1">
+                        <button
+                          onClick={() => handleFeedback(msg.id, 1)}
+                          className={cn("p-1 rounded hover:bg-secondary transition-colors", feedbackMap[msg.id] === 1 ? "text-primary" : "text-muted-foreground")}
+                          data-testid={`button-thumbs-up-${msg.id}`}
+                        >
+                          <ThumbsUp className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => handleFeedback(msg.id, -1)}
+                          className={cn("p-1 rounded hover:bg-secondary transition-colors", feedbackMap[msg.id] === -1 ? "text-destructive" : "text-muted-foreground")}
+                          data-testid={`button-thumbs-down-${msg.id}`}
+                        >
+                          <ThumbsDown className="w-3 h-3" />
+                        </button>
+                        <span className="text-[10px] text-muted-foreground ml-1">
+                          {format(new Date(msg.createdAt), "h:mm a")}
+                        </span>
+                        {user?.familyId && (
+                          <button
+                            onClick={() => shareMessageId === msg.id ? setShareMessageId(null) : openShare(msg)}
+                            className={cn("p-1 rounded hover:bg-secondary transition-colors ml-1", shareMessageId === msg.id ? "text-primary" : "text-muted-foreground")}
+                            data-testid={`button-share-sage-${msg.id}`}
+                            title="Share with group"
+                          >
+                            <Share2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                      {shareMessageId === msg.id && (
+                        <div className="mt-2 ml-1 w-[85%] rounded-xl border border-border/50 bg-background/80 p-3 space-y-2">
+                          {shareSentId === msg.id ? (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground py-0.5">
+                              <Check className="w-4 h-4 text-primary shrink-0" />
+                              <span>Sent to group!</span>
+                            </div>
+                          ) : (
+                            <>
+                              <Textarea
+                                value={shareText}
+                                onChange={(e) => setShareText(e.target.value)}
+                                rows={3}
+                                className="text-sm resize-none bg-background border-border/40 focus-visible:ring-1 rounded-lg"
+                                data-testid={`textarea-share-sage-${msg.id}`}
+                              />
+                              <div className="flex gap-2 justify-end">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-xs text-muted-foreground h-7 px-2.5"
+                                  onClick={() => { setShareMessageId(null); setShareText(""); }}
+                                  data-testid={`button-cancel-share-${msg.id}`}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="text-xs h-7 px-3"
+                                  disabled={!shareText.trim() || shareToGroupMutation.isPending}
+                                  onClick={() => shareToGroupMutation.mutate(shareText.trim())}
+                                  data-testid={`button-send-share-${msg.id}`}
+                                >
+                                  Send to group
+                                </Button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               );

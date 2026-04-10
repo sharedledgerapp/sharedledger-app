@@ -6,7 +6,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronLeft, TrendingUp, Calendar, PieChart, Sparkles, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
+import { ChevronLeft, TrendingUp, Calendar, PieChart, Sparkles, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp, RefreshCw, Share2, Check } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { Link, useLocation } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, format } from "date-fns";
@@ -25,8 +26,36 @@ interface AiAnalysis {
 }
 
 function AnalysisCard({ analysis }: { analysis: AiAnalysis }) {
+  const { user } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [localFeedback, setLocalFeedback] = useState<number | null>(analysis.feedback);
+  const [sharingOpen, setSharingOpen] = useState(false);
+  const [shareText, setShareText] = useState("");
+  const [shareSent, setShareSent] = useState(false);
+
+  const openShare = () => {
+    const plain = analysis.content.replace(/[#*`_]/g, "").replace(/\n+/g, " ").trim();
+    const preview = plain.length > 200 ? plain.slice(0, 200) + "…" : plain;
+    const typeLabel = analysis.type === "monthly_review" ? "Monthly Review" : "Mid-Month Check";
+    setShareText(`📊 Sage ${typeLabel}: ${preview}`);
+    setSharingOpen(true);
+  };
+
+  const shareToGroupMutation = useMutation({
+    mutationFn: async (content: string) => {
+      const res = await apiRequest("POST", "/api/messages", { content });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
+      setShareSent(true);
+      setTimeout(() => {
+        setSharingOpen(false);
+        setShareText("");
+        setShareSent(false);
+      }, 2000);
+    },
+  });
 
   const feedbackMutation = useMutation({
     mutationFn: async (feedback: number) => {
@@ -103,22 +132,74 @@ function AnalysisCard({ analysis }: { analysis: AiAnalysis }) {
           </div>
         )}
 
-        <div className="flex items-center gap-2 pt-1 border-t border-border/30">
-          <span className="text-xs text-muted-foreground">Was this helpful?</span>
-          <button
-            onClick={() => feedbackMutation.mutate(1)}
-            className={cn("p-1 rounded hover:bg-secondary transition-colors", localFeedback === 1 ? "text-primary" : "text-muted-foreground")}
-            data-testid={`button-thumbs-up-analysis-${analysis.id}`}
-          >
-            <ThumbsUp className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => feedbackMutation.mutate(-1)}
-            className={cn("p-1 rounded hover:bg-secondary transition-colors", localFeedback === -1 ? "text-destructive" : "text-muted-foreground")}
-            data-testid={`button-thumbs-down-analysis-${analysis.id}`}
-          >
-            <ThumbsDown className="w-3.5 h-3.5" />
-          </button>
+        <div className="pt-1 border-t border-border/30 space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Was this helpful?</span>
+            <button
+              onClick={() => feedbackMutation.mutate(1)}
+              className={cn("p-1 rounded hover:bg-secondary transition-colors", localFeedback === 1 ? "text-primary" : "text-muted-foreground")}
+              data-testid={`button-thumbs-up-analysis-${analysis.id}`}
+            >
+              <ThumbsUp className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => feedbackMutation.mutate(-1)}
+              className={cn("p-1 rounded hover:bg-secondary transition-colors", localFeedback === -1 ? "text-destructive" : "text-muted-foreground")}
+              data-testid={`button-thumbs-down-analysis-${analysis.id}`}
+            >
+              <ThumbsDown className="w-3.5 h-3.5" />
+            </button>
+            {user?.familyId && expanded && (
+              <button
+                onClick={() => sharingOpen ? setSharingOpen(false) : openShare()}
+                className={cn("ml-auto flex items-center gap-1 text-xs px-2 py-1 rounded-md hover:bg-secondary transition-colors", sharingOpen ? "text-primary" : "text-muted-foreground")}
+                data-testid={`button-share-analysis-${analysis.id}`}
+              >
+                <Share2 className="w-3 h-3" />
+                Share with group
+              </button>
+            )}
+          </div>
+          {sharingOpen && (
+            <div className="rounded-xl border border-border/50 bg-background/80 p-3 space-y-2">
+              {shareSent ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-0.5">
+                  <Check className="w-4 h-4 text-primary shrink-0" />
+                  <span>Sent to group!</span>
+                </div>
+              ) : (
+                <>
+                  <Textarea
+                    value={shareText}
+                    onChange={(e) => setShareText(e.target.value)}
+                    rows={3}
+                    className="text-sm resize-none bg-background border-border/40 focus-visible:ring-1 rounded-lg"
+                    data-testid={`textarea-share-analysis-${analysis.id}`}
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-xs text-muted-foreground h-7 px-2.5"
+                      onClick={() => { setSharingOpen(false); setShareText(""); }}
+                      data-testid={`button-cancel-share-analysis-${analysis.id}`}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="text-xs h-7 px-3"
+                      disabled={!shareText.trim() || shareToGroupMutation.isPending}
+                      onClick={() => shareToGroupMutation.mutate(shareText.trim())}
+                      data-testid={`button-send-share-analysis-${analysis.id}`}
+                    >
+                      Send to group
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
