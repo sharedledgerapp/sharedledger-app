@@ -2,7 +2,7 @@ import webpush from "web-push";
 import { storage } from "./storage";
 import { db } from "./db";
 import { users, expenses, budgets, pushNotificationLog, recurringExpenses, incomeEntries } from "@shared/schema";
-import { eq, and, gte, lte, lt, sql } from "drizzle-orm";
+import { eq, and, gte, lte, lt, sql, inArray } from "drizzle-orm";
 
 async function wasNotifiedToday(userId: number, type: string): Promise<boolean> {
   const today = new Date();
@@ -45,7 +45,7 @@ async function wasNotifiedThisMonth(userId: number, type: string): Promise<boole
   return !!row;
 }
 
-async function wasNotifiedSince(userId: number, type: string, since: Date): Promise<boolean> {
+export async function wasNotifiedSince(userId: number, type: string, since: Date): Promise<boolean> {
   const [row] = await db.select({ id: pushNotificationLog.id })
     .from(pushNotificationLog)
     .where(and(
@@ -57,7 +57,7 @@ async function wasNotifiedSince(userId: number, type: string, since: Date): Prom
   return !!row;
 }
 
-async function markNotified(userId: number, type: string): Promise<void> {
+export async function markNotified(userId: number, type: string): Promise<void> {
   await db.insert(pushNotificationLog).values({
     userId,
     type,
@@ -65,7 +65,7 @@ async function markNotified(userId: number, type: string): Promise<void> {
   });
 }
 
-async function sendPushToUser(userId: number, payload: { title: string; body: string; tag?: string; url?: string }): Promise<boolean> {
+export async function sendPushToUser(userId: number, payload: { title: string; body: string; tag?: string; url?: string }): Promise<boolean> {
   const subs = await storage.getPushSubscriptionsForUser(userId);
   let delivered = false;
   for (const sub of subs) {
@@ -220,80 +220,122 @@ async function checkBudgetAlerts() {
 
   for (const budget of allBudgets) {
     try {
-    if (!budget.notificationsEnabled) continue;
+      if (!budget.notificationsEnabled) continue;
 
-    const user = userMap.get(budget.userId);
-    if (!user || user.budgetAlertsEnabled === false) continue;
+      const thresholds = budget.thresholds as string[] | null;
+      if (!thresholds || thresholds.length === 0) continue;
 
-    const thresholds = budget.thresholds as string[] | null;
-    if (!thresholds || thresholds.length === 0) continue;
+      const periodStart = budget.startDate
+        ? new Date(budget.startDate)
+        : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
-    const periodStart = budget.startDate
-      ? new Date(budget.startDate)
-      : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-
-    let periodEnd: Date;
-    if (budget.periodType === "weekly") {
-      periodEnd = new Date(periodStart.getTime() + 7 * 24 * 60 * 60 * 1000);
-    } else {
-      periodEnd = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, periodStart.getDate());
-    }
-
-    const userExpenses = await db
-      .select({ total: sql<string>`COALESCE(SUM(amount), '0')` })
-      .from(expenses)
-      .where(
-        and(
-          eq(expenses.userId, budget.userId),
-          eq(expenses.category, budget.category),
-          gte(expenses.date, periodStart),
-          lte(expenses.date, periodEnd)
-        )
-      );
-
-    const spent = parseFloat(userExpenses[0]?.total || "0");
-    const budgetAmount = parseFloat(budget.amount);
-    if (budgetAmount <= 0) continue;
-    const percentUsed = Math.round((spent / budgetAmount) * 100);
-
-    const periodKey = periodStart.toISOString().slice(0, 10);
-
-    for (const threshold of thresholds) {
-      const thresholdNum = Number(threshold);
-      if (percentUsed < thresholdNum) continue;
-
-      const notifKey = `budget_${budget.id}_${thresholdNum}_${periodKey}`;
-      if (await wasNotifiedSince(budget.userId, notifKey, periodStart)) continue;
-
-      const message =
-        percentUsed >= 100
-          ? `You've exceeded your ${budget.category} budget for this period!`
-          : `You've used ${percentUsed}% of your ${budget.category} budget.`;
-
-      const sent = await sendPushToUser(budget.userId, {
-        title: "Budget Alert",
-        body: message,
-        tag: `budget-${budget.id}`,
-        url: "/budget",
-      });
-      if (sent) await markNotified(budget.userId, notifKey);
-    }
-
-    if (percentUsed >= 100) {
-      for (const band of ESCALATION_BANDS) {
-        if (percentUsed < band) continue;
-        const escalationKey = `budget_${budget.id}_escalation_${band}_${periodKey}`;
-        if (await wasNotifiedSince(budget.userId, escalationKey, periodStart)) continue;
-
-        const escalationSent = await sendPushToUser(budget.userId, {
-          title: "Budget Exceeded",
-          body: `Your ${budget.category} spending is now at ${percentUsed}% of your budget. You may want to review your expenses.`,
-          tag: `budget-escalation-${budget.id}`,
-          url: "/budget",
-        });
-        if (escalationSent) await markNotified(budget.userId, escalationKey);
+      let periodEnd: Date;
+      if (budget.periodType === "weekly") {
+        periodEnd = new Date(periodStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+      } else {
+        periodEnd = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, periodStart.getDate());
       }
-    }
+
+      const periodKey = periodStart.toISOString().slice(0, 10);
+
+      let spent: number;
+      let membersToNotify: Array<typeof allUsers[0]>;
+
+      if (budget.budgetScope === "shared" && budget.familyId) {
+        // For group budgets: sum expenses across ALL family members
+        const familyUserIds = allUsers
+          .filter(u => u.familyId === budget.familyId)
+          .map(u => u.id);
+        if (familyUserIds.length === 0) continue;
+
+        const [familyExpenses] = await db
+          .select({ total: sql<string>`COALESCE(SUM(amount), '0')` })
+          .from(expenses)
+          .where(
+            and(
+              inArray(expenses.userId, familyUserIds),
+              eq(expenses.category, budget.category),
+              gte(expenses.date, periodStart),
+              lte(expenses.date, periodEnd)
+            )
+          );
+        spent = parseFloat(familyExpenses?.total || "0");
+        // Notify all family members who have budget alerts enabled
+        membersToNotify = allUsers.filter(
+          u => u.familyId === budget.familyId && u.budgetAlertsEnabled !== false
+        );
+      } else {
+        // Personal budget: original single-user logic
+        const user = userMap.get(budget.userId);
+        if (!user || user.budgetAlertsEnabled === false) continue;
+
+        const [userExpenses] = await db
+          .select({ total: sql<string>`COALESCE(SUM(amount), '0')` })
+          .from(expenses)
+          .where(
+            and(
+              eq(expenses.userId, budget.userId),
+              eq(expenses.category, budget.category),
+              gte(expenses.date, periodStart),
+              lte(expenses.date, periodEnd)
+            )
+          );
+        spent = parseFloat(userExpenses?.total || "0");
+        membersToNotify = [user];
+      }
+
+      const budgetAmount = parseFloat(budget.amount);
+      if (budgetAmount <= 0) continue;
+      const percentUsed = Math.round((spent / budgetAmount) * 100);
+
+      for (const member of membersToNotify) {
+        // Shared budgets get per-member dedup keys; personal budgets keep the original key format
+        const memberSuffix = budget.budgetScope === "shared" ? `_u${member.id}` : "";
+
+        for (const threshold of thresholds) {
+          const thresholdNum = Number(threshold);
+          if (percentUsed < thresholdNum) continue;
+
+          const notifKey = `budget_${budget.id}_${thresholdNum}_${periodKey}${memberSuffix}`;
+          if (await wasNotifiedSince(member.id, notifKey, periodStart)) continue;
+
+          const body = budget.budgetScope === "shared"
+            ? (percentUsed >= 100
+                ? `The group ${budget.category} budget has been exceeded!`
+                : `The group ${budget.category} budget is at ${percentUsed}%.`)
+            : (percentUsed >= 100
+                ? `You've exceeded your ${budget.category} budget for this period!`
+                : `You've used ${percentUsed}% of your ${budget.category} budget.`);
+
+          const sent = await sendPushToUser(member.id, {
+            title: budget.budgetScope === "shared" ? "Group Budget Alert" : "Budget Alert",
+            body,
+            tag: `budget-${budget.id}`,
+            url: "/budget",
+          });
+          if (sent) await markNotified(member.id, notifKey);
+        }
+
+        if (percentUsed >= 100) {
+          for (const band of ESCALATION_BANDS) {
+            if (percentUsed < band) continue;
+            const escalationKey = `budget_${budget.id}_escalation_${band}_${periodKey}${memberSuffix}`;
+            if (await wasNotifiedSince(member.id, escalationKey, periodStart)) continue;
+
+            const escalationBody = budget.budgetScope === "shared"
+              ? `The group ${budget.category} spending is now at ${percentUsed}% of the group budget.`
+              : `Your ${budget.category} spending is now at ${percentUsed}% of your budget. You may want to review your expenses.`;
+
+            const escalationSent = await sendPushToUser(member.id, {
+              title: budget.budgetScope === "shared" ? "Group Budget Exceeded" : "Budget Exceeded",
+              body: escalationBody,
+              tag: `budget-escalation-${budget.id}`,
+              url: "/budget",
+            });
+            if (escalationSent) await markNotified(member.id, escalationKey);
+          }
+        }
+      }
     } catch (err) {
       console.error(`[Push] checkBudgetAlerts failed for budget ${budget.id}:`, err);
     }
@@ -329,6 +371,9 @@ async function checkRecurringReminders() {
         new Date(todayYear, todayMonth + 1, dueDay),
       ];
 
+      // Track which due date matched so we can notify group members after
+      let matchedDueDate: Date | null = null;
+
       for (const dueDate of dueDateCandidates) {
         const reminderDate = new Date(dueDate);
         reminderDate.setDate(reminderDate.getDate() - daysBefore);
@@ -338,6 +383,7 @@ async function checkRecurringReminders() {
           reminderDate.getMonth() === todayMonth &&
           reminderDate.getDate() === todayDay
         ) {
+          matchedDueDate = dueDate;
           const dueDateKey = dueDate.toISOString().slice(0, 10);
           const notifKey = `recurring-expense-reminder-${expense.id}-${dueDateKey}`;
           const todayStart = new Date(todayYear, todayMonth, todayDay);
@@ -351,6 +397,34 @@ async function checkRecurringReminders() {
           });
           if (sent) await markNotified(expense.userId, notifKey);
           break;
+        }
+      }
+
+      // For group-shared recurring expenses, also notify all other family members
+      if (matchedDueDate && expense.isGroupShared && expense.familyId) {
+        const dueDateKey = matchedDueDate.toISOString().slice(0, 10);
+        const todayStart = new Date(todayYear, todayMonth, todayDay);
+
+        const familyMembers = await db.select({ id: users.id })
+          .from(users)
+          .where(eq(users.familyId, expense.familyId));
+
+        for (const member of familyMembers) {
+          if (member.id === expense.userId) continue; // owner already handled above
+          try {
+            const memberNotifKey = `recurring-group-reminder-${expense.id}-${dueDateKey}-${member.id}`;
+            if (await wasNotifiedSince(member.id, memberNotifKey, todayStart)) continue;
+
+            const sent = await sendPushToUser(member.id, {
+              title: `${expense.name} is due soon`,
+              body: `The ${expense.name} payment (${expense.amount}) is due in ${daysBefore} day${daysBefore > 1 ? "s" : ""}.`,
+              tag: `recurring-group-reminder-${expense.id}`,
+              url: "/expenses?view=recurring",
+            });
+            if (sent) await markNotified(member.id, memberNotifKey);
+          } catch (memberErr) {
+            console.error(`[Push] group recurring reminder failed for member ${member.id}:`, memberErr);
+          }
         }
       }
     } catch (err) {

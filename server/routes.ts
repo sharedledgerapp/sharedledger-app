@@ -19,7 +19,7 @@ import multer from "multer";
 import passport from "passport";
 import { db } from "./db";
 import { GoogleGenAI } from "@google/genai";
-import { startPushScheduler } from "./push-scheduler";
+import { startPushScheduler, sendPushToUser, markNotified, wasNotifiedSince } from "./push-scheduler";
 import { sendFeedbackEmail, sendWelcomeEmail, sendPasswordResetEmail, sendWhatsNewEmail } from "./email";
 import { scheduleWhatsNewEmail, cancelWhatsNewEmail, getWhatsNewStatus } from "./email-scheduler";
 import rateLimit from "express-rate-limit";
@@ -1532,6 +1532,35 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     };
     const updated = await storage.updateRecurringExpense(id, updates);
     res.json(updated);
+
+    // When isGroupShared flips false → true, notify all other group members (fire-and-forget)
+    if (parsed.isGroupShared === true && !existing.isGroupShared && user.familyId && process.env.VAPID_PUBLIC_KEY) {
+      try {
+        const familyMembers = await storage.getFamilyMembers(user.familyId);
+        const expenseName = parsed.name ?? existing.name;
+        const expenseAmount = parsed.amount ?? existing.amount;
+        const ownerName = (user as any).name ?? "A member";
+
+        for (const member of familyMembers) {
+          if (member.id === user.id) continue;
+          try {
+            const notifKey = `group_recurring_shared_${id}_${member.id}`;
+            if (await wasNotifiedSince(member.id, notifKey, new Date(0))) continue;
+            const sent = await sendPushToUser(member.id, {
+              title: "New shared expense",
+              body: `${ownerName} shared ${expenseName} (${expenseAmount}/month) with the group.`,
+              tag: `group-shared-${id}`,
+              url: "/expenses?view=recurring",
+            });
+            if (sent) await markNotified(member.id, notifKey);
+          } catch (memberErr) {
+            console.error(`[Push] group shared expense notification failed for member ${member.id}:`, memberErr);
+          }
+        }
+      } catch (err) {
+        console.error(`[Push] group shared expense notification failed for expense ${id}:`, err);
+      }
+    }
   });
 
   app.delete("/api/recurring-expenses/:id", requireAuth, async (req, res) => {
