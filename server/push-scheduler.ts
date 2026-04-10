@@ -326,7 +326,8 @@ async function checkRecurringReminders() {
       if (todayDay !== targetDay) continue;
 
       const notifKey = `recurring-expense-reminder-${expense.id}-${periodKey}`;
-      if (await wasNotifiedSince(expense.userId, notifKey, new Date(todayYear, todayMonth, 1))) continue;
+      const todayStart = new Date(todayYear, todayMonth, todayDay);
+      if (await wasNotifiedSince(expense.userId, notifKey, todayStart)) continue;
 
       const sent = await sendPushToUser(expense.userId, {
         title: `${expense.name} is due soon`,
@@ -380,8 +381,11 @@ async function checkRecurringReminders() {
         todayYear !== reminderDate.getFullYear()
       ) continue;
 
-      const notifKey = `income-reminder-${entry.id}-${periodKey}`;
-      if (await wasNotifiedSince(entry.userId, notifKey, new Date(todayYear, todayMonth, 1))) continue;
+      // Key is per upcoming payment date so weekly recurrences each get their own dedup slot
+      const occurrenceDateKey = nextDate.toISOString().slice(0, 10);
+      const notifKey = `income-reminder-${entry.id}-${occurrenceDateKey}`;
+      const todayStart = new Date(todayYear, todayMonth, todayDay);
+      if (await wasNotifiedSince(entry.userId, notifKey, todayStart)) continue;
 
       const daysStr = daysBefore === 1 ? "tomorrow" : `in ${daysBefore} days`;
       const sent = await sendPushToUser(entry.userId, {
