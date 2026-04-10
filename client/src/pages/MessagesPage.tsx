@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/use-auth";
+import { captureEvent } from "@/lib/analytics";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -148,6 +149,7 @@ function SageTab() {
       setActiveConvId(conv.id);
       setLocalMessages([]);
       resetNudge();
+      captureEvent("sage_conversation_created");
     },
   });
 
@@ -179,14 +181,22 @@ function SageTab() {
         throw new Error(err.message || "Failed to send");
       }
     },
-    onSuccess: () => setNudgeSent(true),
+    onSuccess: () => {
+      setNudgeSent(true);
+      captureEvent("sage_nudge_feedback_submitted");
+    },
   });
 
-  const handleSend = async (text?: string, convIdOverride?: number) => {
+  const handleSend = async (text?: string, convIdOverride?: number, isSuggested = false) => {
     const convId = convIdOverride ?? activeConvId;
     const msg = (text ?? inputText).trim();
     if (!msg || isGenerating || !convId) return;
     setInputText("");
+
+    captureEvent("sage_message_sent", {
+      is_suggested_question: isSuggested,
+      message_length: msg.length,
+    });
 
     const tempUser: SageMessage = {
       id: Date.now(),
@@ -201,7 +211,12 @@ function SageTab() {
     try {
       const res = await apiRequest("POST", `/api/sage/conversations/${convId}/messages`, { message: msg });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed");
+      if (!res.ok) {
+        if (res.status === 429 || (data.message && data.message.toLowerCase().includes("daily"))) {
+          captureEvent("sage_daily_limit_reached");
+        }
+        throw new Error(data.message || "Failed");
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/sage/conversations", convId, "messages"] });
       queryClient.invalidateQueries({ queryKey: ["/api/sage/conversations"] });
       setLocalMessages(prev => {
@@ -225,6 +240,7 @@ function SageTab() {
   const handleFeedback = (msgId: number, feedback: number) => {
     setFeedbackMap(prev => ({ ...prev, [msgId]: feedback }));
     feedbackMutation.mutate({ id: msgId, feedback });
+    captureEvent("sage_message_feedback", { feedback });
   };
 
   // Auto-open the only conversation if there is one
@@ -300,10 +316,11 @@ function SageTab() {
                   <button
                     key={i}
                     onClick={async () => {
+                      captureEvent("sage_suggested_question_tapped", { question_index: i });
                       const conv = await createConvMutation.mutateAsync(q.slice(0, 60));
                       if (conv) {
                         setActiveConvId(conv.id);
-                        handleSend(q, conv.id);
+                        handleSend(q, conv.id, true);
                       }
                     }}
                     className="text-left text-sm px-3 py-2.5 rounded-xl border border-border/60 hover:bg-secondary/40 hover:border-primary/30 transition-colors text-muted-foreground"
@@ -352,7 +369,7 @@ function SageTab() {
               {SUGGESTED_QUESTIONS.slice(0, 3).map((q, i) => (
                 <button
                   key={i}
-                  onClick={() => handleSend(q)}
+                  onClick={() => { captureEvent("sage_suggested_question_tapped", { question_index: i }); handleSend(q, undefined, true); }}
                   className="text-left text-xs px-3 py-2 rounded-lg border border-border/60 hover:bg-secondary/40 transition-colors"
                   data-testid={`button-quick-question-${i}`}
                 >
@@ -1249,7 +1266,7 @@ export default function MessagesPage() {
             </button>
           )}
           <button
-            onClick={() => setActiveTab("sage")}
+            onClick={() => { setActiveTab("sage"); captureEvent("sage_tab_opened"); }}
             className={cn(
               "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all",
               activeTab === "sage"

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { captureEvent } from "@/lib/analytics";
 import {
   Users, Wallet, PieChart, Trophy, Bell,
   ChevronRight, ChevronLeft, X, Download,
@@ -991,6 +992,18 @@ function Slide9({ lang, onDone, onInstall }: { lang: Lang; onDone: () => void; o
 /* ══════════════════════════════════════ MAIN ══════════════════════════════════════ */
 const TOTAL_SLIDES = 9;
 
+const SLIDE_NAMES = [
+  "welcome",
+  "pain_points",
+  "who_its_for",
+  "features",
+  "sage_intro",
+  "manual_entry",
+  "why_pwa",
+  "install_guide",
+  "get_started",
+];
+
 interface Props {
   onDone: (scrollTo?: "install") => void;
 }
@@ -1009,9 +1022,21 @@ export function LandingIntroSlides({ onDone }: Props) {
     else if (isAndroid) setInstallOS("android");
   }, [isIOS, isAndroid]);
 
+  useEffect(() => {
+    const platform = isIOS ? "ios" : isAndroid ? "android" : "desktop";
+    captureEvent("intro_slides_started", { lang, is_pwa: isPWA, platform });
+    captureEvent("intro_slide_viewed", { slide_number: 1, slide_name: SLIDE_NAMES[0], lang });
+  }, []);
+
   const go = (newSlide: number, direction: "next" | "prev") => {
     setDir(direction);
     setSlide(newSlide);
+    captureEvent("intro_slide_viewed", {
+      slide_number: newSlide + 1,
+      slide_name: SLIDE_NAMES[newSlide],
+      lang,
+      direction,
+    });
   };
 
   const next = () => {
@@ -1024,6 +1049,19 @@ export function LandingIntroSlides({ onDone }: Props) {
   };
 
   const done = (scrollTo?: "install") => {
+    const isCompleted = slide === TOTAL_SLIDES - 1;
+    if (isCompleted) {
+      captureEvent("intro_slides_completed", {
+        lang,
+        exit_action: scrollTo === "install" ? "install" : "open_app",
+      });
+    } else {
+      captureEvent("intro_slides_skipped", {
+        lang,
+        skipped_at_slide: slide + 1,
+        skipped_at_name: SLIDE_NAMES[slide],
+      });
+    }
     localStorage.setItem("sl_seen_intro", "1");
     onDone(scrollTo);
   };

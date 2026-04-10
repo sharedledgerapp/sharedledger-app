@@ -3,6 +3,7 @@ import { X, Sparkles } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { captureEvent } from "@/lib/analytics";
 
 const BANNER_KEY = "sl_sage_intro_v1";
 
@@ -14,7 +15,10 @@ export function SageIntroBanner() {
   useEffect(() => {
     if (!user) return;
     if (!localStorage.getItem(BANNER_KEY)) {
-      const timer = setTimeout(() => setVisible(true), 1200);
+      const timer = setTimeout(() => {
+        setVisible(true);
+        captureEvent("sage_intro_banner_shown");
+      }, 1200);
       return () => clearTimeout(timer);
     }
   }, [user]);
@@ -22,10 +26,13 @@ export function SageIntroBanner() {
   const dismiss = () => {
     localStorage.setItem(BANNER_KEY, "1");
     setVisible(false);
+    captureEvent("sage_intro_banner_dismissed");
   };
 
   const trySage = () => {
-    dismiss();
+    localStorage.setItem(BANNER_KEY, "1");
+    setVisible(false);
+    captureEvent("sage_intro_banner_try_tapped");
     setLocation("/app/messages");
   };
 

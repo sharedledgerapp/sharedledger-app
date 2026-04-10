@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import { captureEvent } from "@/lib/analytics";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -81,6 +82,7 @@ function OAuthButtons() {
       ) : (
         <a
           href="/api/auth/google"
+          onClick={() => captureEvent("auth_google_clicked")}
           className="flex items-center justify-center gap-3 w-full h-12 rounded-xl border border-border bg-white hover:bg-gray-50 text-gray-700 font-medium transition-all shadow-sm"
           data-testid="button-google-signin"
         >
@@ -646,9 +648,15 @@ function RegisterForm() {
   });
 
   const onSubmit = (data: z.infer<typeof registerSchema>) => {
+    captureEvent("auth_signup_attempted", { method: "password" });
     registerMutation.mutate(
       { ...data, name: data.username, groupName: "", groupCode: "", familyName: "", familyCode: "", role: "member" },
-      { onSuccess: () => setLocation("/onboarding") }
+      {
+        onSuccess: () => {
+          captureEvent("auth_signup_completed", { method: "password" });
+          setLocation("/onboarding");
+        },
+      }
     );
   };
 
