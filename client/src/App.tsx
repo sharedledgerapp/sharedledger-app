@@ -171,6 +171,9 @@ function Router() {
         {() => <ProtectedRoute component={HomePage} />}
       </Route>
 
+      {/* Direct landing page route — always shows landing page, even when logged in */}
+      <Route path="/landing" component={LandingPage} />
+
       {/* Public landing page — must be last to avoid catching /app or /auth */}
       <Route path="/" component={LandingRedirect} />
 

@@ -81,10 +81,11 @@ export default function LandingPage() {
   const [summaryOpen, setSummaryOpen] = useState(false);
   const { isIOS, isChromeIOS, isInApp, isNativeSafari, isPWA } = useIOSBrowserState();
 
-  // Show intro slides for first-time visitors
+  // Show intro slides for first-time visitors (or when ?intro=1 is in the URL)
   const [showIntro, setShowIntro] = useState(() => {
     try {
-      return !localStorage.getItem("sl_seen_intro");
+      const forceIntro = new URLSearchParams(window.location.search).get("intro") === "1";
+      return forceIntro || !localStorage.getItem("sl_seen_intro");
     } catch {
       return false;
     }
