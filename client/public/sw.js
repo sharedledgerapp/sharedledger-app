@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v6';
+const CACHE_VERSION = 'v7';
 const STATIC_CACHE = `sharedledger-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `sharedledger-dynamic-${CACHE_VERSION}`;
 
@@ -23,6 +23,7 @@ self.addEventListener('install', (event) => {
       })
       .then(() => {
         console.log('[SW] Installation complete');
+        return self.skipWaiting();
       })
   );
 });

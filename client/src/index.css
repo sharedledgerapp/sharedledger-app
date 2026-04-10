@@ -5,6 +5,7 @@
 @tailwind utilities;
 
 :root {
+  color-scheme: light;
   /* Premium, Soft, Modern Palette */
   --background: 240 33% 98%;    /* Very subtle cool gray */
   --foreground: 222 47% 11%;    /* Deep navy/black */
@@ -93,6 +94,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: 222 47% 7%;
   --foreground: 210 20% 96%;
 
