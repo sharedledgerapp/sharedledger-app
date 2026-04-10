@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useCategoryEmoji as useAICategoryEmoji, useCategoryIconName, getLucideIcon } from "@/hooks/use-category-icon";
 import { useExpenses, useCreateExpense, useUpdateExpense, useUpload, useFamily } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, ScanLine, Check, X, DollarSign, Trash2, Wallet, Repeat, Pause, Play, Settings, Search, Globe, ChevronDown, ChevronRight, Archive, TrendingUp, Banknote, Info } from "lucide-react";
+import { Plus, Camera, Image as ImageIcon, Loader2, Pencil, Users, ScanLine, Check, X, DollarSign, Trash2, Wallet, Repeat, Pause, Play, Settings, Search, Globe, ChevronDown, ChevronRight, Archive, TrendingUp, Banknote, Info, CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Keypad } from "@/components/Keypad";
 import { format } from "date-fns";
@@ -23,6 +23,7 @@ import { getCurrencySymbol, CURRENCIES, toFixedAmount } from "@/lib/currency";
 import { DEFAULT_CATEGORIES, DEFAULT_RECURRING_CATEGORIES } from "@/pages/SettingsPage";
 import { Link, useLocation } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import type { RecurringExpense, IncomeEntry } from "@shared/schema";
 
@@ -277,6 +278,7 @@ export default function ExpensesPage() {
     dueDay: "" as string | number,
     reminderEnabled: false,
     reminderDaysBefore: 3,
+    isGroupShared: false,
   });
 
   const { data: recurringExpenses, isLoading: recurringLoading } = useQuery<RecurringExpense[]>({
@@ -340,7 +342,7 @@ export default function ExpensesPage() {
   function resetRecurringForm() {
     setShowRecurringDialog(false);
     setEditingRecurring(null);
-    setRecurringForm({ name: "", amount: "", category: RECURRING_CATEGORIES[0] || "Subscriptions", frequency: "monthly", note: "", dueDay: "", reminderEnabled: false, reminderDaysBefore: 3 });
+    setRecurringForm({ name: "", amount: "", category: RECURRING_CATEGORIES[0] || "Subscriptions", frequency: "monthly", note: "", dueDay: "", reminderEnabled: false, reminderDaysBefore: 3, isGroupShared: false });
   }
 
   function openEditRecurringDialog(expense: RecurringExpense) {
@@ -354,6 +356,7 @@ export default function ExpensesPage() {
       dueDay: expense.dueDay ?? "",
       reminderEnabled: expense.reminderEnabled ?? false,
       reminderDaysBefore: expense.reminderDaysBefore ?? 3,
+      isGroupShared: expense.isGroupShared ?? false,
     });
     setShowRecurringDialog(true);
   }
@@ -424,6 +427,17 @@ export default function ExpensesPage() {
     });
   }, [expenses, searchQuery]);
 
+  // Date section keys for collapsible groups
+  type DateSectionKey = "today" | "thisWeek" | "earlier";
+  const [collapsedDateSections, setCollapsedDateSections] = useState<Set<DateSectionKey>>(new Set());
+  const toggleDateSection = useCallback((key: DateSectionKey) => {
+    setCollapsedDateSections(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  }, []);
+
   const [expandedArchivedGroups, setExpandedArchivedGroups] = useState<Set<number>>(new Set());
 
   const { data: friendGroups } = useQuery<Array<{
@@ -484,6 +498,33 @@ export default function ExpensesPage() {
       deletedGroupExpenses: deleted,
     };
   }, [filteredExpenses, friendGroupMap, user?.familyId]);
+
+  // Group regular expenses by date section (must come after regularExpenses is defined)
+  const dateSectionedExpenses = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart = new Date(todayStart);
+    weekStart.setDate(todayStart.getDate() - 6);
+    type DS = { key: DateSectionKey; label: string; expenses: typeof regularExpenses };
+    const sections: DS[] = [
+      { key: "today", label: "Today", expenses: [] },
+      { key: "thisWeek", label: "This Week", expenses: [] },
+      { key: "earlier", label: "Earlier this month", expenses: [] },
+    ];
+
+    (regularExpenses || []).forEach(expense => {
+      const d = new Date(expense.date);
+      if (d >= todayStart) {
+        sections[0].expenses.push(expense);
+      } else if (d >= weekStart) {
+        sections[1].expenses.push(expense);
+      } else {
+        sections[2].expenses.push(expense);
+      }
+    });
+
+    return sections.filter(s => s.expenses.length > 0);
+  }, [regularExpenses]);
 
   // Fetch currencies for orphaned/deleted group expenses so they display correctly
   const orphanedFamilyIds = useMemo(() => {
@@ -673,7 +714,121 @@ export default function ExpensesPage() {
                   <p className="text-sm text-muted-foreground" data-testid="text-no-results-message">{t("noSearchResults")} "{searchQuery}"</p>
                 </div>
               )}
-              {regularExpenses?.map((expense) => {
+              {!searchQuery && dateSectionedExpenses.length > 0 && dateSectionedExpenses.map(({ key, label, expenses: sectionExpenses }) => (
+                <Collapsible
+                  key={key}
+                  open={!collapsedDateSections.has(key)}
+                  onOpenChange={() => toggleDateSection(key)}
+                >
+                  <CollapsibleTrigger asChild>
+                    <button
+                      className="w-full flex items-center justify-between py-1.5 px-0.5 text-left group/section"
+                      data-testid={`button-toggle-date-section-${key}`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
+                        <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">{sectionExpenses.length}</Badge>
+                      </div>
+                      {collapsedDateSections.has(key)
+                        ? <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                        : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-2 mt-1">
+                    {sectionExpenses.map((expense) => {
+                      const expFamilyId = (expense as any).familyId as number | null | undefined;
+                      const friendGroup = expFamilyId != null ? friendGroupMap.get(expFamilyId) : undefined;
+                      const establishedFamilyCurrencyCode = (expFamilyId != null && expFamilyId === user?.familyId)
+                        ? (familyData?.family?.currency || user?.currency)
+                        : user?.currency;
+                      const expCurrencyCode = friendGroup ? friendGroup.currency : establishedFamilyCurrencyCode;
+                      const expCurrencySymbol = getCurrencySymbol(expCurrencyCode);
+                      const expCurrency = expCurrencyCode;
+                      return (
+                        <div
+                          key={expense.id}
+                          className="bg-white dark:bg-card p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between group hover:border-primary/30 transition-colors"
+                        >
+                          <div
+                            className="flex items-center gap-3 flex-1 cursor-pointer"
+                            onClick={() => {
+                              if (friendGroup) {
+                                navigate(`/app/groups/${friendGroup.id}`);
+                              } else {
+                                setEditingExpense(expense);
+                              }
+                            }}
+                          >
+                            <div className="w-12 h-12 rounded-2xl bg-secondary/50 flex items-center justify-center text-2xl group-hover:scale-105 transition-transform">
+                              <CategoryEmojiDisplay category={expense.category} />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-foreground">{expense.note || expense.category}</p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                                <span>{format(new Date(expense.date), "MMM d, h:mm a")}</span>
+                                {friendGroup ? (
+                                  <Badge variant="outline" className="gap-1 border-muted-foreground/30">
+                                    <Users className="w-3 h-3" />
+                                    {friendGroup.name}
+                                  </Badge>
+                                ) : (expense as any).paymentSource === "family" ? (
+                                  <Badge variant="outline" className="gap-1">
+                                    <Users className="w-3 h-3" />
+                                    {t("familyBadge")}
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="gap-1">
+                                    <Wallet className="w-3 h-3" />
+                                    {t("personal")}
+                                  </Badge>
+                                )}
+                                {expense.visibility === "public" && !friendGroup && (
+                                  <Badge variant="outline" className="gap-1 border-primary text-primary">
+                                    {t("shared")}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="block font-bold text-lg">-{expCurrencySymbol}{toFixedAmount(Number(expense.amount), expCurrency)}</span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-primary"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingExpense(expense);
+                              }}
+                              data-testid={`button-edit-expense-${expense.id}`}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm("Are you sure you want to delete this expense?")) {
+                                  deleteMutation.mutate(expense.id, {
+                                    onSuccess: () => captureEvent("expense_deleted"),
+                                  });
+                                }
+                              }}
+                              data-testid={`button-delete-expense-${expense.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </CollapsibleContent>
+                </Collapsible>
+              ))}
+              {searchQuery && regularExpenses?.map((expense) => {
                 const expFamilyId = (expense as any).familyId as number | null | undefined;
                 const friendGroup = expFamilyId != null ? friendGroupMap.get(expFamilyId) : undefined;
                 const establishedFamilyCurrencyCode = (expFamilyId != null && expFamilyId === user?.familyId)
@@ -1367,6 +1522,21 @@ export default function ExpensesPage() {
                 data-testid="input-recurring-note"
               />
             </div>
+            {familyData?.family && (
+              <div className="rounded-xl border border-border/50 bg-muted/30 p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Share with group</p>
+                    <p className="text-xs text-muted-foreground">Visible to all group members</p>
+                  </div>
+                  <Switch
+                    checked={recurringForm.isGroupShared}
+                    onCheckedChange={(v) => setRecurringForm(f => ({ ...f, isGroupShared: v }))}
+                    data-testid="switch-recurring-group-shared"
+                  />
+                </div>
+              </div>
+            )}
             <div className="rounded-xl border border-border/50 bg-muted/30 p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <div>

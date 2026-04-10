@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import type { RecurringExpense } from "@shared/schema";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -14,7 +15,7 @@ import {
   Users, Wallet, TrendingUp, ChevronLeft, ChevronRight, 
   Target, Calendar, Utensils, Bus, Gamepad2, ShoppingBag, 
   Lightbulb, GraduationCap, Heart, Package, Home as HomeIcon,
-  Flag, PiggyBank, Info, Banknote, Trash2, LogOut
+  Flag, PiggyBank, Info, Banknote, Trash2, LogOut, Repeat
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, addWeeks, subMonths, subWeeks, differenceInDays } from "date-fns";
 import { getCurrencySymbol, toFixedAmount } from "@/lib/currency";
@@ -154,7 +155,13 @@ export default function FamilyDashboard() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [viewingMember, setViewingMember] = useState<MemberSpending | null>(null);
   const [bottomView, setBottomView] = useState<"expenses" | "goals">("expenses");
+  const [expensesView, setExpensesView] = useState<"everyday" | "recurring">("everyday");
   const [leaveDialog, setLeaveDialog] = useState(false);
+
+  const { data: sharedRecurring, isLoading: recurringLoading } = useQuery<RecurringExpense[]>({
+    queryKey: ["/api/family/shared-recurring-expenses"],
+    enabled: !!user?.familyId,
+  });
 
   const leaveGroupMutation = useMutation({
     mutationFn: async () => {
@@ -776,37 +783,83 @@ export default function FamilyDashboard() {
             </div>
           )
         ) : (
-        <div className="space-y-3">
-          {data?.recentExpenses.length ? data.recentExpenses.map((expense) => (
-            <div 
-              key={expense.id} 
-              className="bg-white dark:bg-card p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between"
-              data-testid={`recent-expense-${expense.id}`}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
-                  {getCategoryIcon(expense.category)}
-                </div>
-                <div>
-                  <p className="font-semibold text-sm text-foreground">{expense.note || expense.category}</p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{format(new Date(expense.date), "MMM d")}</span>
-                    <Badge variant={expense.paymentSource === "family" ? "outline" : "secondary"} className="gap-1 text-xs">
-                      {expense.paymentSource === "family" ? (
-                        <><Users className="w-2 h-2" /> {t("familyBadge")}</>
-                      ) : (
-                        <><Wallet className="w-2 h-2" /> {t("personal")}</>
-                      )}
-                    </Badge>
+        <div>
+          <div className="flex justify-end mb-3">
+            <div className="flex rounded-lg border border-border overflow-hidden">
+              <button
+                className={`px-3 py-1 text-xs font-medium transition-colors ${expensesView === "everyday" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"}`}
+                onClick={() => setExpensesView("everyday")}
+                data-testid="button-expenses-tab-everyday"
+              >Everyday</button>
+              <button
+                className={`px-3 py-1 text-xs font-medium transition-colors flex items-center gap-1 ${expensesView === "recurring" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"}`}
+                onClick={() => setExpensesView("recurring")}
+                data-testid="button-expenses-tab-recurring"
+              ><Repeat className="w-3 h-3" />Recurring</button>
+            </div>
+          </div>
+          {expensesView === "everyday" ? (
+          <div className="space-y-3">
+            {data?.recentExpenses.length ? data.recentExpenses.map((expense) => (
+              <div 
+                key={expense.id} 
+                className="bg-white dark:bg-card p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between"
+                data-testid={`recent-expense-${expense.id}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
+                    {getCategoryIcon(expense.category)}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm text-foreground">{expense.note || expense.category}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{format(new Date(expense.date), "MMM d")}</span>
+                      <Badge variant={expense.paymentSource === "family" ? "outline" : "secondary"} className="gap-1 text-xs">
+                        {expense.paymentSource === "family" ? (
+                          <><Users className="w-2 h-2" /> {t("familyBadge")}</>
+                        ) : (
+                          <><Wallet className="w-2 h-2" /> {t("personal")}</>
+                        )}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
+                <span className="font-bold text-foreground">-{currencySymbol}{toFixedAmount(Number(expense.amount), groupCurrency)}</span>
               </div>
-              <span className="font-bold text-foreground">-{currencySymbol}{toFixedAmount(Number(expense.amount), groupCurrency)}</span>
-            </div>
-          )) : (
-            <div className="text-center py-8 text-muted-foreground text-sm bg-muted/30 rounded-xl">
-              {t("noSharedExpenses")}
-            </div>
+            )) : (
+              <div className="text-center py-8 text-muted-foreground text-sm bg-muted/30 rounded-xl">
+                {t("noSharedExpenses")}
+              </div>
+            )}
+          </div>
+          ) : (
+          <div className="space-y-3">
+            {recurringLoading ? (
+              <div className="space-y-2">
+                <div className="h-16 bg-muted animate-pulse rounded-xl" />
+                <div className="h-16 bg-muted animate-pulse rounded-xl" />
+              </div>
+            ) : (sharedRecurring?.length ?? 0) > 0 ? (
+              sharedRecurring!.map((item) => (
+                <div key={item.id} className="bg-white dark:bg-card p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between" data-testid={`shared-recurring-${item.id}`}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
+                      <Repeat className="w-4 h-4 text-accent-foreground" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm text-foreground">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">{item.category} • {item.frequency}</p>
+                    </div>
+                  </div>
+                  <span className="font-bold text-foreground">{currencySymbol}{toFixedAmount(Number(item.amount), groupCurrency)}/mo</span>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground text-sm bg-muted/30 rounded-xl">
+                No shared recurring expenses yet. Share a recurring expense from your Expenses page.
+              </div>
+            )}
+          </div>
           )}
         </div>
         )}

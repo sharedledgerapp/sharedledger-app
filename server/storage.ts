@@ -91,6 +91,7 @@ export interface IStorage {
   // Recurring Expenses
   createRecurringExpense(expense: InsertRecurringExpense): Promise<RecurringExpense>;
   getRecurringExpenses(userId: number): Promise<RecurringExpense[]>;
+  getSharedRecurringExpenses(familyId: number): Promise<RecurringExpense[]>;
   getRecurringExpense(id: number): Promise<RecurringExpense | undefined>;
   updateRecurringExpense(id: number, updates: Partial<InsertRecurringExpense>): Promise<RecurringExpense>;
   deleteRecurringExpense(id: number): Promise<void>;
@@ -100,7 +101,7 @@ export interface IStorage {
   getBudgets(userId: number): Promise<Budget[]>;
   getSharedBudgets(familyId: number): Promise<Budget[]>;
   getBudget(id: number): Promise<Budget | undefined>;
-  updateBudget(id: number, updates: Partial<InsertBudget>): Promise<Budget>;
+  updateBudget(id: number, updates: Partial<InsertBudget> & { updatedByUserId?: number | null }): Promise<Budget>;
   deleteBudget(id: number): Promise<void>;
 
   // Budget Setup Prompts
@@ -710,6 +711,16 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async getSharedRecurringExpenses(familyId: number): Promise<RecurringExpense[]> {
+    return db.select().from(recurringExpenses)
+      .where(and(
+        eq(recurringExpenses.familyId, familyId),
+        eq(recurringExpenses.isGroupShared, true),
+        eq(recurringExpenses.isActive, true),
+      ))
+      .orderBy(recurringExpenses.name);
+  }
+
   async deleteRecurringExpense(id: number): Promise<void> {
     await db.delete(recurringExpenses).where(eq(recurringExpenses.id, id));
   }
@@ -737,7 +748,7 @@ export class DatabaseStorage implements IStorage {
     return budget;
   }
 
-  async updateBudget(id: number, updates: Partial<InsertBudget>): Promise<Budget> {
+  async updateBudget(id: number, updates: Partial<InsertBudget> & { updatedByUserId?: number | null }): Promise<Budget> {
     const [updated] = await db.update(budgets).set({ ...updates, updatedAt: new Date() }).where(eq(budgets.id, id)).returning();
     return updated;
   }

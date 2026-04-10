@@ -37,9 +37,9 @@ Preferred communication style: Simple, everyday language.
 - **Settlements**: Record debt settlements between group members to clear balances.
 - **Goals**: Personal and shared savings goals with approval workflows.
 - **Group Management**: Invite-only groups with QR code invite sharing, role management (parent/child for families, member for roommates/couples), dual admin support, leave group option.
-- **Group Dashboard**: Aggregated shared spending view, category breakdown, balance board, recent shared expenses — all privacy-focused (no personal data leakage). Roommates get a dedicated minimal dashboard (`RoommatesDashboard.tsx`) with balance board, settle up, and recent shared expenses — no period selector, pie charts, or goals. Couples get a dedicated dashboard (`CouplesDashboard.tsx`) with household spending summary, category pie chart, contribution comparison (informational, no IOU/debt language), shared milestones, and recent shared expenses.
+- **Group Dashboard**: Aggregated shared spending view, category breakdown, balance board, recent shared expenses with Everyday/Recurring tab toggle — all privacy-focused. Roommates get a dedicated minimal dashboard (`RoommatesDashboard.tsx`). Couples get a dedicated dashboard (`CouplesDashboard.tsx`). All group dashboards have an Everyday/Recurring tab on the expenses section that shows group-shared recurring expenses.
 - **Reporting**: Personal spending dashboards, spending activity charts (weekly/monthly), customizable recurring expense tracking.
-- **Budgeting**: Per-category budgets with progress tracking, threshold alerts, and notifications.
+- **Budgeting**: Per-category personal budgets + independent group budgets (any member can create/edit/delete, with creator/last-editor attribution). Progress tracking, threshold alerts, and notifications.
 - **Communication**: Internal messaging system and shared notes.
 - **Push Notifications**: Server-side Web Push notifications (VAPID) for daily/weekly/monthly reminders and budget alerts, delivered even when the app is closed. Budget alerts fire once per threshold crossing per budget period, with escalation bands at 110%/125%/150%/200% for continued overspending. Users can mute budget alerts independently via Settings.
 - **Multilingual Support**: English and French.

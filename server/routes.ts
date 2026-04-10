@@ -1483,6 +1483,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       frequency: z.enum(["monthly", "quarterly", "yearly"]).default("monthly"),
       note: z.string().max(500).optional().nullable(),
       isActive: z.boolean().default(true),
+      isGroupShared: z.boolean().optional().default(false),
       dueDay: z.number().int().min(1).max(28).optional().nullable(),
       reminderEnabled: z.boolean().optional().default(false),
       reminderDaysBefore: z.number().int().min(1).max(7).optional().default(3),
@@ -1510,6 +1511,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       frequency: z.enum(["monthly", "quarterly", "yearly"]).optional(),
       note: z.string().max(500).optional().nullable(),
       isActive: z.boolean().optional(),
+      isGroupShared: z.boolean().optional(),
       dueDay: z.number().int().min(1).max(28).optional().nullable(),
       reminderEnabled: z.boolean().optional(),
       reminderDaysBefore: z.number().int().min(1).max(7).optional(),
@@ -1528,6 +1530,14 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
     await storage.deleteRecurringExpense(id);
     res.status(200).json({ message: "Deleted" });
+  });
+
+  // GET /api/family/shared-recurring-expenses — active recurring expenses shared with group
+  app.get("/api/family/shared-recurring-expenses", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    if (!user.familyId) return res.json([]);
+    const items = await storage.getSharedRecurringExpenses(user.familyId);
+    res.json(items);
   });
 
   // === GOALS ROUTES ===
@@ -1795,6 +1805,8 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       userId: user.id,
       familyId: isShared ? user.familyId : (user.familyId ?? null),
       budgetScope: isShared ? "shared" : "personal",
+      createdByUserId: isShared ? user.id : null,
+      updatedByUserId: isShared ? user.id : null,
     });
     res.status(201).json(budget);
   });
@@ -1809,7 +1821,11 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const now = new Date();
     const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const periodEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999));
-    const sharedExpenses = await storage.getSharedExpenses(user.familyId, periodStart, periodEnd);
+    const [sharedExpenses, familyMembers] = await Promise.all([
+      storage.getSharedExpenses(user.familyId, periodStart, periodEnd),
+      storage.getFamilyMembers(user.familyId),
+    ]);
+    const memberMap = new Map(familyMembers.map(m => [m.id, m.name]));
 
     const summaries = sharedBudgets.map(budget => {
       const spent = sharedExpenses
@@ -1818,7 +1834,14 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       const budgetAmount = Number(budget.amount);
       const remaining = budgetAmount - spent;
       const percentUsed = budgetAmount > 0 ? Math.round((spent / budgetAmount) * 100) : 0;
-      return { ...budget, spent, remaining, percentUsed };
+      return {
+        ...budget,
+        spent,
+        remaining,
+        percentUsed,
+        createdByName: budget.createdByUserId ? (memberMap.get(budget.createdByUserId) ?? null) : null,
+        updatedByName: budget.updatedByUserId ? (memberMap.get(budget.updatedByUserId) ?? null) : null,
+      };
     });
 
     res.json({ budgets: summaries });
@@ -1828,7 +1851,8 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const user = req.user as any;
     const id = parseInt(req.params.id);
     const existing = await storage.getBudget(id);
-    if (!existing || existing.userId !== user.id) {
+    const isSharedMember = existing?.budgetScope === "shared" && existing?.familyId === user.familyId;
+    if (!existing || (existing.userId !== user.id && !isSharedMember)) {
       return res.status(404).json({ message: "Budget not found" });
     }
     const schema = z.object({
@@ -1840,7 +1864,10 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       note: z.string().max(500).optional().nullable(),
     });
     const updates = schema.parse(req.body);
-    const updated = await storage.updateBudget(id, updates);
+    const updated = await storage.updateBudget(id, {
+      ...updates,
+      ...(isSharedMember ? { updatedByUserId: user.id } : {}),
+    });
     res.json(updated);
   });
 
@@ -1848,7 +1875,8 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const user = req.user as any;
     const id = parseInt(req.params.id);
     const existing = await storage.getBudget(id);
-    if (!existing || existing.userId !== user.id) {
+    const isSharedMember = existing?.budgetScope === "shared" && existing?.familyId === user.familyId;
+    if (!existing || (existing.userId !== user.id && !isSharedMember)) {
       return res.status(404).json({ message: "Budget not found" });
     }
     await storage.deleteBudget(id);

@@ -21,9 +21,11 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Plus, Pencil, Trash2, Bell, BellOff, StickyNote,
   TrendingUp, Wallet, PiggyBank, ChevronDown, ChevronUp,
-  Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, CreditCard
+  Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, CreditCard,
+  Users, UserCircle2
 } from "lucide-react";
 import { Link } from "wouter";
+import { format } from "date-fns";
 import type { Budget } from "@shared/schema";
 import { DEFAULT_CATEGORIES } from "@/pages/SettingsPage";
 
@@ -33,6 +35,14 @@ type BudgetSummary = Budget & {
   percentUsed: number;
   periodStart: string;
   periodEnd: string;
+};
+
+type SharedBudgetSummary = Budget & {
+  spent: number;
+  remaining: number;
+  percentUsed: number;
+  createdByName: string | null;
+  updatedByName: string | null;
 };
 
 type SummaryResponse = {
@@ -75,8 +85,9 @@ export default function BudgetPage() {
   const categories = userCategories || DEFAULT_CATEGORIES;
 
   const [showDialog, setShowDialog] = useState(false);
-  const [editingBudget, setEditingBudget] = useState<BudgetSummary | null>(null);
+  const [editingBudget, setEditingBudget] = useState<BudgetSummary | SharedBudgetSummary | null>(null);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [expandedSharedBudgetId, setExpandedSharedBudgetId] = useState<number | null>(null);
   const [form, setForm] = useState({
     category: "",
     amount: "",
@@ -89,6 +100,11 @@ export default function BudgetPage() {
 
   const { data: summary, isLoading } = useQuery<SummaryResponse>({
     queryKey: ["/api/budget-summary"],
+  });
+
+  const { data: sharedBudgetData, isLoading: sharedLoading } = useQuery<{ budgets: SharedBudgetSummary[] }>({
+    queryKey: ["/api/family/shared-budgets"],
+    enabled: !!(user as any)?.familyId,
   });
 
   useEffect(() => {
@@ -141,6 +157,7 @@ export default function BudgetPage() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/budget-summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/family/shared-budgets"] });
       toast({ title: t("budgetUpdated") });
       captureEvent("budget_edited", { category: variables.data.category });
       resetForm();
@@ -154,6 +171,7 @@ export default function BudgetPage() {
     onSuccess: (_data, _variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/budget-summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/family/shared-budgets"] });
       toast({ title: t("budgetDeleted") });
     },
   });
@@ -172,7 +190,7 @@ export default function BudgetPage() {
     });
   }
 
-  function openEditDialog(budget: BudgetSummary) {
+  function openEditDialog(budget: BudgetSummary | SharedBudgetSummary) {
     setEditingBudget(budget);
     setForm({
       category: budget.category,
@@ -181,7 +199,14 @@ export default function BudgetPage() {
       notificationsEnabled: budget.notificationsEnabled,
       thresholds: budget.thresholds || [],
       note: budget.note || "",
+      scope: budget.budgetScope as "personal" | "shared",
     });
+    setShowDialog(true);
+  }
+
+  function openAddGroupBudgetDialog(category?: string) {
+    resetForm();
+    setForm(f => ({ ...f, scope: "shared", ...(category ? { category } : {}) }));
     setShowDialog(true);
   }
 
@@ -421,6 +446,143 @@ export default function BudgetPage() {
         </section>
       )}
 
+      {!!(user as any)?.familyId && (
+        <section>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
+              Group Budgets
+            </h2>
+            <Button onClick={() => openAddGroupBudgetDialog()} size="sm" variant="outline" data-testid="button-add-group-budget">
+              <Plus className="w-4 h-4 mr-1" /> Add
+            </Button>
+          </div>
+          {sharedLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-20 w-full rounded-xl" />
+              <Skeleton className="h-20 w-full rounded-xl" />
+            </div>
+          ) : (sharedBudgetData?.budgets.length ?? 0) > 0 ? (
+            <div className="space-y-3">
+              {sharedBudgetData!.budgets.map((budget) => {
+                const isExpanded = expandedSharedBudgetId === budget.id;
+                return (
+                  <Card key={budget.id} className="border-border/50 shadow-sm" data-testid={`card-shared-budget-${budget.id}`}>
+                    <CardContent className="p-4">
+                      <div
+                        className="flex items-center gap-3 cursor-pointer"
+                        onClick={() => setExpandedSharedBudgetId(isExpanded ? null : budget.id)}
+                        data-testid={`toggle-shared-budget-${budget.id}`}
+                      >
+                        <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-muted-foreground">
+                          {getCategoryIcon(budget.category)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <p className="font-semibold text-sm">{budget.category}</p>
+                            <div className="flex items-center gap-2">
+                              <Badge variant={budget.percentUsed >= 100 ? "destructive" : "secondary"} className="text-xs">
+                                {budget.percentUsed}%
+                              </Badge>
+                              {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                            </div>
+                          </div>
+                          <div className="flex justify-between text-xs text-muted-foreground mt-1 gap-2">
+                            <span>{formatAmount(budget.spent, user?.currency)} / {formatAmount(Number(budget.amount), user?.currency)}</span>
+                            <span>{budget.periodType === "weekly" ? t("weekly") : t("monthly")}</span>
+                          </div>
+                          <div className="w-full bg-secondary rounded-full h-2 mt-2 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${getProgressColor(budget.percentUsed)}`}
+                              style={{ width: `${Math.min(budget.percentUsed, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="mt-4 pt-4 border-t border-border/50 space-y-3">
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                              <p className="text-muted-foreground text-xs">{t("spent")}</p>
+                              <p className="font-semibold">{formatAmount(budget.spent, user?.currency)}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground text-xs">{t("remaining")}</p>
+                              <p className={`font-semibold ${budget.remaining < 0 ? 'text-destructive' : ''}`}>
+                                {formatAmount(budget.remaining, user?.currency)}
+                              </p>
+                            </div>
+                          </div>
+
+                          {(budget.createdByName || budget.updatedByName) && (
+                            <div className="space-y-1 text-xs text-muted-foreground border-t border-border/30 pt-2">
+                              {budget.createdByName && (
+                                <div className="flex items-center gap-1.5">
+                                  <UserCircle2 className="w-3 h-3" />
+                                  <span>Created by {budget.createdByName}</span>
+                                  {budget.createdAt && <span>· {format(new Date(budget.createdAt), "MMM d, yyyy")}</span>}
+                                </div>
+                              )}
+                              {budget.updatedByName && budget.updatedByName !== budget.createdByName && (
+                                <div className="flex items-center gap-1.5">
+                                  <Pencil className="w-3 h-3" />
+                                  <span>Last edited by {budget.updatedByName}</span>
+                                  {budget.updatedAt && <span>· {format(new Date(budget.updatedAt), "MMM d, yyyy")}</span>}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {budget.note && (
+                            <div className="flex items-start gap-2 text-sm">
+                              <StickyNote className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                              <p className="text-muted-foreground text-xs">{budget.note}</p>
+                            </div>
+                          )}
+
+                          <div className="flex gap-2 justify-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openEditDialog(budget)}
+                              data-testid={`button-edit-shared-budget-${budget.id}`}
+                            >
+                              <Pencil className="w-3.5 h-3.5 mr-1" /> {t("edit")}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                if (confirm("Delete this group budget?")) {
+                                  deleteMutation.mutate(budget.id);
+                                }
+                              }}
+                              disabled={deleteMutation.isPending}
+                              data-testid={`button-delete-shared-budget-${budget.id}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5 mr-1" /> {t("delete")}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-6 bg-muted/20 rounded-2xl border-2 border-dashed border-muted">
+              <PiggyBank className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground mb-2">No group budgets yet</p>
+              <Button onClick={() => openAddGroupBudgetDialog()} variant="outline" size="sm" data-testid="button-add-first-group-budget">
+                <Plus className="w-4 h-4 mr-1" /> Add group budget
+              </Button>
+            </div>
+          )}
+        </section>
+      )}
+
       {unbudgetedCategories.length > 0 && summary && summary.budgets.length > 0 && (
         <section>
           <h3 className="font-display font-semibold text-sm text-muted-foreground mb-3">{t("noBudgetSet")}</h3>
@@ -507,17 +669,10 @@ export default function BudgetPage() {
               </Select>
             </div>
 
-            {!editingBudget && !!(user as any)?.familyId && (
-              <div className="flex items-center justify-between rounded-lg border border-border/50 p-3">
-                <div>
-                  <Label className="text-sm font-medium">Shared with Group</Label>
-                  <p className="text-xs text-muted-foreground">Track this budget across all members</p>
-                </div>
-                <Switch
-                  checked={form.scope === "shared"}
-                  onCheckedChange={(v) => setForm(f => ({ ...f, scope: v ? "shared" : "personal" }))}
-                  data-testid="switch-budget-scope"
-                />
+            {form.scope === "shared" && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-primary/5 rounded-lg border border-primary/20">
+                <Users className="w-4 h-4 text-primary shrink-0" />
+                <p className="text-xs text-primary font-medium">This budget is shared with your group</p>
               </div>
             )}
 

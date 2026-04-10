@@ -140,6 +140,7 @@ export const recurringExpenses = pgTable("recurring_expenses", {
   frequency: text("frequency", { enum: ["monthly", "quarterly", "yearly"] }).default("monthly").notNull(),
   note: text("note"),
   isActive: boolean("is_active").default(true).notNull(),
+  isGroupShared: boolean("is_group_shared").default(false).notNull(),
   dueDay: integer("due_day"),
   reminderEnabled: boolean("reminder_enabled").default(false).notNull(),
   reminderDaysBefore: integer("reminder_days_before").default(3),
@@ -158,6 +159,8 @@ export const budgets = pgTable("budgets", {
   notificationsEnabled: boolean("notifications_enabled").default(false).notNull(),
   thresholds: text("thresholds").array(),
   note: text("note"),
+  createdByUserId: integer("created_by_user_id").references(() => users.id),
+  updatedByUserId: integer("updated_by_user_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
