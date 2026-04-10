@@ -717,6 +717,7 @@ export class DatabaseStorage implements IStorage {
         eq(recurringExpenses.familyId, familyId),
         eq(recurringExpenses.isGroupShared, true),
         eq(recurringExpenses.isActive, true),
+        eq(recurringExpenses.frequency, "monthly"),
       ))
       .orderBy(recurringExpenses.name);
   }

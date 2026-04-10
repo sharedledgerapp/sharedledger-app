@@ -15,7 +15,7 @@ import {
   Users, Wallet, TrendingUp, ChevronLeft, ChevronRight, 
   Target, Calendar, Utensils, Bus, Gamepad2, ShoppingBag, 
   Lightbulb, GraduationCap, Heart, Package, Home as HomeIcon,
-  Flag, PiggyBank, Info, Banknote, Trash2, LogOut, Repeat
+  Flag, PiggyBank, Info, Banknote, Trash2, LogOut
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, addWeeks, subMonths, subWeeks, differenceInDays } from "date-fns";
 import { getCurrencySymbol, toFixedAmount } from "@/lib/currency";
@@ -29,6 +29,12 @@ import { useFamily } from "@/hooks/use-data";
 import { InviteSection } from "@/components/InviteSection";
 
 const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#a78bfa", "#fb923c", "#4ade80"];
+
+const CATEGORY_EMOJI: Record<string, string> = {
+  Food: "🍔", Transport: "🚌", Entertainment: "🎮", Shopping: "🛍️",
+  Utilities: "💡", Education: "📚", Health: "🏥", Other: "📦",
+};
+function getCategoryEmoji(cat: string) { return CATEGORY_EMOJI[cat] ?? "📦"; }
 
 interface MemberSpending {
   id: number;
@@ -843,15 +849,18 @@ export default function FamilyDashboard() {
               sharedRecurring!.map((item) => (
                 <div key={item.id} className="bg-white dark:bg-card p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between" data-testid={`shared-recurring-${item.id}`}>
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
-                      <Repeat className="w-4 h-4 text-accent-foreground" />
+                    <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-lg">
+                      {getCategoryEmoji(item.category)}
                     </div>
                     <div>
                       <p className="font-semibold text-sm text-foreground">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">{item.category} • {item.frequency}</p>
+                      <p className="text-xs text-muted-foreground">{item.category}</p>
                     </div>
                   </div>
-                  <span className="font-bold text-foreground">{currencySymbol}{toFixedAmount(Number(item.amount), groupCurrency)}/mo</span>
+                  <div className="text-right">
+                    <p className="font-bold text-foreground">{currencySymbol}{toFixedAmount(Number(item.amount), groupCurrency)}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{item.frequency}</p>
+                  </div>
                 </div>
               ))
             ) : (

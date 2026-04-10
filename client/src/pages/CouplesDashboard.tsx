@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Heart, Plus, Wallet, Banknote, Repeat,
+  Heart, Plus, Wallet, Banknote,
   Utensils, Bus, Gamepad2, ShoppingBag,
   Lightbulb, GraduationCap, Package, Home as HomeIcon,
   CheckCircle2, Clock, Trophy, ChevronLeft, ChevronRight, Trash2
@@ -17,6 +17,12 @@ import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+
+const CATEGORY_EMOJI: Record<string, string> = {
+  Food: "🍔", Transport: "🚌", Entertainment: "🎮", Shopping: "🛍️",
+  Utilities: "💡", Education: "📚", Health: "🏥", Other: "📦",
+};
+function getCategoryEmoji(cat: string) { return CATEGORY_EMOJI[cat] ?? "📦"; }
 
 interface CategoryBreakdown {
   category: string;
@@ -492,17 +498,18 @@ export function CouplesDashboardView({
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
-                          <Repeat className="w-4 h-4 text-accent-foreground" />
+                        <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-lg">
+                          {getCategoryEmoji(item.category)}
                         </div>
                         <div>
                           <p className="font-semibold text-sm text-foreground">{item.name}</p>
-                          <p className="text-xs text-muted-foreground">{item.category} • {item.frequency}</p>
+                          <p className="text-xs text-muted-foreground">{item.category}</p>
                         </div>
                       </div>
-                      <span className="font-bold text-foreground">
-                        {currencySymbol}{toFixedAmount(Number(item.amount), user?.currency)}/mo
-                      </span>
+                      <div className="text-right">
+                        <p className="font-bold text-foreground">{currencySymbol}{toFixedAmount(Number(item.amount), user?.currency)}</p>
+                        <p className="text-xs text-muted-foreground capitalize">{item.frequency}</p>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
