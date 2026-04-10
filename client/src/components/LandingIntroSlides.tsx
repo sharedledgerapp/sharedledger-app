@@ -1,13 +1,15 @@
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   Users, Wallet, PieChart, Trophy, Bell, BarChart3,
   ChevronRight, ChevronLeft, X, Download, Share2, Plus,
   CheckCircle2, Smartphone, ShieldCheck, Sparkles,
   ArrowRight, Globe, RefreshCw, Home, UserPlus, Layers, Star,
+  TrendingUp, DollarSign, LayoutDashboard, Receipt,
 } from "lucide-react";
+import { SiApple, SiAndroid } from "react-icons/si";
 
 /* ─── Device detection ─── */
 function useDeviceState() {
@@ -107,7 +109,7 @@ function Circled({
 /* ─── Shared slide wrapper ─── */
 function SlideWrap({ children }: { children: React.ReactNode }) {
   return (
-    <div className="max-w-md mx-auto w-full flex flex-col gap-6 py-4">
+    <div className="max-w-md mx-auto w-full flex flex-col gap-5 py-2">
       {children}
     </div>
   );
@@ -117,14 +119,16 @@ function SlideWrap({ children }: { children: React.ReactNode }) {
 function SlideIcon({
   icon: Icon,
   gradient = "from-primary to-accent",
+  className = "",
 }: {
   icon: React.ElementType;
   gradient?: string;
+  className?: string;
 }) {
   return (
     <FadeUp delay={0}>
       <div
-        className={`w-16 h-16 rounded-2xl bg-gradient-to-tr ${gradient} flex items-center justify-center shadow-lg shadow-primary/20 mx-auto`}
+        className={`w-16 h-16 rounded-2xl bg-gradient-to-tr ${gradient} flex items-center justify-center shadow-lg shadow-primary/20 mx-auto ${className}`}
       >
         <Icon className="w-8 h-8 text-white" />
       </div>
@@ -138,40 +142,43 @@ function SlideIcon({
 function Slide1() {
   return (
     <SlideWrap>
-      <SlideIcon icon={Users} />
+      <FadeUp delay={0}>
+        <div
+          className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/20 mx-auto"
+          style={{ transform: "rotate(-6deg)" }}
+        >
+          <Users className="w-8 h-8 text-white" style={{ transform: "rotate(6deg)" }} />
+        </div>
+      </FadeUp>
 
       <div className="text-center">
         <FadeUp delay={80}>
-          <Badge
-            variant="secondary"
-            className="mb-3 text-xs px-3 py-1 rounded-full"
-          >
-            Beta · Free to try
-          </Badge>
+          <p className="font-display font-bold text-2xl text-primary mb-1">
+            Shared finances, simplified
+          </p>
         </FadeUp>
-        <FadeUp delay={160}>
+        <FadeUp delay={180}>
           <h1 className="font-display font-bold text-3xl text-foreground leading-tight">
             Track money <Circled delay={500}>together</Circled>
-            <br />— or on your own
+            <br />or on your own
           </h1>
         </FadeUp>
-        <FadeUp delay={280}>
-          <p className="text-muted-foreground mt-3 leading-relaxed">
-            SharedLedger is a shared finance app for households, couples,
-            roommates — and{" "}
-            <Highlight delay={600}>solo users too</Highlight>. No group
-            required to get started.
+        <FadeUp delay={300}>
+          <p className="text-muted-foreground mt-3 leading-relaxed text-sm">
+            SharedLedger is a finance app for households, couples, roommates
+            and <Highlight delay={620}>solo users</Highlight>. No group
+            needed to get started.
           </p>
         </FadeUp>
       </div>
 
-      <FadeUp delay={400}>
+      <FadeUp delay={420}>
         <div className="bg-white dark:bg-card rounded-2xl border border-border/50 shadow-sm p-5 space-y-3">
           {[
             "Track everyday expenses and recurring bills",
             "Set budgets and savings goals",
-            "Get AI-powered financial insights with Sage",
-            "Invite family or housemates when you're ready",
+            "Get AI-powered insights with Sage",
+            "Invite family or housemates whenever you're ready",
           ].map((item, i) => (
             <div key={i} className="flex items-start gap-3">
               <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
@@ -181,10 +188,9 @@ function Slide1() {
         </div>
       </FadeUp>
 
-      <FadeUp delay={520}>
+      <FadeUp delay={540}>
         <p className="text-center text-xs text-muted-foreground italic">
-          Currently in beta testing — free, actively improved, and open to
-          feedback
+          Currently in beta testing, free to use and actively improved
         </p>
       </FadeUp>
     </SlideWrap>
@@ -192,9 +198,56 @@ function Slide1() {
 }
 
 /* ══════════════════════════════════════
-   SLIDE 2 — Who it's for
+   SLIDE 2 — Pain points
 ══════════════════════════════════════ */
 function Slide2() {
+  const pains = [
+    { emoji: "😬", text: "Forgot what you actually spent last month" },
+    { emoji: "🤷", text: "Who owes what for rent, groceries, and bills?" },
+    { emoji: "📊", text: "Spreadsheet that nobody remembers to update" },
+    { emoji: "😰", text: "End of month arrives and your balance is a surprise" },
+    { emoji: "🎯", text: "No idea if you're making progress on savings" },
+  ];
+
+  return (
+    <SlideWrap>
+      <FadeUp delay={0} className="text-center">
+        <h2 className="font-display font-bold text-3xl text-foreground leading-tight">
+          Sound familiar?
+        </h2>
+        <p className="text-muted-foreground mt-2 text-sm">
+          These are the everyday money problems SharedLedger was built to solve
+        </p>
+      </FadeUp>
+
+      <div className="space-y-2.5">
+        {pains.map(({ emoji, text }, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-4 bg-white dark:bg-card rounded-xl border border-border/50 px-4 py-3"
+            style={{ animation: `fade-up 0.45s ease-out ${100 + i * 90}ms both` }}
+          >
+            <span className="text-2xl shrink-0">{emoji}</span>
+            <span className="text-sm text-foreground leading-snug">{text}</span>
+          </div>
+        ))}
+      </div>
+
+      <FadeUp delay={560}>
+        <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-2xl border border-primary/20 p-4 text-center">
+          <p className="text-sm font-semibold text-foreground">
+            SharedLedger gives your household one clear place for all of this
+          </p>
+        </div>
+      </FadeUp>
+    </SlideWrap>
+  );
+}
+
+/* ══════════════════════════════════════
+   SLIDE 3 — Who it's for
+══════════════════════════════════════ */
+function Slide3() {
   const groups = [
     {
       icon: Users,
@@ -209,12 +262,12 @@ function Slide2() {
     {
       icon: Layers,
       name: "Roommates",
-      desc: "Split bills, shared expenses, and who owes what",
+      desc: "Split bills, shared expenses, and a clear view of who owes what",
     },
     {
       icon: Wallet,
       name: "Solo users",
-      desc: "Personal finance without needing a group — start alone, expand later",
+      desc: "Personal finance without needing a group. Start alone, expand later.",
       highlight: true,
     },
   ];
@@ -223,10 +276,10 @@ function Slide2() {
     <SlideWrap>
       <FadeUp delay={0} className="text-center">
         <h2 className="font-display font-bold text-3xl text-foreground leading-tight">
-          Who's it for?
+          Who is it for?
         </h2>
         <p className="text-muted-foreground mt-2 text-sm">
-          You don't need a group to start — use it solo and invite others later
+          You don't need a group to start. Use it solo and invite others later.
         </p>
       </FadeUp>
 
@@ -234,7 +287,7 @@ function Slide2() {
         {groups.map(({ icon: Icon, name, desc, highlight }, i) => (
           <FadeUp key={name} delay={100 + i * 100}>
             <div
-              className={`flex items-start gap-4 p-4 rounded-2xl border transition-colors ${
+              className={`flex items-start gap-4 p-4 rounded-2xl border ${
                 highlight
                   ? "bg-primary/8 border-primary/25"
                   : "bg-white dark:bg-card border-border/50"
@@ -255,12 +308,7 @@ function Slide2() {
                 <p
                   className={`font-semibold text-sm ${highlight ? "text-primary" : "text-foreground"}`}
                 >
-                  {name}{" "}
-                  {highlight && (
-                    <span className="text-xs font-normal text-primary/70 ml-1">
-                      — you can start right now
-                    </span>
-                  )}
+                  {name}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
                   {desc}
@@ -275,16 +323,17 @@ function Slide2() {
 }
 
 /* ══════════════════════════════════════
-   SLIDE 3 — Features
+   SLIDE 4 — Features
 ══════════════════════════════════════ */
-function Slide3() {
+function Slide4() {
   const features = [
-    { icon: Wallet, text: "Log everyday expenses — or scan a receipt" },
-    { icon: PieChart, text: "Budgets by category with overspend alerts" },
-    { icon: Trophy, text: "Savings goals with progress tracking" },
-    { icon: RefreshCw, text: "Recurring bills and subscriptions" },
-    { icon: BarChart3, text: "Weekly and monthly spending insights" },
-    { icon: Bell, text: "Balance board — who owes what in your group" },
+    { icon: Receipt, text: "Log everyday expenses or scan a receipt to fill in the details" },
+    { icon: DollarSign, text: "Track income alongside spending for a complete monthly picture" },
+    { icon: PieChart, text: "Visual spending breakdowns by category, week, or month" },
+    { icon: LayoutDashboard, text: "Personal dashboard and shared group dashboard, side by side" },
+    { icon: Trophy, text: "Savings goals with progress tracking and deadlines" },
+    { icon: RefreshCw, text: "Recurring bills and subscriptions tracked automatically" },
+    { icon: Bell, text: "Budget alerts when you're approaching your limits" },
   ];
 
   return (
@@ -294,33 +343,31 @@ function Slide3() {
           What you can do
         </h2>
         <p className="text-muted-foreground mt-2 text-sm">
-          Everything to take control of your money
+          Everything to understand and manage your money
         </p>
       </FadeUp>
 
-      <FadeUp delay={80}>
-        <div className="grid grid-cols-1 gap-2.5">
-          {features.map(({ icon: Icon, text }, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-3 bg-white dark:bg-card rounded-xl border border-border/50 px-4 py-3"
-              style={{ animation: `fade-up 0.4s ease-out ${120 + i * 70}ms both` }}
-            >
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-primary to-accent flex items-center justify-center shrink-0">
-                <Icon className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-sm text-foreground">{text}</span>
+      <div className="grid grid-cols-1 gap-2">
+        {features.map(({ icon: Icon, text }, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-3 bg-white dark:bg-card rounded-xl border border-border/50 px-4 py-3"
+            style={{ animation: `fade-up 0.4s ease-out ${80 + i * 65}ms both` }}
+          >
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-primary to-accent flex items-center justify-center shrink-0">
+              <Icon className="w-4 h-4 text-white" />
             </div>
-          ))}
-        </div>
-      </FadeUp>
+            <span className="text-sm text-foreground leading-snug">{text}</span>
+          </div>
+        ))}
+      </div>
 
-      <FadeUp delay={600}>
+      <FadeUp delay={560}>
         <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-2xl border border-primary/20 p-4 flex items-center gap-3">
           <Sparkles className="w-5 h-5 text-primary shrink-0" />
           <p className="text-sm text-foreground">
-            <span className="font-semibold">Sage AI</span> — your personal
-            financial advisor, built right into the app. More on this next →
+            <span className="font-semibold">Plus Sage AI</span>, your built-in
+            financial advisor. More on that next.
           </p>
         </div>
       </FadeUp>
@@ -329,57 +376,53 @@ function Slide3() {
 }
 
 /* ══════════════════════════════════════
-   SLIDE 4 — Sage AI
+   SLIDE 5 — Sage AI
 ══════════════════════════════════════ */
-function Slide4() {
-  const questions = [
-    "Why did I overspend this month?",
-    "How can I save more on groceries?",
-    "Am I on track with my savings goals?",
-  ];
-
+function Slide5() {
   return (
     <SlideWrap>
       <FadeUp delay={0}>
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-violet-500 to-primary flex items-center justify-center shadow-lg shadow-primary/20 mx-auto">
-          <Sparkles className="w-8 h-8 text-white" />
+          <Sparkles className="w-8 h-8 text-white animate-sparkle" />
         </div>
       </FadeUp>
 
       <FadeUp delay={100} className="text-center">
-        <Badge className="mb-2 bg-primary/10 text-primary border-primary/20 text-xs px-3 py-1 rounded-full">
-          Beta feature · Powered by Gemini
-        </Badge>
+        <span className="inline-block text-xs font-semibold bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full mb-2">
+          Beta feature · Powered by Gemini · Still in testing
+        </span>
         <h2 className="font-display font-bold text-3xl text-foreground leading-tight">
           Meet <Highlight delay={400}>Sage</Highlight>
         </h2>
         <p className="text-muted-foreground mt-2 leading-relaxed text-sm">
-          Your personal AI financial advisor — built into the app. Sage reads
-          your actual spending data and gives you real, personalised guidance.
+          Your personal AI financial advisor, built into the app. Sage reads
+          your actual spending data and helps you make sense of it.
         </p>
       </FadeUp>
 
       <FadeUp delay={260}>
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider text-center">
-          Ask things like
-        </p>
-        <div className="space-y-2 mt-2">
-          {questions.map((q, i) => (
-            <div
-              key={i}
-              className="bg-white dark:bg-card rounded-2xl rounded-tl-sm border border-border/50 px-4 py-3 shadow-sm text-sm text-foreground"
-              style={{ animation: `fade-up 0.4s ease-out ${340 + i * 100}ms both` }}
-            >
-              "{q}"
+        <div className="bg-white dark:bg-card rounded-2xl border border-border/50 p-5 space-y-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            What Sage does
+          </p>
+          {[
+            "Generates a monthly spending analysis with patterns and standouts",
+            "Answers questions about your actual income and expense data",
+            "Highlights categories where you're consistently overspending",
+            "Suggests ways to stay on track with your savings goals",
+          ].map((item, i) => (
+            <div key={i} className="flex items-start gap-2.5">
+              <Sparkles className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+              <span className="text-sm text-foreground leading-snug">{item}</span>
             </div>
           ))}
         </div>
       </FadeUp>
 
-      <FadeUp delay={680}>
+      <FadeUp delay={480}>
         <p className="text-xs text-muted-foreground text-center italic">
-          Sage is available in the Messages tab inside the app. No extra
-          sign-up needed.
+          Sage is still being improved. Responses are based on your data, but
+          always double-check important financial decisions.
         </p>
       </FadeUp>
     </SlideWrap>
@@ -387,9 +430,9 @@ function Slide4() {
 }
 
 /* ══════════════════════════════════════
-   SLIDE 5 — No bank integration
+   SLIDE 6 — Manual entry / bank integration
 ══════════════════════════════════════ */
-function Slide5() {
+function Slide6() {
   return (
     <SlideWrap>
       <FadeUp delay={0}>
@@ -400,30 +443,24 @@ function Slide5() {
 
       <FadeUp delay={100} className="text-center">
         <h2 className="font-display font-bold text-3xl text-foreground leading-tight">
-          One important<br />thing to know
+          You enter your own expenses
         </h2>
+        <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
+          There is currently <Circled delay={450}>no bank connection</Circled>.
+          You log what you spend yourself.
+        </p>
       </FadeUp>
 
-      <FadeUp delay={220}>
-        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl p-5 text-center">
-          <p className="font-bold text-lg text-foreground leading-snug">
-            SharedLedger does{" "}
-            <Circled delay={500}>not connect</Circled>
-            <br />to your bank account
-          </p>
-        </div>
-      </FadeUp>
-
-      <FadeUp delay={380}>
+      <FadeUp delay={280}>
         <div className="bg-white dark:bg-card rounded-2xl border border-border/50 p-5 space-y-3">
-          <p className="text-sm text-foreground font-semibold">
-            You log expenses yourself — and here's why that's actually good:
+          <p className="text-sm font-semibold text-foreground">
+            Why this works well in practice:
           </p>
           {[
-            "Your banking credentials never leave your device",
-            "No third-party access to your accounts — ever",
-            "Manual entry helps you stay more aware of your spending",
-            "Your data is private, not sold or shared",
+            "Your bank credentials never leave your device",
+            "No third-party access to your accounts",
+            "Logging expenses manually builds real awareness of your spending",
+            "Receipt scanning makes it quick to log on the go",
           ].map((item, i) => (
             <div key={i} className="flex items-start gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
@@ -433,53 +470,53 @@ function Slide5() {
         </div>
       </FadeUp>
 
-      <FadeUp delay={540}>
-        <p className="text-center text-xs text-muted-foreground italic">
-          This is intentional by design — not a limitation we're working around
-        </p>
+      <FadeUp delay={480}>
+        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+          <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
+            <strong>Coming later:</strong> Optional bank account linking will
+            be added as a feature. It will always be your choice whether to
+            use it. Privacy remains central to how SharedLedger works.
+          </p>
+        </div>
       </FadeUp>
     </SlideWrap>
   );
 }
 
 /* ══════════════════════════════════════
-   SLIDE 6 — Why not in the App Store
+   SLIDE 7 — Why not in the App Store
 ══════════════════════════════════════ */
-function Slide6() {
+function Slide7() {
   const benefits = [
     {
       icon: RefreshCw,
       title: "Instant updates",
-      desc: "Fixes and new features ship immediately — no waiting for store approval",
+      desc: "Fixes and new features ship immediately, no waiting for store approval",
     },
     {
       icon: Smartphone,
-      title: "Feels native",
-      desc: "Sits on your home screen and works offline, just like a normal app",
+      title: "Feels like a native app",
+      desc: "Sits on your home screen and works offline, just like a regular app",
     },
     {
       icon: Globe,
       title: "No account needed to install",
-      desc: "Install directly from your browser — no App Store login required",
+      desc: "Install directly from your browser. No App Store login required.",
     },
   ];
 
   return (
     <SlideWrap>
-      <FadeUp delay={0}>
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/20 mx-auto">
-          <Smartphone className="w-8 h-8 text-white" />
-        </div>
-      </FadeUp>
+      <SlideIcon icon={Smartphone} />
 
       <FadeUp delay={100} className="text-center">
         <h2 className="font-display font-bold text-3xl text-foreground leading-tight">
-          Why it's not in<br />the App Store
+          Why it's not in the App Store
         </h2>
         <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
           SharedLedger is a{" "}
-          <Highlight delay={450}>Progressive Web App</Highlight> — a website
-          that installs like a native app, directly from your browser.
+          <Highlight delay={450}>Progressive Web App</Highlight>. It installs
+          from your browser, not an app store.
         </p>
       </FadeUp>
 
@@ -496,17 +533,19 @@ function Slide6() {
               </div>
               <div>
                 <p className="font-semibold text-sm text-foreground">{title}</p>
-                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{desc}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                  {desc}
+                </p>
               </div>
             </div>
           ))}
         </div>
       </FadeUp>
 
-      <FadeUp delay={680}>
+      <FadeUp delay={660}>
         <p className="text-center text-xs text-muted-foreground italic">
-          We'll submit to the App Store once we're out of beta and the app is
-          polished — the next slide shows you how to install it right now
+          We'll submit to the App Store once the app graduates from beta. The
+          next slide shows you how to install it today.
         </p>
       </FadeUp>
     </SlideWrap>
@@ -514,9 +553,9 @@ function Slide6() {
 }
 
 /* ══════════════════════════════════════
-   SLIDE 7 — Install guide
+   SLIDE 8 — Install guide
 ══════════════════════════════════════ */
-function Slide7({
+function Slide8({
   installOS,
   setInstallOS,
   isPWA,
@@ -535,33 +574,30 @@ function Slide7({
 }) {
   const iosSteps = [
     {
-      icon: Globe,
       text: (
         <>
           Open <strong>sharedledger.app</strong> in <strong>Safari</strong>
           <br />
           <span className="text-xs text-amber-600 dark:text-amber-400">
-            Not Chrome, WhatsApp, Instagram, or Snapchat — those won't show the
-            install option
+            Not Chrome, WhatsApp, or Instagram — those won't show the install
+            option
           </span>
         </>
       ),
     },
     {
-      icon: Share2,
       text: (
         <>
           Tap the <strong>Share button</strong> (□↑) at the bottom of the
           screen
           <br />
           <span className="text-xs text-muted-foreground">
-            If you can't see it, scroll up slightly to bring the toolbar back
+            Scroll up slightly if you can't see the toolbar
           </span>
         </>
       ),
     },
     {
-      icon: Plus,
       text: (
         <>
           Scroll down the share sheet and tap{" "}
@@ -570,11 +606,9 @@ function Slide7({
       ),
     },
     {
-      icon: CheckCircle2,
       text: (
         <>
           Tap <strong>"Add"</strong> — the app appears on your home screen
-          instantly
         </>
       ),
     },
@@ -606,8 +640,7 @@ function Slide7({
     {
       text: (
         <>
-          Tap <strong>"Add"</strong> — done! The app icon appears on your home
-          screen
+          Tap <strong>"Add"</strong> — it appears on your home screen
         </>
       ),
     },
@@ -617,14 +650,13 @@ function Slide7({
     <SlideWrap>
       <FadeUp delay={0} className="text-center">
         <h2 className="font-display font-bold text-3xl text-foreground">
-          Add it to your<br />home screen
+          Add it to your home screen
         </h2>
         <p className="text-muted-foreground mt-1 text-sm">
-          Select your phone to see the steps
+          Select your phone type to see the steps
         </p>
       </FadeUp>
 
-      {/* Already installed banner */}
       {isPWA && (
         <FadeUp delay={80}>
           <div className="flex items-start gap-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-xl p-4">
@@ -637,7 +669,6 @@ function Slide7({
         </FadeUp>
       )}
 
-      {/* In-app browser warning for iOS */}
       {!isPWA && (isChromeIOS || isInApp) && (
         <FadeUp delay={80}>
           <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
@@ -645,8 +676,8 @@ function Slide7({
               You're not in Safari right now
             </p>
             <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
-              The "Add to Home Screen" option only appears in Safari. You need to
-              open this page in Safari first.
+              The "Add to Home Screen" option only appears in Safari. Open this
+              page in Safari first.
             </p>
             <button
               onClick={copyInstallLink}
@@ -659,7 +690,6 @@ function Slide7({
         </FadeUp>
       )}
 
-      {/* OS toggle */}
       <FadeUp delay={140}>
         <div className="flex gap-2 bg-muted rounded-xl p-1">
           {(["ios", "android"] as const).map((os) => (
@@ -667,25 +697,32 @@ function Slide7({
               key={os}
               onClick={() => setInstallOS(os)}
               data-testid={`button-intro-os-${os}`}
-              className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+              className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${
                 installOS === os
                   ? "bg-white dark:bg-card text-primary shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {os === "ios" ? "📱 iPhone" : "🤖 Android"}
+              {os === "ios" ? (
+                <>
+                  <SiApple className="w-4 h-4" /> iPhone
+                </>
+              ) : (
+                <>
+                  <SiAndroid className="w-4 h-4" /> Android
+                </>
+              )}
             </button>
           ))}
         </div>
       </FadeUp>
 
-      {/* Steps */}
       {installOS === "ios" && (
         <FadeUp delay={220}>
           <div className="space-y-3">
             {iosSteps.map((step, i) => (
               <div key={i} className="flex gap-3 items-start">
-                <span className="w-6 h-6 rounded-full bg-gradient-to-tr from-primary to-accent text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5 shadow-sm shadow-primary/20">
+                <span className="w-6 h-6 rounded-full bg-gradient-to-tr from-primary to-accent text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
                   {i + 1}
                 </span>
                 <p className="text-sm text-foreground leading-relaxed">{step.text}</p>
@@ -700,7 +737,7 @@ function Slide7({
           <div className="space-y-3">
             {androidSteps.map((step, i) => (
               <div key={i} className="flex gap-3 items-start">
-                <span className="w-6 h-6 rounded-full bg-gradient-to-tr from-primary to-accent text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5 shadow-sm shadow-primary/20">
+                <span className="w-6 h-6 rounded-full bg-gradient-to-tr from-primary to-accent text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
                   {i + 1}
                 </span>
                 <p className="text-sm text-foreground leading-relaxed">{step.text}</p>
@@ -712,8 +749,8 @@ function Slide7({
 
       {installOS === null && (
         <FadeUp delay={220}>
-          <div className="text-center py-6 text-muted-foreground text-sm">
-            Select your device above to see the install steps
+          <div className="text-center py-4 text-muted-foreground text-sm">
+            Select your device above to see the steps
           </div>
         </FadeUp>
       )}
@@ -722,29 +759,29 @@ function Slide7({
 }
 
 /* ══════════════════════════════════════
-   SLIDE 8 — Get started
+   SLIDE 9 — Get started
 ══════════════════════════════════════ */
-function Slide8({ onDone, onInstall }: { onDone: () => void; onInstall: () => void }) {
+function Slide9({ onDone, onInstall }: { onDone: () => void; onInstall: () => void }) {
   const steps = [
     {
       icon: Download,
       num: "1",
       title: "Install the app",
-      desc: "Add it to your home screen from the previous step — takes under 30 seconds",
+      desc: "Add it to your home screen from the previous step. Takes under 30 seconds.",
       accent: true,
     },
     {
       icon: UserPlus,
       num: "2",
       title: "Create your account",
-      desc: "Sign up inside the installed app — no email verification needed",
+      desc: "Sign up inside the installed app. No email verification needed.",
       accent: false,
     },
     {
       icon: Home,
       num: "3",
       title: "Start tracking",
-      desc: "Add your first expense. Invite your household whenever you're ready — no rush",
+      desc: "Add your first expense. Invite your household whenever you're ready.",
       accent: false,
     },
   ];
@@ -825,7 +862,8 @@ function Slide8({ onDone, onInstall }: { onDone: () => void; onInstall: () => vo
               onClick={onDone}
               data-testid="button-intro-open-app"
             >
-              Already installed? Open the App <ArrowRight className="w-4 h-4 ml-2" />
+              Already installed? Open the App
+              <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </Link>
 
@@ -834,7 +872,7 @@ function Slide8({ onDone, onInstall }: { onDone: () => void; onInstall: () => vo
             className="text-xs text-muted-foreground hover:text-foreground transition-colors text-center py-1"
             data-testid="button-intro-see-more"
           >
-            ↓ Continue to learn more about SharedLedger
+            Continue to learn more about SharedLedger
           </button>
         </div>
       </FadeUp>
@@ -845,7 +883,7 @@ function Slide8({ onDone, onInstall }: { onDone: () => void; onInstall: () => vo
 /* ══════════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════════ */
-const TOTAL_SLIDES = 8;
+const TOTAL_SLIDES = 9;
 
 interface Props {
   onDone: (scrollTo?: "install") => void;
@@ -858,6 +896,7 @@ export function LandingIntroSlides({ onDone }: Props) {
     useDeviceState();
   const [installOS, setInstallOS] = useState<"ios" | "android" | null>(null);
   const touchStartX = useRef<number | null>(null);
+  const { language, setLanguage } = useLanguage();
 
   useEffect(() => {
     if (isIOS) setInstallOS("ios");
@@ -884,9 +923,7 @@ export function LandingIntroSlides({ onDone }: Props) {
   };
 
   const copyInstallLink = () => {
-    navigator.clipboard
-      .writeText("https://sharedledger.app")
-      .catch(() => {});
+    navigator.clipboard.writeText("https://sharedledger.app").catch(() => {});
   };
 
   const onTouchStart = (e: React.TouchEvent) => {
@@ -921,26 +958,49 @@ export function LandingIntroSlides({ onDone }: Props) {
       </div>
 
       {/* Header row */}
-      <div className="flex items-center justify-between px-6 pt-7 pb-2 shrink-0">
+      <div className="flex items-center justify-between px-5 pt-7 pb-2 shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-gradient-to-tr from-primary to-accent rounded-lg flex items-center justify-center rotate-[-6deg]">
-            <Users className="w-3.5 h-3.5 text-white" />
+          <div
+            className="w-7 h-7 bg-gradient-to-tr from-primary to-accent rounded-lg flex items-center justify-center"
+            style={{ transform: "rotate(-6deg)" }}
+          >
+            <Users className="w-3.5 h-3.5 text-white" style={{ transform: "rotate(6deg)" }} />
           </div>
           <span className="font-display font-bold text-primary">SharedLedger</span>
         </div>
-        <button
-          onClick={done}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 px-3 py-1.5 rounded-full hover:bg-muted"
-          data-testid="button-intro-skip"
-        >
-          Skip <X className="w-3 h-3" />
-        </button>
+
+        <div className="flex items-center gap-2">
+          {/* Language switcher */}
+          <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
+            {(["en", "fr", "nl"] as const).map((lang) => (
+              <button
+                key={lang}
+                onClick={() => setLanguage(lang)}
+                className={`px-2 py-1 rounded-md text-xs font-medium transition-all duration-150 ${
+                  language === lang
+                    ? "bg-white dark:bg-card text-primary shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {lang.toUpperCase()}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => done()}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 px-2.5 py-1.5 rounded-full hover:bg-muted"
+            data-testid="button-intro-skip"
+          >
+            Skip <X className="w-3 h-3" />
+          </button>
+        </div>
       </div>
 
-      {/* Slide content — keyed so animations replay on change */}
+      {/* Slide content */}
       <div
         key={slide}
-        className={`flex-1 flex flex-col justify-center px-6 py-2 overflow-y-auto ${animClass}`}
+        className={`flex-1 flex flex-col justify-center px-5 py-2 overflow-y-auto ${animClass}`}
       >
         {slide === 0 && <Slide1 />}
         {slide === 1 && <Slide2 />}
@@ -948,8 +1008,9 @@ export function LandingIntroSlides({ onDone }: Props) {
         {slide === 3 && <Slide4 />}
         {slide === 4 && <Slide5 />}
         {slide === 5 && <Slide6 />}
-        {slide === 6 && (
-          <Slide7
+        {slide === 6 && <Slide7 />}
+        {slide === 7 && (
+          <Slide8
             installOS={installOS}
             setInstallOS={setInstallOS}
             isPWA={isPWA}
@@ -959,11 +1020,16 @@ export function LandingIntroSlides({ onDone }: Props) {
             copyInstallLink={copyInstallLink}
           />
         )}
-        {slide === 7 && <Slide8 onDone={done} onInstall={() => done("install")} />}
+        {slide === 8 && (
+          <Slide9
+            onDone={() => done()}
+            onInstall={() => done("install")}
+          />
+        )}
       </div>
 
       {/* Bottom navigation */}
-      <div className="px-6 pb-8 pt-2 shrink-0">
+      <div className="px-5 pb-8 pt-2 shrink-0">
         {/* Progress dots */}
         <div className="flex justify-center gap-1.5 mb-5">
           {Array.from({ length: TOTAL_SLIDES }).map((_, i) => (
@@ -982,7 +1048,7 @@ export function LandingIntroSlides({ onDone }: Props) {
           ))}
         </div>
 
-        {/* Back / Next — hidden on final slide (it has its own CTAs) */}
+        {/* Back / Next — hidden on final slide */}
         {slide < TOTAL_SLIDES - 1 && (
           <div className="flex gap-3">
             {slide > 0 ? (
@@ -1002,7 +1068,7 @@ export function LandingIntroSlides({ onDone }: Props) {
               onClick={next}
               data-testid="button-intro-next"
             >
-              {slide === 6 ? "I've installed it" : "Next"}
+              {slide === 7 ? "I've installed it" : "Next"}
               <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </div>

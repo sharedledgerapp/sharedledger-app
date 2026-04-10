@@ -205,6 +205,18 @@ export default function LandingPage() {
               {t("landingInstallApp")} <Download className="ml-2 w-5 h-5" />
             </Button>
           </div>
+
+          {/* Revisit intro slides */}
+          <div className="mt-6">
+            <button
+              onClick={() => setShowIntro(true)}
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
+              data-testid="button-revisit-intro"
+            >
+              <ChevronDown className="w-4 h-4" />
+              New here? View the app overview
+            </button>
+          </div>
         </div>
       </section>
 
