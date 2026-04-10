@@ -1340,7 +1340,11 @@ export default function ExpensesPage() {
               <Label>{t("recurringFrequency")}</Label>
               <Select
                 value={recurringForm.frequency}
-                onValueChange={(v) => setRecurringForm(f => ({ ...f, frequency: v as typeof FREQUENCIES[number] }))}
+                onValueChange={(v) => setRecurringForm(f => ({
+                  ...f,
+                  frequency: v as typeof FREQUENCIES[number],
+                  reminderEnabled: v !== "monthly" ? false : f.reminderEnabled,
+                }))}
               >
                 <SelectTrigger data-testid="select-recurring-frequency">
                   <SelectValue />
@@ -1367,11 +1371,16 @@ export default function ExpensesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium">Remind me before it's due</p>
-                  <p className="text-xs text-muted-foreground">Get a push notification ahead of time</p>
+                  <p className="text-xs text-muted-foreground">
+                    {recurringForm.frequency !== "monthly"
+                      ? "Only available for monthly expenses"
+                      : "Get a push notification ahead of time"}
+                  </p>
                 </div>
                 <Switch
                   checked={recurringForm.reminderEnabled}
                   onCheckedChange={(v) => setRecurringForm(f => ({ ...f, reminderEnabled: v }))}
+                  disabled={recurringForm.frequency !== "monthly"}
                   data-testid="switch-recurring-reminder"
                 />
               </div>

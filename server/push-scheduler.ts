@@ -307,12 +307,13 @@ async function checkRecurringReminders() {
   const todayDay = now.getDate();
   const todayMonth = now.getMonth();
   const todayYear = now.getFullYear();
-  const periodKey = `${todayYear}-${String(todayMonth + 1).padStart(2, "0")}`;
 
+  // Only monthly expenses have a predictable dueDay within each calendar month
   const allRecurring = await db.select().from(recurringExpenses)
     .where(and(
       eq(recurringExpenses.reminderEnabled, true),
       eq(recurringExpenses.isActive, true),
+      eq(recurringExpenses.frequency, "monthly"),
     ));
 
   for (const expense of allRecurring) {
@@ -321,13 +322,13 @@ async function checkRecurringReminders() {
       const daysBefore = expense.reminderDaysBefore ?? 3;
       if (!dueDay) continue;
 
-      // Check this month's occurrence and next month's (handles cross-month reminder dates)
+      // Check this month's and next month's occurrence — handles cross-month reminder
+      // dates (e.g. dueDay=2, daysBefore=5 → reminder date = March 28)
       const dueDateCandidates = [
         new Date(todayYear, todayMonth, dueDay),
         new Date(todayYear, todayMonth + 1, dueDay),
       ];
 
-      let fired = false;
       for (const dueDate of dueDateCandidates) {
         const reminderDate = new Date(dueDate);
         reminderDate.setDate(reminderDate.getDate() - daysBefore);
@@ -349,11 +350,9 @@ async function checkRecurringReminders() {
             url: "/expenses?view=recurring",
           });
           if (sent) await markNotified(expense.userId, notifKey);
-          fired = true;
           break;
         }
       }
-      void fired;
     } catch (err) {
       console.error(`[Push] recurring reminder failed for expense ${expense.id}:`, err);
     }
