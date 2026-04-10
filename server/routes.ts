@@ -1498,6 +1498,33 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       familyId: user.familyId,
     });
     res.status(201).json(expense);
+
+    // When creating as group-shared, notify all other group members (fire-and-forget)
+    if (data.isGroupShared && user.familyId && process.env.VAPID_PUBLIC_KEY) {
+      try {
+        const familyMembers = await storage.getFamilyMembers(user.familyId);
+        const ownerName = user.name ?? "A member";
+
+        for (const member of familyMembers) {
+          if (member.id === user.id) continue;
+          try {
+            const notifKey = `group_recurring_shared_${expense.id}`;
+            if (await wasNotifiedSince(member.id, notifKey, new Date(0))) continue;
+            const sent = await sendPushToUser(member.id, {
+              title: "New shared expense",
+              body: `${ownerName} shared ${expense.name} (${expense.amount}/month) with the group.`,
+              tag: `group-shared-${expense.id}`,
+              url: "/expenses?view=recurring",
+            });
+            if (sent) await markNotified(member.id, notifKey);
+          } catch (memberErr) {
+            console.error(`[Push] group shared expense notification failed for member ${member.id}:`, memberErr);
+          }
+        }
+      } catch (err) {
+        console.error(`[Push] group shared expense notification failed for expense ${expense.id}:`, err);
+      }
+    }
   });
 
   app.patch("/api/recurring-expenses/:id", requireAuth, async (req, res) => {
