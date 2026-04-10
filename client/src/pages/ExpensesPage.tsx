@@ -509,7 +509,7 @@ export default function ExpensesPage() {
     const sections: DS[] = [
       { key: "today", label: "Today", expenses: [] },
       { key: "thisWeek", label: "This Week", expenses: [] },
-      { key: "earlier", label: "Earlier", expenses: [] },
+      { key: "earlier", label: "Earlier this month", expenses: [] },
     ];
 
     (regularExpenses || []).forEach(expense => {

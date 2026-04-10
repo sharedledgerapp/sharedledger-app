@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Heart, Plus, Wallet, Banknote,
+  Heart, Plus, Wallet, Banknote, Repeat,
   Utensils, Bus, Gamepad2, ShoppingBag,
   Lightbulb, GraduationCap, Package, Home as HomeIcon,
   CheckCircle2, Clock, Trophy, ChevronLeft, ChevronRight, Trash2

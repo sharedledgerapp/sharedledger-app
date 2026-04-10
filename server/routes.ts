@@ -1516,7 +1516,14 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       reminderEnabled: z.boolean().optional(),
       reminderDaysBefore: z.number().int().min(1).max(7).optional(),
     });
-    const updates = schema.parse(req.body);
+    const updates: any = schema.parse(req.body);
+    // When sharing with group, ensure familyId is set to the user's family
+    if (updates.isGroupShared === true) {
+      if (!user.familyId) {
+        return res.status(400).json({ message: "You must be in a group to share a recurring expense" });
+      }
+      updates.familyId = user.familyId;
+    }
     const updated = await storage.updateRecurringExpense(id, updates);
     res.json(updated);
   });

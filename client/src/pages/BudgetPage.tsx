@@ -615,27 +615,22 @@ export default function BudgetPage() {
             <DialogTitle>{editingBudget ? t("editBudget") : t("addBudget")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {editingBudget && form.scope === "shared" && (() => {
-              const sb = editingBudget as any;
-              const hasAttribution = sb.createdByName || sb.updatedByName;
-              if (!hasAttribution) return null;
-              return (
-                <div className="text-xs text-muted-foreground space-y-0.5 px-1">
-                  {sb.createdByName && (
-                    <p data-testid="text-budget-created-by">
-                      Created by <span className="font-medium text-foreground">{sb.createdByName}</span>
-                      {sb.createdAt && <> · {format(new Date(sb.createdAt), "MMM d, yyyy")}</>}
-                    </p>
-                  )}
-                  {sb.updatedByName && sb.updatedByName !== sb.createdByName && (
-                    <p data-testid="text-budget-updated-by">
-                      Last edited by <span className="font-medium text-foreground">{sb.updatedByName}</span>
-                      {sb.updatedAt && <> · {format(new Date(sb.updatedAt), "MMM d, yyyy")}</>}
-                    </p>
-                  )}
-                </div>
-              );
-            })()}
+            {editingBudget && form.scope === "shared" && "createdByName" in editingBudget && (editingBudget.createdByName || editingBudget.updatedByName) && (
+              <div className="text-xs text-muted-foreground space-y-0.5 px-1">
+                {editingBudget.createdByName && (
+                  <p data-testid="text-budget-created-by">
+                    Created by <span className="font-medium text-foreground">{editingBudget.createdByName}</span>
+                    {editingBudget.createdAt && <> · {format(new Date(editingBudget.createdAt), "MMM d, yyyy")}</>}
+                  </p>
+                )}
+                {editingBudget.updatedByName && editingBudget.updatedByName !== editingBudget.createdByName && (
+                  <p data-testid="text-budget-updated-by">
+                    Last edited by <span className="font-medium text-foreground">{editingBudget.updatedByName}</span>
+                    {editingBudget.updatedAt && <> · {format(new Date(editingBudget.updatedAt), "MMM d, yyyy")}</>}
+                  </p>
+                )}
+              </div>
+            )}
 
             {!editingBudget && (
               <div>

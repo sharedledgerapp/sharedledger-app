@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Users, Plus, Wallet,
+  Users, Plus, Wallet, Repeat,
   Utensils, Bus, Gamepad2, ShoppingBag,
   Lightbulb, GraduationCap, Heart, Package, Home as HomeIcon
 } from "lucide-react";
