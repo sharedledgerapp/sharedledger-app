@@ -393,6 +393,47 @@ export const incomeEntriesRelations = relations(incomeEntries, ({ one }) => ({
   }),
 }));
 
+export const sageConversations = pgTable("sage_conversations", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  title: text("title").notNull().default("New conversation"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const sageMessages = pgTable("sage_messages", {
+  id: serial("id").primaryKey(),
+  conversationId: integer("conversation_id").notNull().references(() => sageConversations.id),
+  role: text("role", { enum: ["user", "assistant"] }).notNull(),
+  content: text("content").notNull(),
+  feedback: integer("feedback"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const aiAnalyses = pgTable("ai_analyses", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  type: text("type", { enum: ["monthly_review", "mid_month_check"] }).notNull(),
+  periodKey: text("period_key").notNull(),
+  content: text("content").notNull(),
+  dataSnapshot: text("data_snapshot"),
+  feedback: integer("feedback"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const sageConversationsRelations = relations(sageConversations, ({ one, many }) => ({
+  user: one(users, { fields: [sageConversations.userId], references: [users.id] }),
+  messages: many(sageMessages),
+}));
+
+export const sageMessagesRelations = relations(sageMessages, ({ one }) => ({
+  conversation: one(sageConversations, { fields: [sageMessages.conversationId], references: [sageConversations.id] }),
+}));
+
+export const aiAnalysesRelations = relations(aiAnalyses, ({ one }) => ({
+  user: one(users, { fields: [aiAnalyses.userId], references: [users.id] }),
+}));
+
 // === ZOD SCHEMAS ===
 
 export const insertFamilySchema = createInsertSchema(families).omit({ id: true, createdAt: true });
@@ -412,6 +453,9 @@ export const insertBudgetSetupPromptSchema = createInsertSchema(budgetSetupPromp
 export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({ id: true, createdAt: true });
 export const insertFriendGroupMemberSchema = createInsertSchema(friendGroupMembers).omit({ id: true, joinedAt: true });
 export const insertIncomeEntrySchema = createInsertSchema(incomeEntries).omit({ id: true, createdAt: true });
+export const insertSageConversationSchema = createInsertSchema(sageConversations).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSageMessageSchema = createInsertSchema(sageMessages).omit({ id: true, createdAt: true });
+export const insertAiAnalysisSchema = createInsertSchema(aiAnalyses).omit({ id: true, createdAt: true });
 
 // === TYPES ===
 
@@ -434,6 +478,9 @@ export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type PushNotificationLog = typeof pushNotificationLog.$inferSelect;
 export type FriendGroupMember = typeof friendGroupMembers.$inferSelect;
 export type IncomeEntry = typeof incomeEntries.$inferSelect;
+export type SageConversation = typeof sageConversations.$inferSelect;
+export type SageMessage = typeof sageMessages.$inferSelect;
+export type AiAnalysis = typeof aiAnalyses.$inferSelect;
 
 export type InsertFamily = z.infer<typeof insertFamilySchema>;
 export type InsertGroup = InsertFamily;
@@ -452,6 +499,9 @@ export type InsertBudgetSetupPrompt = z.infer<typeof insertBudgetSetupPromptSche
 export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
 export type InsertFriendGroupMember = z.infer<typeof insertFriendGroupMemberSchema>;
 export type InsertIncomeEntry = z.infer<typeof insertIncomeEntrySchema>;
+export type InsertSageConversation = z.infer<typeof insertSageConversationSchema>;
+export type InsertSageMessage = z.infer<typeof insertSageMessageSchema>;
+export type InsertAiAnalysis = z.infer<typeof insertAiAnalysisSchema>;
 
 // Request types
 export type CreateExpenseRequest = InsertExpense;

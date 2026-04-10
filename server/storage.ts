@@ -4,6 +4,7 @@ import {
   users, families, expenses, goals, allowances, expenseSplits, goalApprovals,
   messages, notes, messageReadStatus, recurringExpenses, budgets, budgetSetupPrompts,
   settlements, pushSubscriptions, pushNotificationLog, friendGroupMembers, incomeEntries,
+  sageConversations, sageMessages, aiAnalyses,
   type User, type InsertUser, type Family, type InsertFamily,
   type Expense, type InsertExpense, type Goal, type InsertGoal,
   type GoalApproval, type InsertGoalApproval,
@@ -13,7 +14,8 @@ import {
   type RecurringExpense, type InsertRecurringExpense,
   type Budget, type InsertBudget, type BudgetSetupPrompt, type InsertBudgetSetupPrompt,
   type Settlement, type InsertSettlement, type FriendGroupMember,
-  type IncomeEntry, type InsertIncomeEntry
+  type IncomeEntry, type InsertIncomeEntry,
+  type SageConversation, type SageMessage, type AiAnalysis
 } from "@shared/schema";
 import { eq, and, desc, or, ne, gte, lte, sql, inArray, aliasedTable } from "drizzle-orm";
 import session from "express-session";
@@ -136,6 +138,20 @@ export interface IStorage {
   getFriendGroupNetBalances(groupId: number): Promise<{ fromUserId: number; fromName: string; toUserId: number; toName: string; amount: number }[]>;
   getFriendGroupCurrenciesForIds(groupIds: number[]): Promise<Map<number, { currency: string; groupType: string }>>;
   deleteUserExpensesForGroup(groupId: number, userId: number): Promise<void>;
+
+  // Sage AI
+  getSageConversations(userId: number): Promise<SageConversation[]>;
+  createSageConversation(userId: number, title?: string): Promise<SageConversation>;
+  updateSageConversationTitle(id: number, title: string): Promise<void>;
+  deleteSageConversation(id: number): Promise<void>;
+  getSageMessages(conversationId: number): Promise<SageMessage[]>;
+  createSageMessage(conversationId: number, role: 'user' | 'assistant', content: string): Promise<SageMessage>;
+  countSageMessagesToday(userId: number): Promise<number>;
+  getAiAnalyses(userId: number): Promise<AiAnalysis[]>;
+  getAiAnalysis(userId: number, type: string, periodKey: string): Promise<AiAnalysis | undefined>;
+  upsertAiAnalysis(userId: number, type: 'monthly_review' | 'mid_month_check', periodKey: string, content: string, dataSnapshot?: string): Promise<AiAnalysis>;
+  updateAiAnalysisFeedback(id: number, feedback: number): Promise<void>;
+  updateSageMessageFeedback(id: number, feedback: number): Promise<void>;
 
   sessionStore: session.Store;
 }
@@ -1213,6 +1229,92 @@ export class DatabaseStorage implements IStorage {
     }
 
     return result;
+  }
+
+  // Sage AI
+  async getSageConversations(userId: number): Promise<SageConversation[]> {
+    return db.select().from(sageConversations)
+      .where(eq(sageConversations.userId, userId))
+      .orderBy(desc(sageConversations.updatedAt));
+  }
+
+  async createSageConversation(userId: number, title: string = 'New conversation'): Promise<SageConversation> {
+    const [conv] = await db.insert(sageConversations).values({ userId, title }).returning();
+    return conv;
+  }
+
+  async updateSageConversationTitle(id: number, title: string): Promise<void> {
+    await db.update(sageConversations).set({ title, updatedAt: new Date() }).where(eq(sageConversations.id, id));
+  }
+
+  async deleteSageConversation(id: number): Promise<void> {
+    await db.delete(sageMessages).where(eq(sageMessages.conversationId, id));
+    await db.delete(sageConversations).where(eq(sageConversations.id, id));
+  }
+
+  async getSageMessages(conversationId: number): Promise<SageMessage[]> {
+    return db.select().from(sageMessages)
+      .where(eq(sageMessages.conversationId, conversationId))
+      .orderBy(sageMessages.createdAt);
+  }
+
+  async createSageMessage(conversationId: number, role: 'user' | 'assistant', content: string): Promise<SageMessage> {
+    const [msg] = await db.insert(sageMessages).values({ conversationId, role, content }).returning();
+    await db.update(sageConversations).set({ updatedAt: new Date() }).where(eq(sageConversations.id, conversationId));
+    return msg;
+  }
+
+  async countSageMessagesToday(userId: number): Promise<number> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const convs = await db.select({ id: sageConversations.id })
+      .from(sageConversations).where(eq(sageConversations.userId, userId));
+    if (!convs.length) return 0;
+    const convIds = convs.map(c => c.id);
+    const [row] = await db.select({ count: sql<number>`count(*)` })
+      .from(sageMessages)
+      .where(and(
+        inArray(sageMessages.conversationId, convIds),
+        eq(sageMessages.role, 'user'),
+        gte(sageMessages.createdAt, today),
+        lte(sageMessages.createdAt, tomorrow)
+      ));
+    return Number(row?.count ?? 0);
+  }
+
+  async getAiAnalyses(userId: number): Promise<AiAnalysis[]> {
+    return db.select().from(aiAnalyses)
+      .where(eq(aiAnalyses.userId, userId))
+      .orderBy(desc(aiAnalyses.createdAt));
+  }
+
+  async getAiAnalysis(userId: number, type: string, periodKey: string): Promise<AiAnalysis | undefined> {
+    const [row] = await db.select().from(aiAnalyses)
+      .where(and(eq(aiAnalyses.userId, userId), eq(aiAnalyses.type, type as any), eq(aiAnalyses.periodKey, periodKey)));
+    return row;
+  }
+
+  async upsertAiAnalysis(userId: number, type: 'monthly_review' | 'mid_month_check', periodKey: string, content: string, dataSnapshot?: string): Promise<AiAnalysis> {
+    const existing = await this.getAiAnalysis(userId, type, periodKey);
+    if (existing) {
+      const [updated] = await db.update(aiAnalyses)
+        .set({ content, dataSnapshot: dataSnapshot ?? existing.dataSnapshot })
+        .where(eq(aiAnalyses.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(aiAnalyses).values({ userId, type, periodKey, content, dataSnapshot }).returning();
+    return created;
+  }
+
+  async updateSageMessageFeedback(id: number, feedback: number): Promise<void> {
+    await db.update(sageMessages).set({ feedback }).where(eq(sageMessages.id, id));
+  }
+
+  async updateAiAnalysisFeedback(id: number, feedback: number): Promise<void> {
+    await db.update(aiAnalyses).set({ feedback }).where(eq(aiAnalyses.id, id));
   }
 }
 

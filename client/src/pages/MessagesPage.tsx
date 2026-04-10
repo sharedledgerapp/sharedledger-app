@@ -21,10 +21,415 @@ import {
   ListOrdered,
   ListTodo,
   AlignLeft,
+  Sparkles,
+  ThumbsUp,
+  ThumbsDown,
+  ChevronLeft,
+  RotateCcw,
 } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
 
-type TabType = "messages" | "notes";
+type TabType = "messages" | "notes" | "sage";
+
+// ─── Sage types ───────────────────────────────────────────────────────────────
+
+interface SageConversation {
+  id: number;
+  userId: number;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface SageMessage {
+  id: number;
+  conversationId: number;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string;
+}
+
+const SUGGESTED_QUESTIONS = [
+  "How am I doing with my budget this month?",
+  "What are my biggest spending categories?",
+  "Am I on track for my savings goals?",
+  "How does this month compare to last month?",
+  "What recurring expenses do I have?",
+  "What can I cut back on to save more?",
+];
+
+// ─── Sage message renderer (handles markdown-like formatting) ─────────────────
+
+function SageText({ content }: { content: string }) {
+  const lines = content.split("\n");
+  return (
+    <div className="space-y-1 text-sm leading-relaxed">
+      {lines.map((line, i) => {
+        if (line.startsWith("## ")) return <p key={i} className="font-semibold text-base mt-2">{line.slice(3)}</p>;
+        if (line.startsWith("# ")) return <p key={i} className="font-bold text-base mt-2">{line.slice(2)}</p>;
+        if (line.startsWith("**") && line.endsWith("**")) return <p key={i} className="font-semibold">{line.slice(2, -2)}</p>;
+        if (line.startsWith("- ") || line.startsWith("• ")) {
+          return (
+            <div key={i} className="flex gap-2 items-start">
+              <span className="text-primary mt-0.5 shrink-0">•</span>
+              <span>{line.slice(2)}</span>
+            </div>
+          );
+        }
+        if (line.trim() === "") return <div key={i} className="h-1" />;
+        // Inline bold (**text**)
+        const boldParts = line.split(/(\*\*[^*]+\*\*)/g);
+        if (boldParts.length > 1) {
+          return (
+            <p key={i}>
+              {boldParts.map((part, j) =>
+                part.startsWith("**") && part.endsWith("**")
+                  ? <strong key={j}>{part.slice(2, -2)}</strong>
+                  : part
+              )}
+            </p>
+          );
+        }
+        return <p key={i}>{line}</p>;
+      })}
+    </div>
+  );
+}
+
+// ─── Sage Tab ─────────────────────────────────────────────────────────────────
+
+function SageTab() {
+  const { user } = useAuth();
+  const [activeConvId, setActiveConvId] = useState<number | null>(null);
+  const [inputText, setInputText] = useState("");
+  const [localMessages, setLocalMessages] = useState<SageMessage[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [feedbackMap, setFeedbackMap] = useState<Record<number, number>>({});
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const { data: conversations, isLoading: convsLoading } = useQuery<SageConversation[]>({
+    queryKey: ["/api/sage/conversations"],
+  });
+
+  const { data: messages, isLoading: msgsLoading } = useQuery<SageMessage[]>({
+    queryKey: ["/api/sage/conversations", activeConvId, "messages"],
+    enabled: activeConvId !== null,
+  });
+
+  useEffect(() => {
+    if (messages) setLocalMessages(messages);
+  }, [messages]);
+
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [localMessages.length, isGenerating]);
+
+  const createConvMutation = useMutation({
+    mutationFn: async (title?: string) => {
+      const res = await apiRequest("POST", "/api/sage/conversations", { title });
+      return res.json() as Promise<SageConversation>;
+    },
+    onSuccess: (conv) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sage/conversations"] });
+      setActiveConvId(conv.id);
+      setLocalMessages([]);
+    },
+  });
+
+  const deleteConvMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/sage/conversations/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sage/conversations"] });
+      setActiveConvId(null);
+      setLocalMessages([]);
+    },
+  });
+
+  const feedbackMutation = useMutation({
+    mutationFn: async ({ id, feedback }: { id: number; feedback: number }) => {
+      await apiRequest("PATCH", `/api/sage/messages/${id}/feedback`, { feedback });
+    },
+  });
+
+  const handleSend = async (text?: string, convIdOverride?: number) => {
+    const convId = convIdOverride ?? activeConvId;
+    const msg = (text ?? inputText).trim();
+    if (!msg || isGenerating || !convId) return;
+    setInputText("");
+
+    const tempUser: SageMessage = {
+      id: Date.now(),
+      conversationId: convId,
+      role: "user",
+      content: msg,
+      createdAt: new Date().toISOString(),
+    };
+    setLocalMessages(prev => [...prev, tempUser]);
+    setIsGenerating(true);
+
+    try {
+      const res = await apiRequest("POST", `/api/sage/conversations/${convId}/messages`, { message: msg });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed");
+      queryClient.invalidateQueries({ queryKey: ["/api/sage/conversations", convId, "messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sage/conversations"] });
+      setLocalMessages(prev => {
+        const withoutTemp = prev.filter(m => m.id !== tempUser.id);
+        return [...withoutTemp, tempUser, data.reply];
+      });
+    } catch (e: any) {
+      setLocalMessages(prev => prev.filter(m => m.id !== tempUser.id));
+      setLocalMessages(prev => [...prev, {
+        id: Date.now(),
+        conversationId: convId,
+        role: "assistant",
+        content: e.message || "Something went wrong. Please try again.",
+        createdAt: new Date().toISOString(),
+      }]);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleFeedback = (msgId: number, feedback: number) => {
+    setFeedbackMap(prev => ({ ...prev, [msgId]: feedback }));
+    feedbackMutation.mutate({ id: msgId, feedback });
+  };
+
+  // Auto-open the only conversation if there is one
+  useEffect(() => {
+    if (conversations && conversations.length === 1 && activeConvId === null) {
+      setActiveConvId(conversations[0].id);
+    }
+  }, [conversations, activeConvId]);
+
+  // ── Conversation list view ───────────────────────────────────────────────────
+  if (activeConvId === null) {
+    return (
+      <div className="flex flex-col flex-1 min-h-0 overflow-y-auto">
+        <div className="p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              <h2 className="font-semibold text-base">Sage</h2>
+              <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">Beta</span>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => createConvMutation.mutate()}
+              disabled={createConvMutation.isPending}
+              data-testid="button-new-sage-conversation"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              New chat
+            </Button>
+          </div>
+
+          <p className="text-sm text-muted-foreground">
+            Your AI financial advisor. Ask about your spending, budgets, goals, or how the app works.
+          </p>
+
+          {convsLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
+            </div>
+          ) : conversations && conversations.length > 0 ? (
+            <div className="space-y-2">
+              {conversations.map(conv => (
+                <Card
+                  key={conv.id}
+                  className="p-3 cursor-pointer hover:bg-secondary/40 transition-colors flex items-center justify-between"
+                  onClick={() => setActiveConvId(conv.id)}
+                  data-testid={`card-sage-conversation-${conv.id}`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Sparkles className="w-4 h-4 text-primary shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{conv.title}</p>
+                      <p className="text-xs text-muted-foreground">{format(new Date(conv.updatedAt), "MMM d, h:mm a")}</p>
+                    </div>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={(e) => { e.stopPropagation(); deleteConvMutation.mutate(conv.id); }}
+                    data-testid={`button-delete-sage-conv-${conv.id}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground font-medium">Start by asking something:</p>
+              <div className="grid grid-cols-1 gap-2">
+                {SUGGESTED_QUESTIONS.map((q, i) => (
+                  <button
+                    key={i}
+                    onClick={async () => {
+                      const conv = await createConvMutation.mutateAsync(q.slice(0, 60));
+                      if (conv) {
+                        setActiveConvId(conv.id);
+                        handleSend(q, conv.id);
+                      }
+                    }}
+                    className="text-left text-sm px-3 py-2.5 rounded-xl border border-border/60 hover:bg-secondary/40 hover:border-primary/30 transition-colors text-muted-foreground"
+                    data-testid={`button-suggested-question-${i}`}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Active conversation view ─────────────────────────────────────────────────
+  const currentConv = conversations?.find(c => c.id === activeConvId);
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-border/40 bg-background/80">
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => { setActiveConvId(null); setLocalMessages([]); }}
+          data-testid="button-back-conversations"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </Button>
+        <Sparkles className="w-4 h-4 text-primary" />
+        <span className="text-sm font-medium truncate flex-1">{currentConv?.title || "Sage"}</span>
+        <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium shrink-0">Beta</span>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {msgsLoading ? (
+          <div className="space-y-3">
+            {[1, 2].map(i => <Skeleton key={i} className="h-16 w-3/4 rounded-2xl" />)}
+          </div>
+        ) : localMessages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-16 space-y-4">
+            <Sparkles className="w-12 h-12 opacity-20" />
+            <p className="font-medium">Ask Sage anything</p>
+            <div className="grid grid-cols-1 gap-2 w-full max-w-xs">
+              {SUGGESTED_QUESTIONS.slice(0, 3).map((q, i) => (
+                <button
+                  key={i}
+                  onClick={() => handleSend(q)}
+                  className="text-left text-xs px-3 py-2 rounded-lg border border-border/60 hover:bg-secondary/40 transition-colors"
+                  data-testid={`button-quick-question-${i}`}
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            {localMessages.map((msg) => {
+              const isUser = msg.role === "user";
+              return (
+                <div
+                  key={msg.id}
+                  className={cn("flex flex-col", isUser ? "items-end" : "items-start")}
+                  data-testid={`sage-message-${msg.id}`}
+                >
+                  {!isUser && (
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Sparkles className="w-3 h-3 text-primary" />
+                      </div>
+                      <span className="text-[11px] text-muted-foreground font-medium">Sage</span>
+                    </div>
+                  )}
+                  <div
+                    className={cn(
+                      "max-w-[85%] px-3.5 py-2.5 rounded-2xl break-words",
+                      isUser
+                        ? "bg-primary text-primary-foreground rounded-br-md text-sm"
+                        : "bg-secondary text-secondary-foreground rounded-bl-md"
+                    )}
+                  >
+                    {isUser ? msg.content : <SageText content={msg.content} />}
+                  </div>
+                  {!isUser && (
+                    <div className="flex items-center gap-1 mt-1 ml-1">
+                      <button
+                        onClick={() => handleFeedback(msg.id, 1)}
+                        className={cn("p-1 rounded hover:bg-secondary transition-colors", feedbackMap[msg.id] === 1 ? "text-primary" : "text-muted-foreground")}
+                        data-testid={`button-thumbs-up-${msg.id}`}
+                      >
+                        <ThumbsUp className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => handleFeedback(msg.id, -1)}
+                        className={cn("p-1 rounded hover:bg-secondary transition-colors", feedbackMap[msg.id] === -1 ? "text-destructive" : "text-muted-foreground")}
+                        data-testid={`button-thumbs-down-${msg.id}`}
+                      >
+                        <ThumbsDown className="w-3 h-3" />
+                      </button>
+                      <span className="text-[10px] text-muted-foreground ml-1">
+                        {format(new Date(msg.createdAt), "h:mm a")}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {isGenerating && (
+              <div className="flex items-start gap-2" data-testid="sage-generating">
+                <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Sparkles className="w-3 h-3 text-primary animate-pulse" />
+                </div>
+                <div className="bg-secondary rounded-2xl rounded-bl-md px-4 py-3">
+                  <div className="flex gap-1">
+                    <span className="w-2 h-2 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-2 h-2 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-2 h-2 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </>
+        )}
+      </div>
+
+      <div className="border-t border-border/40 p-3 bg-background/80 backdrop-blur-sm">
+        <div className="flex items-center gap-2">
+          <Input
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+            placeholder="Ask Sage anything…"
+            disabled={isGenerating}
+            className="flex-1 rounded-full bg-secondary/50 border-0 focus-visible:ring-1"
+            data-testid="input-sage-message"
+          />
+          <Button
+            size="icon"
+            onClick={() => handleSend()}
+            disabled={!inputText.trim() || isGenerating}
+            className="rounded-full shrink-0"
+            data-testid="button-send-sage"
+          >
+            <Send className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface MessageItem {
   id: number;
@@ -722,7 +1127,9 @@ function NoteCard({
 
 export default function MessagesPage() {
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<TabType>("messages");
+  const { user } = useAuth();
+  const isSolo = !((user as any)?.familyId);
+  const [activeTab, setActiveTab] = useState<TabType>(isSolo ? "sage" : "messages");
 
   return (
     <div
@@ -731,36 +1138,55 @@ export default function MessagesPage() {
     >
       <div className="px-4 pt-4 pb-2">
         <div className="flex items-center gap-1 p-1 bg-secondary/50 rounded-xl">
+          {!isSolo && (
+            <button
+              onClick={() => setActiveTab("messages")}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all",
+                activeTab === "messages"
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground"
+              )}
+              data-testid="tab-messages"
+            >
+              <MessageCircle className="w-4 h-4" />
+              {t("messages")}
+            </button>
+          )}
+          {!isSolo && (
+            <button
+              onClick={() => setActiveTab("notes")}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all",
+                activeTab === "notes"
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground"
+              )}
+              data-testid="tab-notes"
+            >
+              <StickyNote className="w-4 h-4" />
+              {t("savedNotes")}
+            </button>
+          )}
           <button
-            onClick={() => setActiveTab("messages")}
+            onClick={() => setActiveTab("sage")}
             className={cn(
               "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all",
-              activeTab === "messages"
+              activeTab === "sage"
                 ? "bg-background shadow-sm text-foreground"
                 : "text-muted-foreground"
             )}
-            data-testid="tab-messages"
+            data-testid="tab-sage"
           >
-            <MessageCircle className="w-4 h-4" />
-            {t("messages")}
-          </button>
-          <button
-            onClick={() => setActiveTab("notes")}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all",
-              activeTab === "notes"
-                ? "bg-background shadow-sm text-foreground"
-                : "text-muted-foreground"
-            )}
-            data-testid="tab-notes"
-          >
-            <StickyNote className="w-4 h-4" />
-            {t("savedNotes")}
+            <Sparkles className="w-4 h-4" />
+            Sage
           </button>
         </div>
       </div>
 
-      {activeTab === "messages" ? <MessagesTab /> : <NotesTab />}
+      {activeTab === "messages" && <MessagesTab />}
+      {activeTab === "notes" && <NotesTab />}
+      {activeTab === "sage" && <SageTab />}
     </div>
   );
 }

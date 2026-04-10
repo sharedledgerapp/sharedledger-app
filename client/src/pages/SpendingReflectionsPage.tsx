@@ -1,14 +1,222 @@
+import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useExpenses } from "@/hooks/use-data";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronLeft, TrendingUp, Calendar, PieChart } from "lucide-react";
-import { Link } from "wouter";
+import { ChevronLeft, TrendingUp, Calendar, PieChart, Sparkles, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, format } from "date-fns";
-import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
+
+interface AiAnalysis {
+  id: number;
+  userId: number;
+  type: "monthly_review" | "mid_month_check";
+  periodKey: string;
+  content: string;
+  feedback: number | null;
+  createdAt: string;
+}
+
+function AnalysisCard({ analysis }: { analysis: AiAnalysis }) {
+  const [expanded, setExpanded] = useState(false);
+  const [localFeedback, setLocalFeedback] = useState<number | null>(analysis.feedback);
+
+  const feedbackMutation = useMutation({
+    mutationFn: async (feedback: number) => {
+      await apiRequest("PATCH", `/api/sage/analyses/${analysis.id}/feedback`, { feedback });
+    },
+    onSuccess: (_, feedback) => {
+      setLocalFeedback(feedback);
+      queryClient.invalidateQueries({ queryKey: ["/api/sage/analyses"] });
+    },
+  });
+
+  const typeLabel = analysis.type === "monthly_review" ? "Monthly Review" : "Mid-Month Check";
+  const periodLabel = analysis.type === "monthly_review"
+    ? format(new Date(analysis.periodKey + "-01"), "MMMM yyyy")
+    : format(new Date(analysis.periodKey.replace("-mid", "") + "-01"), "MMMM yyyy") + " (mid-month)";
+
+  const preview = analysis.content.slice(0, 200).replace(/[#*]/g, "").trim() + "…";
+
+  return (
+    <Card className="border-border/50">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <span className="text-xs font-semibold text-primary">{typeLabel}</span>
+            </div>
+            <p className="text-sm font-medium">{periodLabel}</p>
+            <p className="text-xs text-muted-foreground">{format(new Date(analysis.createdAt), "MMM d, yyyy 'at' h:mm a")}</p>
+          </div>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => setExpanded(!expanded)}
+            className="shrink-0"
+            data-testid={`button-expand-analysis-${analysis.id}`}
+          >
+            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </Button>
+        </div>
+
+        {!expanded && (
+          <p className="text-sm text-muted-foreground leading-relaxed">{preview}</p>
+        )}
+
+        {expanded && (
+          <div className="text-sm text-foreground leading-relaxed space-y-1">
+            {analysis.content.split("\n").map((line, i) => {
+              if (line.startsWith("## ")) return <p key={i} className="font-semibold text-base mt-3">{line.slice(3)}</p>;
+              if (line.startsWith("# ")) return <p key={i} className="font-bold text-base mt-3">{line.slice(2)}</p>;
+              if (line.startsWith("- ") || line.startsWith("• ")) {
+                return (
+                  <div key={i} className="flex gap-2 items-start">
+                    <span className="text-primary mt-0.5 shrink-0">•</span>
+                    <span>{line.slice(2)}</span>
+                  </div>
+                );
+              }
+              const boldParts = line.split(/(\*\*[^*]+\*\*)/g);
+              if (boldParts.length > 1) {
+                return (
+                  <p key={i}>
+                    {boldParts.map((part, j) =>
+                      part.startsWith("**") && part.endsWith("**")
+                        ? <strong key={j}>{part.slice(2, -2)}</strong>
+                        : part
+                    )}
+                  </p>
+                );
+              }
+              if (line.trim() === "") return <div key={i} className="h-1" />;
+              return <p key={i}>{line}</p>;
+            })}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 pt-1 border-t border-border/30">
+          <span className="text-xs text-muted-foreground">Was this helpful?</span>
+          <button
+            onClick={() => feedbackMutation.mutate(1)}
+            className={cn("p-1 rounded hover:bg-secondary transition-colors", localFeedback === 1 ? "text-primary" : "text-muted-foreground")}
+            data-testid={`button-thumbs-up-analysis-${analysis.id}`}
+          >
+            <ThumbsUp className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => feedbackMutation.mutate(-1)}
+            className={cn("p-1 rounded hover:bg-secondary transition-colors", localFeedback === -1 ? "text-destructive" : "text-muted-foreground")}
+            data-testid={`button-thumbs-down-analysis-${analysis.id}`}
+          >
+            <ThumbsDown className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function HistoryTab() {
+  const [generatingType, setGeneratingType] = useState<string | null>(null);
+  const { data: analyses, isLoading } = useQuery<AiAnalysis[]>({
+    queryKey: ["/api/sage/analyses"],
+  });
+
+  const generateMutation = useMutation({
+    mutationFn: async (type: "monthly_review" | "mid_month_check") => {
+      setGeneratingType(type);
+      const res = await apiRequest("POST", "/api/sage/analyses/generate", { type });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to generate");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sage/analyses"] });
+      setGeneratingType(null);
+    },
+    onError: () => setGeneratingType(null),
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary" />
+            Financial History
+            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">Beta</span>
+          </h3>
+          <p className="text-xs text-muted-foreground mt-0.5">AI-generated monthly reviews and mid-month checks</p>
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => generateMutation.mutate("mid_month_check")}
+          disabled={generateMutation.isPending}
+          className="flex-1 text-xs"
+          data-testid="button-generate-midmonth"
+        >
+          {generatingType === "mid_month_check" ? (
+            <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+          ) : (
+            <Sparkles className="w-3 h-3 mr-1" />
+          )}
+          Mid-month check
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => generateMutation.mutate("monthly_review")}
+          disabled={generateMutation.isPending}
+          className="flex-1 text-xs"
+          data-testid="button-generate-monthly"
+        >
+          {generatingType === "monthly_review" ? (
+            <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+          ) : (
+            <Sparkles className="w-3 h-3 mr-1" />
+          )}
+          Monthly review
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-32 w-full rounded-xl" />)}
+        </div>
+      ) : !analyses || analyses.length === 0 ? (
+        <Card className="border-dashed border-border/50">
+          <CardContent className="p-8 text-center">
+            <Sparkles className="w-10 h-10 mx-auto mb-3 opacity-20" />
+            <p className="font-medium text-sm">No analyses yet</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Sage generates a mid-month check around the 14th and a full monthly review at the start of each month.
+              You can also generate one manually above.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {analyses.map(a => <AnalysisCard key={a.id} analysis={a} />)}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#a78bfa", "#fb7185"];
 
@@ -78,12 +286,16 @@ export default function SpendingReflectionsPage() {
       </div>
 
       <Tabs defaultValue="weekly" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="weekly" data-testid="tab-weekly">
             {t("weeklyReflections")}
           </TabsTrigger>
           <TabsTrigger value="monthly" data-testid="tab-monthly">
             {t("monthlyReflections")}
+          </TabsTrigger>
+          <TabsTrigger value="history" data-testid="tab-history">
+            <Sparkles className="w-3.5 h-3.5 mr-1" />
+            History
           </TabsTrigger>
         </TabsList>
 
@@ -271,6 +483,10 @@ export default function SpendingReflectionsPage() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-4">
+          <HistoryTab />
         </TabsContent>
       </Tabs>
     </div>

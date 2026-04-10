@@ -20,6 +20,7 @@ import passport from "passport";
 import { db } from "./db";
 import { GoogleGenAI } from "@google/genai";
 import { startPushScheduler, sendPushToUser, markNotified, wasNotifiedSince } from "./push-scheduler";
+import { generateSageReply, generateAnalysis, checkSageDailyLimit } from "./sage";
 import { sendFeedbackEmail, sendWelcomeEmail, sendPasswordResetEmail, sendWhatsNewEmail } from "./email";
 import { scheduleWhatsNewEmail, cancelWhatsNewEmail, getWhatsNewStatus } from "./email-scheduler";
 import rateLimit from "express-rate-limit";
@@ -2608,6 +2609,171 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
     const cancelled = cancelWhatsNewEmail();
     return res.json({ cancelled, message: cancelled ? "Scheduled send cancelled." : "Already sent — cannot cancel." });
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // SAGE AI ROUTES
+  // ═══════════════════════════════════════════════════════════════
+
+  // List conversations
+  app.get("/api/sage/conversations", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const convs = await storage.getSageConversations(user.id);
+      res.json(convs);
+    } catch (e) {
+      res.status(500).json({ message: "Failed to load conversations" });
+    }
+  });
+
+  // Create new conversation
+  app.post("/api/sage/conversations", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { title } = req.body;
+      const conv = await storage.createSageConversation(user.id, title || "New conversation");
+      res.json(conv);
+    } catch (e) {
+      res.status(500).json({ message: "Failed to create conversation" });
+    }
+  });
+
+  // Delete conversation
+  app.delete("/api/sage/conversations/:id", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const convs = await storage.getSageConversations(user.id);
+      const conv = convs.find(c => c.id === Number(req.params.id));
+      if (!conv) return res.status(404).json({ message: "Conversation not found" });
+      await storage.deleteSageConversation(conv.id);
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ message: "Failed to delete conversation" });
+    }
+  });
+
+  // Get messages in a conversation
+  app.get("/api/sage/conversations/:id/messages", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const convs = await storage.getSageConversations(user.id);
+      const conv = convs.find(c => c.id === Number(req.params.id));
+      if (!conv) return res.status(404).json({ message: "Conversation not found" });
+      const msgs = await storage.getSageMessages(conv.id);
+      res.json(msgs);
+    } catch (e) {
+      res.status(500).json({ message: "Failed to load messages" });
+    }
+  });
+
+  // Send a message to Sage
+  app.post("/api/sage/conversations/:id/messages", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { message } = req.body;
+      if (!message || typeof message !== "string" || message.trim().length === 0) {
+        return res.status(400).json({ message: "Message is required" });
+      }
+
+      const convs = await storage.getSageConversations(user.id);
+      const conv = convs.find(c => c.id === Number(req.params.id));
+      if (!conv) return res.status(404).json({ message: "Conversation not found" });
+
+      // Rate limit check
+      const { allowed, used, limit } = await checkSageDailyLimit(user.id);
+      if (!allowed) {
+        return res.status(429).json({ message: `You've used your ${limit} daily Sage messages. Resets at midnight.` });
+      }
+
+      // Save user message
+      await storage.createSageMessage(conv.id, 'user', message.trim());
+
+      // Build conversation history (last 10 exchanges = 20 messages)
+      const history = await storage.getSageMessages(conv.id);
+      const historyForAI = history.slice(-21, -1).map(m => ({ role: m.role, content: m.content }));
+
+      // Generate Sage response
+      const reply = await generateSageReply(user.id, historyForAI, message.trim());
+
+      // Save Sage response
+      const savedReply = await storage.createSageMessage(conv.id, 'assistant', reply);
+
+      // Auto-title the conversation from first message
+      if (history.length <= 1) {
+        const title = message.trim().slice(0, 60) + (message.trim().length > 60 ? "…" : "");
+        await storage.updateSageConversationTitle(conv.id, title);
+      }
+
+      res.json({ reply: savedReply });
+    } catch (e: any) {
+      console.error("[Sage] Error generating reply:", e?.message);
+      res.status(500).json({ message: "Sage is unavailable right now. Please try again." });
+    }
+  });
+
+  // Get stored AI analyses (Financial History)
+  app.get("/api/sage/analyses", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const analyses = await storage.getAiAnalyses(user.id);
+      res.json(analyses);
+    } catch (e) {
+      res.status(500).json({ message: "Failed to load analyses" });
+    }
+  });
+
+  // Manually trigger an analysis
+  app.post("/api/sage/analyses/generate", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { type } = req.body;
+      if (type !== 'monthly_review' && type !== 'mid_month_check') {
+        return res.status(400).json({ message: "type must be monthly_review or mid_month_check" });
+      }
+
+      const now = new Date();
+      let periodKey: string;
+      if (type === 'monthly_review') {
+        const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        periodKey = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}`;
+      } else {
+        periodKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-mid`;
+      }
+
+      const content = await generateAnalysis(user.id, type);
+      const analysis = await storage.upsertAiAnalysis(user.id, type, periodKey, content);
+      res.json(analysis);
+    } catch (e: any) {
+      console.error("[Sage] Error generating analysis:", e?.message);
+      res.status(500).json({ message: "Failed to generate analysis. Please try again." });
+    }
+  });
+
+  // Submit feedback on an analysis
+  app.patch("/api/sage/analyses/:id/feedback", requireAuth, async (req, res) => {
+    try {
+      const { feedback } = req.body;
+      if (feedback !== 1 && feedback !== -1) {
+        return res.status(400).json({ message: "feedback must be 1 or -1" });
+      }
+      await storage.updateAiAnalysisFeedback(Number(req.params.id), feedback);
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ message: "Failed to save feedback" });
+    }
+  });
+
+  app.patch("/api/sage/messages/:id/feedback", requireAuth, async (req, res) => {
+    try {
+      const { feedback } = req.body;
+      if (feedback !== 1 && feedback !== -1) {
+        return res.status(400).json({ message: "feedback must be 1 or -1" });
+      }
+      await storage.updateSageMessageFeedback(Number(req.params.id), feedback);
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ message: "Failed to save feedback" });
+    }
   });
 
   startPushScheduler();

@@ -3,6 +3,8 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { users, expenses, budgets, pushNotificationLog, recurringExpenses, incomeEntries } from "@shared/schema";
 import { eq, and, gte, lte, lt, sql, inArray } from "drizzle-orm";
+import { generateAnalysis } from "./sage";
+import { format, subMonths, startOfMonth } from "date-fns";
 
 async function wasNotifiedToday(userId: number, type: string): Promise<boolean> {
   const today = new Date();
@@ -492,6 +494,55 @@ async function checkRecurringReminders() {
   }
 }
 
+async function checkSageAnalyses() {
+  const now = new Date();
+  const dayOfMonth = now.getDate();
+
+  const allUsers = await db.select({ id: users.id }).from(users);
+
+  for (const { id: userId } of allUsers) {
+    try {
+      // Monthly review: generate on day 1 or 2 of the month for the previous month
+      if (dayOfMonth === 1 || dayOfMonth === 2) {
+        const prevMonth = subMonths(now, 1);
+        const periodKey = format(prevMonth, 'yyyy-MM');
+        const dedupeKey = `sage_monthly_${periodKey}`;
+        const alreadyDone = await wasNotifiedSince(userId, dedupeKey, startOfMonth(now));
+        if (!alreadyDone) {
+          const content = await generateAnalysis(userId, 'monthly_review');
+          await storage.upsertAiAnalysis(userId, 'monthly_review', periodKey, content);
+          await markNotified(userId, dedupeKey);
+          await sendPushToUser(userId, {
+            title: `Your ${format(prevMonth, 'MMMM')} review is ready`,
+            body: "Sage has prepared your monthly financial review. Tap to read it.",
+            url: "/app/messages",
+          });
+        }
+      }
+
+      // Mid-month check: generate on day 14, 15, or 16
+      if (dayOfMonth >= 14 && dayOfMonth <= 16) {
+        const periodKey = `${format(now, 'yyyy-MM')}-mid`;
+        const dedupeKey = `sage_midmonth_${periodKey}`;
+        const monthStart = startOfMonth(now);
+        const alreadyDone = await wasNotifiedSince(userId, dedupeKey, monthStart);
+        if (!alreadyDone) {
+          const content = await generateAnalysis(userId, 'mid_month_check');
+          await storage.upsertAiAnalysis(userId, 'mid_month_check', periodKey, content);
+          await markNotified(userId, dedupeKey);
+          await sendPushToUser(userId, {
+            title: "Mid-month check from Sage",
+            body: "You're halfway through the month. Sage has a quick update on how you're tracking.",
+            url: "/app/messages",
+          });
+        }
+      }
+    } catch (err) {
+      console.error(`[Sage] Analysis generation failed for user ${userId}:`, err);
+    }
+  }
+}
+
 let schedulerInterval: ReturnType<typeof setInterval> | null = null;
 let schedulerStarted = false;
 
@@ -521,6 +572,7 @@ export function startPushScheduler() {
       { name: "monthlyReminders", fn: checkMonthlyReminders },
       { name: "budgetAlerts", fn: checkBudgetAlerts },
       { name: "recurringReminders", fn: checkRecurringReminders },
+      { name: "sageAnalyses", fn: checkSageAnalyses },
     ];
     for (const { name, fn } of checks) {
       try {
