@@ -636,7 +636,12 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     //   otherwise fall back to the full amount (user paid it solo / no split tracked)
     // - Orphaned expenses (from groups the user has left) get the same currency check via
     //   the orphanedGroupCurrencies safety net above
+    // crossCurrencyGroupExpenseCount — expenses excluded because the group uses a DIFFERENT currency
+    //   than the user (only relevant when includeQuickGroupInSummary is true).
+    // settingExcludedGroupExpenseCount — expenses excluded because includeQuickGroupInSummary is
+    //   false (the default). These are not a currency issue; they're a privacy/opt-in choice.
     let crossCurrencyGroupExpenseCount = 0;
+    let settingExcludedGroupExpenseCount = 0;
     const personalExpenses = allExpenses
       .filter(e => e.paymentSource === "personal")
       .map(e => {
@@ -644,7 +649,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
           if (friendGroupMap.has(e.familyId)) {
             // Expense belongs to an active friend group
             if (!includeQuickGroupInSummary) {
-              crossCurrencyGroupExpenseCount++;
+              settingExcludedGroupExpenseCount++;
               return null;
             }
             const group = friendGroupMap.get(e.familyId)!;
@@ -674,7 +679,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
             }
             // Orphaned friend group expense — exclude unless user opted in
             if (!includeQuickGroupInSummary) {
-              crossCurrencyGroupExpenseCount++;
+              settingExcludedGroupExpenseCount++;
               return null;
             }
             // Apply currency exclusion for friend group expenses
@@ -758,6 +763,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       recurringMonthlyTotal: recurringMonthlyTotal.toFixed(2),
       combinedMonthlyTotal: combinedMonthlyTotal.toFixed(2),
       crossCurrencyGroupExpenseCount,
+      settingExcludedGroupExpenseCount,
       monthlyIncomeTotal: monthlyIncomeTotal.toFixed(2),
       hasIncomeEntries,
     });

@@ -118,6 +118,7 @@ export default function HomePage() {
     recurringMonthlyTotal: string;
     combinedMonthlyTotal: string;
     crossCurrencyGroupExpenseCount: number;
+    settingExcludedGroupExpenseCount: number;
     monthlyIncomeTotal: string;
     hasIncomeEntries: boolean;
   }>({
@@ -315,6 +316,12 @@ export default function HomePage() {
                     <span>{spendingSummary!.crossCurrencyGroupExpenseCount} group expense{spendingSummary!.crossCurrencyGroupExpenseCount !== 1 ? "s" : ""} in other currencies not counted</span>
                   </div>
                 )}
+                {(spendingSummary?.settingExcludedGroupExpenseCount ?? 0) > 0 && (
+                  <div className="mt-2 flex items-center gap-1 text-white/60 text-[10px]" data-testid="badge-setting-excluded-note">
+                    <Globe className="w-3 h-3 shrink-0" />
+                    <span>{spendingSummary!.settingExcludedGroupExpenseCount} group expense{spendingSummary!.settingExcludedGroupExpenseCount !== 1 ? "s" : ""} tracked separately in Group tab</span>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </Link>
@@ -384,6 +391,12 @@ export default function HomePage() {
                 <div className="mt-2 flex items-center gap-1 text-white/60 text-[10px]" data-testid="badge-cross-currency-note">
                   <Globe className="w-3 h-3 shrink-0" />
                   <span>{spendingSummary!.crossCurrencyGroupExpenseCount} group expense{spendingSummary!.crossCurrencyGroupExpenseCount !== 1 ? "s" : ""} in other currencies not counted</span>
+                </div>
+              )}
+              {(spendingSummary?.settingExcludedGroupExpenseCount ?? 0) > 0 && (
+                <div className="mt-2 flex items-center gap-1 text-white/60 text-[10px]" data-testid="badge-setting-excluded-note">
+                  <Globe className="w-3 h-3 shrink-0" />
+                  <span>{spendingSummary!.settingExcludedGroupExpenseCount} group expense{spendingSummary!.settingExcludedGroupExpenseCount !== 1 ? "s" : ""} tracked separately in Group tab</span>
                 </div>
               )}
             </CardContent>
