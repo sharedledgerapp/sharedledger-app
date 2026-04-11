@@ -666,6 +666,17 @@ If any field cannot be determined, use null. Be precise with the total amount. R
             return e;
           } else {
             // familyId exists but is not in the active friend-group map.
+
+            // If this expense is tagged with the user's own primary family group,
+            // always include it regardless of group type. The friend-group exclusion
+            // logic is only for secondary groups the user joined separately (via
+            // friend_group_members). A primary family_id on the user record means
+            // this is their household group, and their personal expenses belong in
+            // Money Out no matter how the group is typed.
+            if (user.familyId && e.familyId === user.familyId) {
+              return e;
+            }
+
             const orphanEntry = orphanedGroupCurrencies.get(e.familyId);
             if (orphanEntry === undefined) {
               // Group row no longer exists — exclude as safe default
