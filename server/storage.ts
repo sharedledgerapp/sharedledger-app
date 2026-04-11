@@ -123,7 +123,7 @@ export interface IStorage {
   deleteIncomeEntry(id: number): Promise<void>;
   getMonthlyIncomeTotal(userId: number, monthStart: Date, monthEnd: Date): Promise<number>;
   getFamilyIncomeEntries(familyId: number, startDate?: Date, endDate?: Date): Promise<(IncomeEntry & { userName: string })[]>;
-  getFamilyMonthlyIncomeTotal(familyId: number, monthStart: Date, monthEnd: Date): Promise<number>;
+  getFamilyMonthlyIncomeTotal(familyId: number, monthStart: Date, monthEnd: Date, excludeUserId?: number): Promise<number>;
 
   // Friend Groups
   getFriendGroupExpenses(groupId: number): Promise<(Expense & { splits: ExpenseSplit[] })[]>;
@@ -1106,11 +1106,14 @@ export class DatabaseStorage implements IStorage {
     })) as (IncomeEntry & { userName: string })[];
   }
 
-  async getFamilyMonthlyIncomeTotal(familyId: number, monthStart: Date, monthEnd: Date): Promise<number> {
+  async getFamilyMonthlyIncomeTotal(familyId: number, monthStart: Date, monthEnd: Date, excludeUserId?: number): Promise<number> {
+    const whereClause = excludeUserId
+      ? and(eq(incomeEntries.familyId, familyId), ne(incomeEntries.userId, excludeUserId))
+      : eq(incomeEntries.familyId, familyId);
     const allEntries = await db
       .select()
       .from(incomeEntries)
-      .where(eq(incomeEntries.familyId, familyId));
+      .where(whereClause);
 
     let total = 0;
     for (const e of allEntries) {
