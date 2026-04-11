@@ -121,7 +121,7 @@ export default function FamilyPage() {
 
   const [createDialog, setCreateDialog] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
-  const [newGroupType, setNewGroupType] = useState<"family" | "roommates" | "couple" | "friends">("family");
+  const [newGroupType, setNewGroupType] = useState<"family" | "roommates" | "couple">("family");
 
   const [joinDialog, setJoinDialog] = useState(false);
   const [joinCode, setJoinCode] = useState("");
@@ -367,7 +367,7 @@ export default function FamilyPage() {
                 <div>
                   <Label className="text-sm font-medium mb-2 block">Group Type</Label>
                   <div className="grid grid-cols-2 gap-2">
-                    {(["family", "roommates", "couple", "friends"] as const).map((type) => (
+                    {(["family", "roommates", "couple"] as const).map((type) => (
                       <button
                         key={type}
                         type="button"
@@ -379,7 +379,7 @@ export default function FamilyPage() {
                         }`}
                         data-testid={`button-new-group-type-${type}`}
                       >
-                        {type === "roommates" ? "Roommates" : type === "couple" ? "Couple" : type === "friends" ? "Friends" : "Family"}
+                        {type === "roommates" ? "Roommates" : type === "couple" ? "Couple" : "Family"}
                       </button>
                     ))}
                   </div>
@@ -390,7 +390,6 @@ export default function FamilyPage() {
                     placeholder={
                       newGroupType === "family" ? "The Smith Family"
                       : newGroupType === "roommates" ? "Apartment 4B"
-                      : newGroupType === "friends" ? "The Weekend Squad"
                       : "Our Finances"
                     }
                     value={newGroupName}

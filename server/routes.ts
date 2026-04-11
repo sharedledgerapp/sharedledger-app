@@ -2868,6 +2868,25 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
   });
 
+  // PATCH /api/admin/family/:id/settings — fix group type / currency (admin only)
+  app.patch("/api/admin/family/:id/settings", async (req, res, next) => {
+    try {
+      const adminSecret = process.env.ADMIN_SECRET;
+      if (!adminSecret || req.headers["x-admin-secret"] !== adminSecret) {
+        return res.status(401).json({ message: "Unauthorised" });
+      }
+      const familyId = Number(req.params.id);
+      const { groupType, currency } = req.body as { groupType?: string; currency?: string };
+      if (!groupType && !currency) {
+        return res.status(400).json({ message: "Provide groupType and/or currency" });
+      }
+      const updated = await storage.updateFamilyGroupSettings(familyId, { groupType, currency });
+      res.json({ success: true, family: updated });
+    } catch (e) {
+      next(e);
+    }
+  });
+
   startPushScheduler();
   scheduleWhatsNewEmail(() => storage.getAllUsersWithEmail());
 

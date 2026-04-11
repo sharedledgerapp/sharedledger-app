@@ -152,6 +152,7 @@ export interface IStorage {
   upsertAiAnalysis(userId: number, type: 'monthly_review' | 'mid_month_check', periodKey: string, content: string, dataSnapshot?: string): Promise<AiAnalysis>;
   updateAiAnalysisFeedback(id: number, feedback: number): Promise<void>;
   updateSageMessageFeedback(id: number, feedback: number): Promise<void>;
+  updateFamilyGroupSettings(familyId: number, settings: { groupType?: string; currency?: string }): Promise<Family>;
 
   sessionStore: session.Store;
 }
@@ -976,6 +977,17 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db.update(families)
       .set({ archived: true })
       .where(eq(families.id, groupId))
+      .returning();
+    return updated;
+  }
+
+  async updateFamilyGroupSettings(familyId: number, settings: { groupType?: string; currency?: string }): Promise<Family> {
+    const updates: Record<string, unknown> = {};
+    if (settings.groupType !== undefined) updates.groupType = settings.groupType;
+    if (settings.currency !== undefined) updates.currency = settings.currency;
+    const [updated] = await db.update(families)
+      .set(updates)
+      .where(eq(families.id, familyId))
       .returning();
     return updated;
   }
