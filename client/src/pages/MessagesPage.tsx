@@ -1658,7 +1658,7 @@ function MessagesConversationList({
         </div>
         <div className="flex-1 min-w-0 text-left">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm">Sage</span>
+            <span className="font-semibold text-sm">Sage AI</span>
             <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">Beta</span>
           </div>
           <p className="text-xs text-muted-foreground truncate">AI Financial Advisor</p>
@@ -1685,7 +1685,7 @@ function MessagesConversationList({
             </div>
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground truncate">
-                {lastMsg ? lastMsg.content : "No messages yet"}
+                {lastMsg ? lastMsg.content : "No messages yet — say hello!"}
               </p>
               {unreadCount > 0 && (
                 <Badge className="h-5 min-w-5 px-1.5 text-[10px] shrink-0 bg-primary text-primary-foreground" data-testid="badge-unread-count">
