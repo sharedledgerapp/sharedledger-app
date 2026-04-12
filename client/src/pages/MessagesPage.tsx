@@ -32,6 +32,7 @@ import {
   Lock,
   Users,
   ChevronRight,
+  Pencil,
 } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
 
@@ -452,7 +453,7 @@ function SageTab({
         <Button
           size="icon"
           variant="ghost"
-          onClick={() => { setActiveConvId(null); setLocalMessages([]); resetNudge(); }}
+          onClick={() => { setActiveConvId(null); setLocalMessages([]); resetNudge(); onBack(); }}
           data-testid="button-back-conversations"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -1080,6 +1081,7 @@ function PersonalNoteCard({
   note,
   onToggleNote,
   onDelete,
+  onUpdate,
   onToggleTodo,
   onAskSage,
   onShareToGroup,
@@ -1088,6 +1090,7 @@ function PersonalNoteCard({
   note: PersonalNoteItem;
   onToggleNote: () => void;
   onDelete: () => void;
+  onUpdate: (id: number, title: string, content: string) => void;
   onToggleTodo: (noteId: number, newContent: string) => void;
   onAskSage: (note: PersonalNoteItem) => void;
   onShareToGroup: (note: PersonalNoteItem) => Promise<void>;
@@ -1096,6 +1099,9 @@ function PersonalNoteCard({
   const [localContent, setLocalContent] = useState(note.content);
   const [shareSent, setShareSent] = useState(false);
   const [shareError, setShareError] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(note.title);
+  const [editContent, setEditContent] = useState(note.content ?? "");
 
   useEffect(() => { setLocalContent(note.content); }, [note.content]);
 
@@ -1112,6 +1118,49 @@ function PersonalNoteCard({
       setTimeout(() => setShareError(false), 3000);
     }
   };
+
+  const handleSaveEdit = () => {
+    if (!editTitle.trim()) return;
+    onUpdate(note.id, editTitle.trim(), editContent);
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditTitle(note.title);
+    setEditContent(note.content ?? "");
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <Card className="p-4" data-testid={`personal-note-card-${note.id}`}>
+        <div className="space-y-2">
+          <Input
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            placeholder="Note title"
+            className="text-sm font-medium"
+            data-testid={`input-edit-personal-note-title-${note.id}`}
+          />
+          <Textarea
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            placeholder="Note content (optional)"
+            className="text-sm min-h-[80px] resize-none"
+            data-testid={`textarea-edit-personal-note-content-${note.id}`}
+          />
+          <div className="flex gap-2 justify-end">
+            <Button size="sm" variant="ghost" onClick={handleCancelEdit} data-testid={`button-cancel-edit-personal-note-${note.id}`}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleSaveEdit} disabled={!editTitle.trim()} data-testid={`button-save-edit-personal-note-${note.id}`}>
+              Save
+            </Button>
+          </div>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card
@@ -1187,15 +1236,26 @@ function PersonalNoteCard({
           </div>
         </div>
 
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={onDelete}
-          className="shrink-0 text-muted-foreground hover:text-destructive"
-          data-testid={`button-delete-personal-note-${note.id}`}
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
+        <div className="flex flex-col gap-1 shrink-0">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => { setEditTitle(note.title); setEditContent(note.content ?? ""); setIsEditing(true); }}
+            className="text-muted-foreground hover:text-foreground w-7 h-7"
+            data-testid={`button-edit-personal-note-${note.id}`}
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onDelete}
+            className="text-muted-foreground hover:text-destructive w-7 h-7"
+            data-testid={`button-delete-personal-note-${note.id}`}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </Button>
+        </div>
       </div>
     </Card>
   );
@@ -1335,6 +1395,14 @@ function NotesTab({
   const updatePersonalContentMutation = useMutation({
     mutationFn: async ({ id, content }: { id: number; content: string }) => {
       const res = await apiRequest("PATCH", `/api/personal-notes/${id}`, { content });
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/personal-notes"] }),
+  });
+
+  const updatePersonalNoteMutation = useMutation({
+    mutationFn: async ({ id, title, content }: { id: number; title: string; content: string }) => {
+      const res = await apiRequest("PATCH", `/api/personal-notes/${id}`, { title, content });
       return res.json();
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/personal-notes"] }),
@@ -1484,6 +1552,7 @@ function NotesTab({
                 note={note}
                 onToggleNote={() => togglePersonalMutation.mutate({ id: note.id, isCompleted: true })}
                 onDelete={() => deletePersonalMutation.mutate(note.id)}
+                onUpdate={(id, title, content) => updatePersonalNoteMutation.mutate({ id, title, content })}
                 onToggleTodo={(id, content) => updatePersonalContentMutation.mutate({ id, content })}
                 onAskSage={handleAskSage}
                 onShareToGroup={handleShareToGroup}
@@ -1501,6 +1570,7 @@ function NotesTab({
                     note={note}
                     onToggleNote={() => togglePersonalMutation.mutate({ id: note.id, isCompleted: false })}
                     onDelete={() => deletePersonalMutation.mutate(note.id)}
+                    onUpdate={(id, title, content) => updatePersonalNoteMutation.mutate({ id, title, content })}
                     onToggleTodo={(id, content) => updatePersonalContentMutation.mutate({ id, content })}
                     onAskSage={handleAskSage}
                     onShareToGroup={handleShareToGroup}
