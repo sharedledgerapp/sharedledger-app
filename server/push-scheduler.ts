@@ -108,7 +108,7 @@ async function checkDailyReminders() {
           title: "Time to log expenses",
           body: "Don't forget to record today's expenses in SharedLedger!",
           tag: "daily-reminder",
-          url: "/expenses",
+          url: "/app/expenses",
         });
         if (sent) await markNotified(user.id, "daily");
       }
@@ -154,7 +154,7 @@ async function checkLateReminders() {
         title: "Evening Reminder",
         body: "Hey, it's getting late! Remember to log your expenses for the day — but if you haven't spent anything, kudos on the financial discipline 💪",
         tag: "daily-late-reminder",
-        url: "/expenses",
+        url: "/app/expenses",
       });
       if (sent) await markNotified(user.id, "daily_late");
     } catch (err) {
@@ -178,7 +178,7 @@ async function checkWeeklyReminders() {
         title: "Weekly Spending Review",
         body: "Your weekly summary is ready. Check your spending breakdown in SharedLedger!",
         tag: "weekly-reminder",
-        url: "/reports",
+        url: "/app/reports",
       });
       if (sent) await markNotified(user.id, "weekly");
     } catch (err) {
@@ -203,7 +203,7 @@ async function checkMonthlyReminders() {
         title: "Monthly Spending Review",
         body: "Your monthly summary is ready. Review your spending in SharedLedger!",
         tag: "monthly-reminder",
-        url: "/reports",
+        url: "/app/reports",
       });
       if (sent) await markNotified(user.id, "monthly");
     } catch (err) {
@@ -313,7 +313,7 @@ async function checkBudgetAlerts() {
             title: budget.budgetScope === "shared" ? "Group Budget Alert" : "Budget Alert",
             body,
             tag: `budget-${budget.id}`,
-            url: "/budget",
+            url: "/app/budget",
           });
           if (sent) await markNotified(member.id, notifKey);
         }
@@ -332,7 +332,7 @@ async function checkBudgetAlerts() {
               title: budget.budgetScope === "shared" ? "Group Budget Exceeded" : "Budget Exceeded",
               body: escalationBody,
               tag: `budget-escalation-${budget.id}`,
-              url: "/budget",
+              url: "/app/budget",
             });
             if (escalationSent) await markNotified(member.id, escalationKey);
           }
@@ -395,7 +395,7 @@ async function checkRecurringReminders() {
             title: `${expense.name} is due soon`,
             body: `Your ${expense.name} payment of ${expense.amount} is due in ${daysBefore} day${daysBefore > 1 ? "s" : ""}.`,
             tag: `recurring-reminder-${expense.id}`,
-            url: "/expenses?view=recurring",
+            url: "/app/expenses?view=recurring",
           });
           if (sent) await markNotified(expense.userId, notifKey);
           break;
@@ -421,7 +421,7 @@ async function checkRecurringReminders() {
               title: `${expense.name} is due soon`,
               body: `The ${expense.name} payment (${expense.amount}) is due in ${daysBefore} day${daysBefore > 1 ? "s" : ""}.`,
               tag: `recurring-group-reminder-${expense.id}`,
-              url: "/expenses?view=recurring",
+              url: "/app/expenses?view=recurring",
             });
             if (sent) await markNotified(member.id, memberNotifKey);
           } catch (memberErr) {
@@ -485,7 +485,7 @@ async function checkRecurringReminders() {
         title: "Expected income reminder",
         body: `Your ${entry.source} income is expected ${daysStr}. Log it when you receive it!`,
         tag: `income-reminder-${entry.id}`,
-        url: "/expenses?tab=in",
+        url: "/app/expenses?tab=in",
       });
       if (sent) await markNotified(entry.userId, notifKey);
     } catch (err) {

@@ -1533,7 +1533,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
               title: "New shared expense",
               body: `${ownerName} shared ${expense.name} (${expense.amount}/${freqLabel}) with the group.`,
               tag: `group-shared-${expense.id}`,
-              url: "/expenses?view=recurring",
+              url: "/app/expenses?view=recurring",
             });
             if (sent) await markNotified(member.id, notifKey);
           } catch (memberErr) {
@@ -1598,7 +1598,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
               title: "New shared expense",
               body: `${ownerName} shared ${expenseName} (${expenseAmount}/${freqLabel}) with the group.`,
               tag: `group-shared-${id}`,
-              url: "/expenses?view=recurring",
+              url: "/app/expenses?view=recurring",
             });
             if (sent) await markNotified(member.id, notifKey);
           } catch (memberErr) {
