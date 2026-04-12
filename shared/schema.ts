@@ -421,6 +421,16 @@ export const aiAnalyses = pgTable("ai_analyses", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const personalNotes = pgTable("personal_notes", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  title: text("title").notNull(),
+  content: text("content"),
+  isCompleted: boolean("is_completed").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const sageConversationsRelations = relations(sageConversations, ({ one, many }) => ({
   user: one(users, { fields: [sageConversations.userId], references: [users.id] }),
   messages: many(sageMessages),
@@ -432,6 +442,10 @@ export const sageMessagesRelations = relations(sageMessages, ({ one }) => ({
 
 export const aiAnalysesRelations = relations(aiAnalyses, ({ one }) => ({
   user: one(users, { fields: [aiAnalyses.userId], references: [users.id] }),
+}));
+
+export const personalNotesRelations = relations(personalNotes, ({ one }) => ({
+  user: one(users, { fields: [personalNotes.userId], references: [users.id] }),
 }));
 
 // === ZOD SCHEMAS ===
@@ -456,6 +470,7 @@ export const insertIncomeEntrySchema = createInsertSchema(incomeEntries).omit({ 
 export const insertSageConversationSchema = createInsertSchema(sageConversations).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSageMessageSchema = createInsertSchema(sageMessages).omit({ id: true, createdAt: true });
 export const insertAiAnalysisSchema = createInsertSchema(aiAnalyses).omit({ id: true, createdAt: true });
+export const insertPersonalNoteSchema = createInsertSchema(personalNotes).omit({ id: true, createdAt: true, updatedAt: true, isCompleted: true });
 
 // === TYPES ===
 
@@ -481,6 +496,7 @@ export type IncomeEntry = typeof incomeEntries.$inferSelect;
 export type SageConversation = typeof sageConversations.$inferSelect;
 export type SageMessage = typeof sageMessages.$inferSelect;
 export type AiAnalysis = typeof aiAnalyses.$inferSelect;
+export type PersonalNote = typeof personalNotes.$inferSelect;
 
 export type InsertFamily = z.infer<typeof insertFamilySchema>;
 export type InsertGroup = InsertFamily;
@@ -502,6 +518,7 @@ export type InsertIncomeEntry = z.infer<typeof insertIncomeEntrySchema>;
 export type InsertSageConversation = z.infer<typeof insertSageConversationSchema>;
 export type InsertSageMessage = z.infer<typeof insertSageMessageSchema>;
 export type InsertAiAnalysis = z.infer<typeof insertAiAnalysisSchema>;
+export type InsertPersonalNote = z.infer<typeof insertPersonalNoteSchema>;
 
 // Request types
 export type CreateExpenseRequest = InsertExpense;

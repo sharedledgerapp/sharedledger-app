@@ -1895,6 +1895,75 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     res.status(204).send();
   });
 
+  // === PERSONAL NOTES ROUTES ===
+
+  app.get('/api/personal-notes', requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const notes = await storage.getPersonalNotes(user.id);
+    res.json(notes);
+  });
+
+  app.post('/api/personal-notes', requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const { title, content } = z.object({
+      title: z.string().min(1).max(200),
+      content: z.string().optional().nullable(),
+    }).parse(req.body);
+    const note = await storage.createPersonalNote({ userId: user.id, title: title.trim(), content: content ?? null });
+    res.status(201).json(note);
+  });
+
+  app.patch('/api/personal-notes/:id', requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const noteId = parseInt(req.params.id);
+    const existing = await storage.getPersonalNote(noteId);
+    if (!existing) return res.status(404).json({ message: "Note not found" });
+    if (existing.userId !== user.id) return res.status(403).json({ message: "Forbidden" });
+    const { title, content, isCompleted } = z.object({
+      title: z.string().min(1).max(200).optional(),
+      content: z.string().optional().nullable(),
+      isCompleted: z.boolean().optional(),
+    }).parse(req.body);
+    const updates: any = {};
+    if (title !== undefined) updates.title = title;
+    if (content !== undefined) updates.content = content;
+    if (isCompleted !== undefined) updates.isCompleted = isCompleted;
+    const updated = await storage.updatePersonalNote(noteId, updates);
+    res.json(updated);
+  });
+
+  app.delete('/api/personal-notes/:id', requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const noteId = parseInt(req.params.id);
+    const existing = await storage.getPersonalNote(noteId);
+    if (!existing) return res.status(404).json({ message: "Note not found" });
+    if (existing.userId !== user.id) return res.status(403).json({ message: "Forbidden" });
+    await storage.deletePersonalNote(noteId);
+    res.status(204).send();
+  });
+
+  // === FAMILY INFO (lightweight) ===
+
+  app.get('/api/family/info', requireAuth, async (req, res) => {
+    const user = req.user as any;
+    if (!user.familyId) return res.status(404).json({ message: 'No group' });
+    const family = await storage.getFamily(user.familyId);
+    if (!family) return res.status(404).json({ message: 'Group not found' });
+    res.json({ id: family.id, name: family.name, groupType: family.groupType, code: family.code });
+  });
+
+  // === MESSAGES PREVIEW (no mark-as-read) ===
+
+  app.get('/api/messages/preview', requireAuth, async (req, res) => {
+    const user = req.user as any;
+    if (!user.familyId) return res.json({ lastMessage: null, unreadCount: 0 });
+    const [msgs, count] = await Promise.all([
+      storage.getMessages(user.familyId, 1),
+      storage.getUnreadCount(user.id, user.familyId),
+    ]);
+    res.json({ lastMessage: msgs[0] ?? null, unreadCount: count });
+  });
+
   // === BUDGET ROUTES ===
 
   app.get("/api/budgets", requireAuth, async (req, res) => {

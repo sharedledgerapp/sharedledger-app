@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   MessageCircle,
@@ -28,10 +29,14 @@ import {
   ChevronLeft,
   RotateCcw,
   Share2,
+  Lock,
+  Users,
+  ChevronRight,
 } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
 
-type TabType = "messages" | "notes" | "sage";
+type TabType = "messages" | "notes";
+type MessagesView = "list" | "sage" | "group-chat";
 
 // ─── Sage types ───────────────────────────────────────────────────────────────
 
@@ -51,6 +56,48 @@ interface SageMessage {
   createdAt: string;
 }
 
+interface MessageItem {
+  id: number;
+  familyId: number;
+  userId: number;
+  content: string;
+  createdAt: string;
+  senderName: string;
+}
+
+interface PersonalNoteItem {
+  id: number;
+  userId: number;
+  title: string;
+  content: string | null;
+  isCompleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface SharedNoteItem {
+  id: number;
+  familyId: number;
+  userId: number;
+  title: string;
+  content: string | null;
+  isCompleted: boolean;
+  createdAt: string;
+  creatorName: string;
+}
+
+interface FamilyInfo {
+  id: number;
+  name: string;
+  groupType: string;
+  code: string;
+}
+
+interface MessagesPreview {
+  lastMessage: MessageItem | null;
+  unreadCount: number;
+}
+
 const SUGGESTED_QUESTIONS = [
   "How am I doing with my budget this month?",
   "What are my biggest spending categories?",
@@ -60,7 +107,7 @@ const SUGGESTED_QUESTIONS = [
   "What can I cut back on to save more?",
 ];
 
-// ─── Sage message renderer (handles markdown-like formatting) ─────────────────
+// ─── Sage message renderer ────────────────────────────────────────────────────
 
 function SageText({ content }: { content: string }) {
   const lines = content.split("\n");
@@ -79,7 +126,6 @@ function SageText({ content }: { content: string }) {
           );
         }
         if (line.trim() === "") return <div key={i} className="h-1" />;
-        // Inline bold (**text**)
         const boldParts = line.split(/(\*\*[^*]+\*\*)/g);
         if (boldParts.length > 1) {
           return (
@@ -100,10 +146,17 @@ function SageText({ content }: { content: string }) {
 
 // ─── Sage Tab ─────────────────────────────────────────────────────────────────
 
-// Minimum messages in the conversation before the feedback nudge appears
 const FEEDBACK_NUDGE_AFTER = 4;
 
-function SageTab() {
+function SageTab({
+  onBack,
+  initialPrompt,
+  onInitialPromptHandled,
+}: {
+  onBack: () => void;
+  initialPrompt?: string | null;
+  onInitialPromptHandled?: () => void;
+}) {
   const { user } = useAuth();
   const [activeConvId, setActiveConvId] = useState<number | null>(null);
   const [inputText, setInputText] = useState("");
@@ -198,6 +251,7 @@ function SageTab() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/preview"] });
       setShareSentId(shareMessageId);
       setTimeout(() => {
         setShareMessageId(null);
@@ -270,39 +324,64 @@ function SageTab() {
     captureEvent("sage_message_feedback", { feedback });
   };
 
-  // Auto-open the only conversation if there is one
+  // Auto-open the only conversation if there is one (and no initialPrompt pending)
   useEffect(() => {
-    if (conversations && conversations.length === 1 && activeConvId === null) {
+    if (conversations && conversations.length === 1 && activeConvId === null && !initialPrompt) {
       setActiveConvId(conversations[0].id);
     }
-  }, [conversations, activeConvId]);
+  }, [conversations, activeConvId, initialPrompt]);
 
-  // ── Conversation list view ───────────────────────────────────────────────────
+  // Handle initialPrompt: create a new conversation and pre-fill the input
+  useEffect(() => {
+    if (!initialPrompt) return;
+    let cancelled = false;
+    async function setup() {
+      try {
+        const res = await apiRequest("POST", "/api/sage/conversations", { title: "Note question" });
+        const conv: SageConversation = await res.json();
+        if (cancelled) return;
+        queryClient.invalidateQueries({ queryKey: ["/api/sage/conversations"] });
+        setActiveConvId(conv.id);
+        setLocalMessages([]);
+        resetNudge();
+        setInputText(initialPrompt!);
+        onInitialPromptHandled?.();
+      } catch {}
+    }
+    setup();
+    return () => { cancelled = true; };
+  }, [initialPrompt]);
+
+  // ── Conversation list view ──────────────────────────────────────────────────
   if (activeConvId === null) {
     return (
-      <div className="flex flex-col flex-1 min-h-0 overflow-y-auto">
-        <div className="p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+      <div className="flex flex-col flex-1 min-h-0">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-border/40 bg-background/80">
+          <Button size="icon" variant="ghost" onClick={onBack} data-testid="button-back-from-sage">
+            <ChevronLeft className="w-5 h-5" />
+          </Button>
+          <div className="flex items-center gap-2 flex-1">
+            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
               <Sparkles className="w-5 h-5 text-primary" />
-              <h2 className="font-semibold text-base">Sage</h2>
-              <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">Beta</span>
             </div>
-            <Button
-              size="sm"
-              onClick={() => createConvMutation.mutate()}
-              disabled={createConvMutation.isPending}
-              data-testid="button-new-sage-conversation"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              New chat
-            </Button>
+            <div>
+              <p className="font-semibold text-sm leading-tight">Sage</p>
+              <p className="text-xs text-muted-foreground">AI Financial Advisor</p>
+            </div>
+            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium ml-1">Beta</span>
           </div>
+          <Button
+            size="sm"
+            onClick={() => createConvMutation.mutate(undefined)}
+            disabled={createConvMutation.isPending}
+            data-testid="button-new-sage-conversation"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            New chat
+          </Button>
+        </div>
 
-          <p className="text-sm text-muted-foreground">
-            Your AI financial advisor. Ask about your spending, budgets, goals, or how the app works.
-          </p>
-
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {convsLoading ? (
             <div className="space-y-3">
               {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
@@ -364,7 +443,7 @@ function SageTab() {
     );
   }
 
-  // ── Active conversation view ─────────────────────────────────────────────────
+  // ── Active conversation view ──────────────────────────────────────────────
   const currentConv = conversations?.find(c => c.id === activeConvId);
 
   return (
@@ -524,12 +603,8 @@ function SageTab() {
               </div>
             )}
 
-            {/* Feedback nudge — shown after enough back-and-forth, no AI involved */}
             {localMessages.length >= FEEDBACK_NUDGE_AFTER && !isGenerating && !nudgeDismissed && (
-              <div
-                className="mx-1 mt-2 rounded-2xl border border-border/50 bg-secondary/30 p-3.5 space-y-2.5"
-                data-testid="sage-feedback-nudge"
-              >
+              <div className="mx-1 mt-2 rounded-2xl border border-border/50 bg-secondary/30 p-3.5 space-y-2.5" data-testid="sage-feedback-nudge">
                 {nudgeSent ? (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground py-1">
                     <Check className="w-4 h-4 text-primary shrink-0" />
@@ -565,9 +640,7 @@ function SageTab() {
                         onClick={() => nudgeFeedbackMutation.mutate(nudgeText.trim())}
                         data-testid="button-send-sage-feedback"
                       >
-                        {nudgeFeedbackMutation.isPending ? (
-                          <RotateCcw className="w-3 h-3 mr-1 animate-spin" />
-                        ) : null}
+                        {nudgeFeedbackMutation.isPending ? <RotateCcw className="w-3 h-3 mr-1 animate-spin" /> : null}
                         Send feedback
                       </Button>
                     </div>
@@ -607,24 +680,149 @@ function SageTab() {
   );
 }
 
-interface MessageItem {
-  id: number;
-  familyId: number;
-  userId: number;
-  content: string;
-  createdAt: string;
-  senderName: string;
+// ─── Group Chat Panel ─────────────────────────────────────────────────────────
+
+function formatMessageTime(dateStr: string) {
+  const date = new Date(dateStr);
+  if (isToday(date)) return format(date, "h:mm a");
+  if (isYesterday(date)) return "Yesterday " + format(date, "h:mm a");
+  return format(date, "MMM d, h:mm a");
 }
 
-interface NoteItem {
-  id: number;
-  familyId: number;
-  userId: number;
-  title: string;
-  content: string | null;
-  isCompleted: boolean;
-  createdAt: string;
-  creatorName: string;
+function GroupChatPanel({ onBack, groupName }: { onBack: () => void; groupName: string }) {
+  const { t } = useLanguage();
+  const { user } = useAuth();
+  const [newMessage, setNewMessage] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const { data: messages, isLoading } = useQuery<MessageItem[]>({
+    queryKey: ["/api/messages"],
+    refetchInterval: 5000,
+  });
+
+  const sendMutation = useMutation({
+    mutationFn: async (content: string) => {
+      const res = await apiRequest("POST", "/api/messages", { content });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/preview"] });
+      setNewMessage("");
+    },
+  });
+
+  useEffect(() => {
+    if (messages && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages?.length]);
+
+  const handleSend = () => {
+    if (newMessage.trim() && !sendMutation.isPending) {
+      sendMutation.mutate(newMessage.trim());
+    }
+  };
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-border/40 bg-background/80">
+        <Button size="icon" variant="ghost" onClick={onBack} data-testid="button-back-from-group-chat">
+          <ChevronLeft className="w-5 h-5" />
+        </Button>
+        <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center shrink-0">
+          <Users className="w-5 h-5 text-muted-foreground" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-sm leading-tight truncate">{groupName}</p>
+          <p className="text-xs text-muted-foreground">Group chat</p>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex-1 p-4 space-y-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className={cn("flex gap-2", i % 2 === 0 ? "justify-end" : "")}>
+              <Skeleton className="h-12 w-48 rounded-2xl" />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto p-4 space-y-1">
+          {!messages || messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-16">
+              <MessageCircle className="w-12 h-12 mb-3 opacity-20" />
+              <p className="font-medium">{t("noMessages")}</p>
+              <p className="text-sm mt-1">{t("startConversation")}</p>
+            </div>
+          ) : (
+            <>
+              {messages.map((msg, index) => {
+                const isOwn = msg.userId === user?.id;
+                const showSender = !isOwn && (index === 0 || messages[index - 1].userId !== msg.userId);
+                const showTime =
+                  index === messages.length - 1 ||
+                  messages[index + 1].userId !== msg.userId ||
+                  new Date(messages[index + 1].createdAt).getTime() - new Date(msg.createdAt).getTime() > 300000;
+
+                return (
+                  <div
+                    key={msg.id}
+                    className={cn("flex flex-col", isOwn ? "items-end" : "items-start")}
+                    data-testid={`message-item-${msg.id}`}
+                  >
+                    {showSender && (
+                      <span className="text-[11px] text-muted-foreground ml-3 mb-0.5 font-medium">
+                        {msg.senderName}
+                      </span>
+                    )}
+                    <div
+                      className={cn(
+                        "max-w-[75%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed break-words",
+                        isOwn
+                          ? "bg-primary text-primary-foreground rounded-br-md"
+                          : "bg-secondary text-secondary-foreground rounded-bl-md"
+                      )}
+                    >
+                      {msg.content}
+                    </div>
+                    {showTime && (
+                      <span className="text-[10px] text-muted-foreground mt-0.5 mx-3 mb-2">
+                        {formatMessageTime(msg.createdAt)}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </>
+          )}
+        </div>
+      )}
+
+      <div className="border-t border-border/40 p-3 bg-background/80 backdrop-blur-sm">
+        <div className="flex items-center gap-2">
+          <Input
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+            placeholder={t("typeMessage")}
+            className="flex-1 rounded-full bg-secondary/50 border-0 focus-visible:ring-1"
+            data-testid="input-message"
+          />
+          <Button
+            size="icon"
+            onClick={handleSend}
+            disabled={!newMessage.trim() || sendMutation.isPending}
+            className="rounded-full shrink-0"
+            data-testid="button-send-message"
+          >
+            <Send className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── Content parsing ──────────────────────────────────────────────────────────
@@ -674,7 +872,6 @@ function toggleTodoInContent(raw: string, lineIdx: number): string {
   return lines.join("\n");
 }
 
-/** Returns the format prefix of a line, or '' for plain text */
 function detectLinePrefix(line: string): string {
   if (line.startsWith("- ")) return "- ";
   if (line.startsWith("[ ] ") || line.startsWith("[x] ")) return "[ ] ";
@@ -778,7 +975,6 @@ function NoteContentRenderer({
   onToggleTodo: (noteId: number, newContent: string) => void;
 }) {
   if (blocks.length === 0) return null;
-
   const allEmpty = blocks.every((b) => b.text === "");
   if (allEmpty) return null;
 
@@ -787,13 +983,8 @@ function NoteContentRenderer({
       {blocks.map((block, i) => {
         if (block.kind === "text") {
           if (!block.text) return <div key={i} className="h-1" />;
-          return (
-            <p key={i} className="text-xs text-muted-foreground leading-relaxed">
-              {block.text}
-            </p>
-          );
+          return <p key={i} className="text-xs text-muted-foreground leading-relaxed">{block.text}</p>;
         }
-
         if (block.kind === "bullet") {
           return (
             <div key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
@@ -802,18 +993,14 @@ function NoteContentRenderer({
             </div>
           );
         }
-
         if (block.kind === "ordered") {
           return (
             <div key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-              <span className="text-primary shrink-0 font-semibold tabular-nums min-w-[1.25rem]">
-                {block.num}.
-              </span>
+              <span className="text-primary shrink-0 font-semibold tabular-nums min-w-[1.25rem]">{block.num}.</span>
               <span>{block.text}</span>
             </div>
           );
         }
-
         if (block.kind === "todo") {
           const handleToggle = () => {
             const newContent = toggleTodoInContent(rawContent, block.lineIdx);
@@ -827,22 +1014,13 @@ function NoteContentRenderer({
               data-testid={`button-todo-item-${noteId}-${i}`}
               className="flex items-start gap-2 text-xs text-left w-full group py-0.5"
             >
-              <span
-                className={cn(
-                  "mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors",
-                  block.checked
-                    ? "bg-primary border-primary text-primary-foreground"
-                    : "border-muted-foreground/40 group-hover:border-primary/60"
-                )}
-              >
+              <span className={cn(
+                "mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors",
+                block.checked ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/40 group-hover:border-primary/60"
+              )}>
                 {block.checked && <Check className="w-2.5 h-2.5" />}
               </span>
-              <span
-                className={cn(
-                  "text-muted-foreground transition-colors",
-                  block.checked && "line-through opacity-50"
-                )}
-              >
+              <span className={cn("text-muted-foreground transition-colors", block.checked && "line-through opacity-50")}>
                 {block.text}
               </span>
             </button>
@@ -876,13 +1054,10 @@ function useSmartTextarea(
       if (!prefix) return;
 
       if (!text.trim()) {
-        // Empty list item → break out of list format
         e.preventDefault();
         const newValue = value.slice(0, lineStart) + value.slice(lineEnd);
         onChange(newValue);
-        setTimeout(() => {
-          ta.setSelectionRange(lineStart, lineStart);
-        }, 0);
+        setTimeout(() => { ta.setSelectionRange(lineStart, lineStart); }, 0);
         return;
       }
 
@@ -891,9 +1066,7 @@ function useSmartTextarea(
       const newValue = value.slice(0, cursor) + insertion + value.slice(cursor);
       onChange(newValue);
       const newCursor = cursor + insertion.length;
-      setTimeout(() => {
-        ta.setSelectionRange(newCursor, newCursor);
-      }, 0);
+      setTimeout(() => { ta.setSelectionRange(newCursor, newCursor); }, 0);
     },
     [value, onChange, textareaRef]
   );
@@ -901,325 +1074,127 @@ function useSmartTextarea(
   return { handleKeyDown };
 }
 
-// ─── Messages tab ─────────────────────────────────────────────────────────────
+// ─── Personal Note Card ───────────────────────────────────────────────────────
 
-function formatMessageTime(dateStr: string) {
-  const date = new Date(dateStr);
-  if (isToday(date)) return format(date, "h:mm a");
-  if (isYesterday(date)) return "Yesterday " + format(date, "h:mm a");
-  return format(date, "MMM d, h:mm a");
-}
+function PersonalNoteCard({
+  note,
+  onToggleNote,
+  onDelete,
+  onToggleTodo,
+  onAskSage,
+  onShareToGroup,
+  hasGroup,
+}: {
+  note: PersonalNoteItem;
+  onToggleNote: () => void;
+  onDelete: () => void;
+  onToggleTodo: (noteId: number, newContent: string) => void;
+  onAskSage: (note: PersonalNoteItem) => void;
+  onShareToGroup: (note: PersonalNoteItem) => void;
+  hasGroup: boolean;
+}) {
+  const [localContent, setLocalContent] = useState(note.content);
+  const [shareSent, setShareSent] = useState(false);
 
-function MessagesTab() {
-  const { t } = useLanguage();
-  const { user } = useAuth();
-  const [newMessage, setNewMessage] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { setLocalContent(note.content); }, [note.content]);
 
-  const { data: messages, isLoading } = useQuery<MessageItem[]>({
-    queryKey: ["/api/messages"],
-    refetchInterval: 5000,
-  });
+  const blocks = parseContent(localContent);
 
-  const sendMutation = useMutation({
-    mutationFn: async (content: string) => {
-      const res = await apiRequest("POST", "/api/messages", { content });
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/messages/unread"] });
-      setNewMessage("");
-    },
-  });
-
-  useEffect(() => {
-    if (messages && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages?.length]);
-
-  const handleSend = () => {
-    if (newMessage.trim() && !sendMutation.isPending) {
-      sendMutation.mutate(newMessage.trim());
-    }
+  const handleShareToGroup = () => {
+    onShareToGroup(note);
+    setShareSent(true);
+    setTimeout(() => setShareSent(false), 3000);
   };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex-1 p-4 space-y-4">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className={cn("flex gap-2", i % 2 === 0 ? "justify-end" : "")}>
-            <Skeleton className="h-12 w-48 rounded-2xl" />
-          </div>
-        ))}
-      </div>
-    );
-  }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-1">
-        {!messages || messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-16">
-            <MessageCircle className="w-12 h-12 mb-3 opacity-20" />
-            <p className="font-medium">{t("noMessages")}</p>
-            <p className="text-sm mt-1">{t("startConversation")}</p>
-          </div>
-        ) : (
-          <>
-            {messages.map((msg, index) => {
-              const isOwn = msg.userId === user?.id;
-              const showSender = !isOwn && (index === 0 || messages[index - 1].userId !== msg.userId);
-              const showTime =
-                index === messages.length - 1 ||
-                messages[index + 1].userId !== msg.userId ||
-                new Date(messages[index + 1].createdAt).getTime() -
-                  new Date(msg.createdAt).getTime() >
-                  300000;
+    <Card
+      className={cn("p-4 transition-all", note.isCompleted && "opacity-60")}
+      data-testid={`personal-note-card-${note.id}`}
+    >
+      <div className="flex items-start gap-3">
+        <button
+          onClick={onToggleNote}
+          className={cn(
+            "mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors",
+            note.isCompleted
+              ? "bg-primary border-primary text-primary-foreground"
+              : "border-muted-foreground/30 hover:border-primary/50"
+          )}
+          title={note.isCompleted ? "Mark as active" : "Mark note as done"}
+          data-testid={`button-toggle-personal-note-${note.id}`}
+        >
+          {note.isCompleted && <Check className="w-3 h-3" />}
+        </button>
 
-              return (
-                <div
-                  key={msg.id}
-                  className={cn("flex flex-col", isOwn ? "items-end" : "items-start")}
-                  data-testid={`message-item-${msg.id}`}
-                >
-                  {showSender && (
-                    <span className="text-[11px] text-muted-foreground ml-3 mb-0.5 font-medium">
-                      {msg.senderName}
-                    </span>
-                  )}
-                  <div
-                    className={cn(
-                      "max-w-[75%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed break-words",
-                      isOwn
-                        ? "bg-primary text-primary-foreground rounded-br-md"
-                        : "bg-secondary text-secondary-foreground rounded-bl-md"
-                    )}
-                  >
-                    {msg.content}
-                  </div>
-                  {showTime && (
-                    <span className="text-[10px] text-muted-foreground mt-0.5 mx-3 mb-2">
-                      {formatMessageTime(msg.createdAt)}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-            <div ref={messagesEndRef} />
-          </>
-        )}
-      </div>
-
-      <div className="border-t border-border/40 p-3 bg-background/80 backdrop-blur-sm">
-        <div className="flex items-center gap-2">
-          <Input
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={t("typeMessage")}
-            className="flex-1 rounded-full bg-secondary/50 border-0 focus-visible:ring-1"
-            data-testid="input-message"
-          />
-          <Button
-            size="icon"
-            onClick={handleSend}
-            disabled={!newMessage.trim() || sendMutation.isPending}
-            className="rounded-full shrink-0"
-            data-testid="button-send-message"
-          >
-            <Send className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Notes tab ────────────────────────────────────────────────────────────────
-
-function NotesTab() {
-  const { t } = useLanguage();
-  const { user } = useAuth();
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [newContent, setNewContent] = useState("");
-  const newContentRef = useRef<HTMLTextAreaElement>(null);
-
-  const { data: notesList, isLoading } = useQuery<NoteItem[]>({
-    queryKey: ["/api/notes"],
-  });
-
-  const createMutation = useMutation({
-    mutationFn: async (data: { title: string; content: string }) => {
-      const res = await apiRequest("POST", "/api/notes", data);
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notes"] });
-      setNewTitle("");
-      setNewContent("");
-      setShowAddForm(false);
-    },
-  });
-
-  const toggleMutation = useMutation({
-    mutationFn: async ({ id, isCompleted }: { id: number; isCompleted: boolean }) => {
-      const res = await apiRequest("PATCH", `/api/notes/${id}`, { isCompleted });
-      return res.json();
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notes"] }),
-  });
-
-  const updateContentMutation = useMutation({
-    mutationFn: async ({ id, content }: { id: number; content: string }) => {
-      const res = await apiRequest("PATCH", `/api/notes/${id}`, { content });
-      return res.json();
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notes"] }),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/notes/${id}`);
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notes"] }),
-  });
-
-  const handleCreate = () => {
-    if (newTitle.trim()) {
-      createMutation.mutate({ title: newTitle.trim(), content: newContent.trim() });
-    }
-  };
-
-  const { handleKeyDown: handleSmartKeyDown } = useSmartTextarea(
-    newContent,
-    setNewContent,
-    newContentRef
-  );
-
-  if (isLoading) {
-    return (
-      <div className="p-4 space-y-3">
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-20 w-full rounded-xl" />
-        ))}
-      </div>
-    );
-  }
-
-  const activeNotes = notesList?.filter((n) => !n.isCompleted) || [];
-  const completedNotes = notesList?.filter((n) => n.isCompleted) || [];
-
-  return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-4">
-      <Button
-        variant="outline"
-        className="w-full rounded-xl border-dashed"
-        onClick={() => setShowAddForm(!showAddForm)}
-        data-testid="button-add-note"
-      >
-        {showAddForm ? <X className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-        {showAddForm ? t("cancel") : t("addNote")}
-      </Button>
-
-      {showAddForm && (
-        <Card className="p-4 space-y-3">
-          <Input
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            placeholder={t("noteTitlePlaceholder")}
-            data-testid="input-note-title"
-          />
-          <div className="space-y-2">
-            <FormatToolbar
-              textareaRef={newContentRef}
-              value={newContent}
-              onChange={setNewContent}
-            />
-            <Textarea
-              ref={newContentRef}
-              value={newContent}
-              onChange={(e) => setNewContent(e.target.value)}
-              onKeyDown={handleSmartKeyDown}
-              placeholder={t("noteContentPlaceholder")}
-              rows={4}
-              className="resize-none font-mono text-sm"
-              data-testid="input-note-content"
-            />
-            <p className="text-[10px] text-muted-foreground">
-              Use the toolbar above to add bullets, numbered lists, or to-do items. Press Enter to continue a list.
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start gap-1.5">
+            <Lock className="w-3 h-3 text-muted-foreground/50 mt-0.5 shrink-0" />
+            <p className={cn("font-medium text-sm", note.isCompleted && "line-through text-muted-foreground")}>
+              {note.title}
             </p>
           </div>
-          <Button
-            onClick={handleCreate}
-            disabled={!newTitle.trim() || createMutation.isPending}
-            className="w-full rounded-xl"
-            data-testid="button-save-note"
-          >
-            {t("save")}
-          </Button>
-        </Card>
-      )}
 
-      {activeNotes.length === 0 && completedNotes.length === 0 && !showAddForm && (
-        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-          <StickyNote className="w-12 h-12 mb-3 opacity-20" />
-          <p className="font-medium">{t("noNotes")}</p>
-          <p className="text-sm mt-1">{t("addFirstNote")}</p>
-        </div>
-      )}
-
-      {activeNotes.map((note) => (
-        <NoteCard
-          key={note.id}
-          note={note}
-          currentUserId={user?.id}
-          onToggleNote={() => toggleMutation.mutate({ id: note.id, isCompleted: true })}
-          onDelete={() => deleteMutation.mutate(note.id)}
-          onToggleTodo={(noteId, newContent) =>
-            updateContentMutation.mutate({ id: noteId, content: newContent })
-          }
-          t={t}
-        />
-      ))}
-
-      {completedNotes.length > 0 && (
-        <div className="space-y-3 pt-2">
-          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide px-1">
-            {t("statusCompleted")} ({completedNotes.length})
-          </p>
-          {completedNotes.map((note) => (
-            <NoteCard
-              key={note.id}
-              note={note}
-              currentUserId={user?.id}
-              onToggleNote={() => toggleMutation.mutate({ id: note.id, isCompleted: false })}
-              onDelete={() => deleteMutation.mutate(note.id)}
-              onToggleTodo={(noteId, newContent) =>
-                updateContentMutation.mutate({ id: noteId, content: newContent })
-              }
-              t={t}
+          {blocks.length > 0 && (
+            <NoteContentRenderer
+              blocks={blocks}
+              noteId={note.id}
+              rawContent={localContent ?? ""}
+              onToggleTodo={(noteId, newContent) => {
+                setLocalContent(newContent);
+                onToggleTodo(noteId, newContent);
+              }}
             />
-          ))}
+          )}
+
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <span className="text-[10px] text-muted-foreground">
+              {format(new Date(note.createdAt), "MMM d")}
+            </span>
+            <button
+              onClick={() => onAskSage(note)}
+              className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 transition-colors"
+              data-testid={`button-ask-sage-note-${note.id}`}
+            >
+              <Sparkles className="w-3 h-3" />
+              Ask Sage
+            </button>
+            {hasGroup && (
+              shareSent ? (
+                <span className="flex items-center gap-1 text-[10px] text-primary">
+                  <Check className="w-3 h-3" />
+                  Shared!
+                </span>
+              ) : (
+                <button
+                  onClick={handleShareToGroup}
+                  className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                  data-testid={`button-share-personal-note-${note.id}`}
+                >
+                  <Share2 className="w-3 h-3" />
+                  Share to group
+                </button>
+              )
+            )}
+          </div>
         </div>
-      )}
-    </div>
+
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={onDelete}
+          className="shrink-0 text-muted-foreground hover:text-destructive"
+          data-testid={`button-delete-personal-note-${note.id}`}
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    </Card>
   );
 }
 
-// ─── Note card ────────────────────────────────────────────────────────────────
+// ─── Shared Note Card ─────────────────────────────────────────────────────────
 
-function NoteCard({
+function SharedNoteCard({
   note,
   currentUserId,
   onToggleNote,
@@ -1227,7 +1202,7 @@ function NoteCard({
   onToggleTodo,
   t,
 }: {
-  note: NoteItem;
+  note: SharedNoteItem;
   currentUserId?: number;
   onToggleNote: () => void;
   onDelete: () => void;
@@ -1236,9 +1211,7 @@ function NoteCard({
 }) {
   const [localContent, setLocalContent] = useState(note.content);
 
-  useEffect(() => {
-    setLocalContent(note.content);
-  }, [note.content]);
+  useEffect(() => { setLocalContent(note.content); }, [note.content]);
 
   const blocks = parseContent(localContent);
 
@@ -1263,12 +1236,7 @@ function NoteCard({
         </button>
 
         <div className="flex-1 min-w-0">
-          <p
-            className={cn(
-              "font-medium text-sm",
-              note.isCompleted && "line-through text-muted-foreground"
-            )}
-          >
+          <p className={cn("font-medium text-sm", note.isCompleted && "line-through text-muted-foreground")}>
             {note.title}
           </p>
 
@@ -1285,12 +1253,8 @@ function NoteCard({
           )}
 
           <div className="flex items-center gap-2 mt-2">
-            <span className="text-[10px] text-muted-foreground">
-              {t("by")} {note.creatorName}
-            </span>
-            <span className="text-[10px] text-muted-foreground">
-              {format(new Date(note.createdAt), "MMM d")}
-            </span>
+            <span className="text-[10px] text-muted-foreground">{t("by")} {note.creatorName}</span>
+            <span className="text-[10px] text-muted-foreground">{format(new Date(note.createdAt), "MMM d")}</span>
           </div>
         </div>
 
@@ -1308,70 +1272,532 @@ function NoteCard({
   );
 }
 
+// ─── Notes Tab ────────────────────────────────────────────────────────────────
+
+function NotesTab({
+  onAskSage,
+}: {
+  onAskSage: (prompt: string) => void;
+}) {
+  const { t } = useLanguage();
+  const { user } = useAuth();
+  const hasGroup = !!user?.familyId;
+
+  const [showAddPersonalForm, setShowAddPersonalForm] = useState(false);
+  const [newPersonalTitle, setNewPersonalTitle] = useState("");
+  const [newPersonalContent, setNewPersonalContent] = useState("");
+  const personalContentRef = useRef<HTMLTextAreaElement>(null);
+
+  const [showAddSharedForm, setShowAddSharedForm] = useState(false);
+  const [newSharedTitle, setNewSharedTitle] = useState("");
+  const [newSharedContent, setNewSharedContent] = useState("");
+  const sharedContentRef = useRef<HTMLTextAreaElement>(null);
+
+  const { data: personalNotesList, isLoading: personalLoading } = useQuery<PersonalNoteItem[]>({
+    queryKey: ["/api/personal-notes"],
+  });
+
+  const { data: sharedNotesList, isLoading: sharedLoading } = useQuery<SharedNoteItem[]>({
+    queryKey: ["/api/notes"],
+    enabled: hasGroup,
+  });
+
+  const createPersonalMutation = useMutation({
+    mutationFn: async (data: { title: string; content: string }) => {
+      const res = await apiRequest("POST", "/api/personal-notes", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/personal-notes"] });
+      setNewPersonalTitle("");
+      setNewPersonalContent("");
+      setShowAddPersonalForm(false);
+    },
+  });
+
+  const togglePersonalMutation = useMutation({
+    mutationFn: async ({ id, isCompleted }: { id: number; isCompleted: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/personal-notes/${id}`, { isCompleted });
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/personal-notes"] }),
+  });
+
+  const updatePersonalContentMutation = useMutation({
+    mutationFn: async ({ id, content }: { id: number; content: string }) => {
+      const res = await apiRequest("PATCH", `/api/personal-notes/${id}`, { content });
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/personal-notes"] }),
+  });
+
+  const deletePersonalMutation = useMutation({
+    mutationFn: async (id: number) => { await apiRequest("DELETE", `/api/personal-notes/${id}`); },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/personal-notes"] }),
+  });
+
+  const shareToGroupMutation = useMutation({
+    mutationFn: async (content: string) => {
+      const res = await apiRequest("POST", "/api/messages", { content });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/preview"] });
+    },
+  });
+
+  const createSharedMutation = useMutation({
+    mutationFn: async (data: { title: string; content: string }) => {
+      const res = await apiRequest("POST", "/api/notes", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notes"] });
+      setNewSharedTitle("");
+      setNewSharedContent("");
+      setShowAddSharedForm(false);
+    },
+  });
+
+  const toggleSharedMutation = useMutation({
+    mutationFn: async ({ id, isCompleted }: { id: number; isCompleted: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/notes/${id}`, { isCompleted });
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notes"] }),
+  });
+
+  const updateSharedContentMutation = useMutation({
+    mutationFn: async ({ id, content }: { id: number; content: string }) => {
+      const res = await apiRequest("PATCH", `/api/notes/${id}`, { content });
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notes"] }),
+  });
+
+  const deleteSharedMutation = useMutation({
+    mutationFn: async (id: number) => { await apiRequest("DELETE", `/api/notes/${id}`); },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notes"] }),
+  });
+
+  const { handleKeyDown: handlePersonalSmartKeyDown } = useSmartTextarea(newPersonalContent, setNewPersonalContent, personalContentRef);
+  const { handleKeyDown: handleSharedSmartKeyDown } = useSmartTextarea(newSharedContent, setNewSharedContent, sharedContentRef);
+
+  const handleAskSage = (note: PersonalNoteItem) => {
+    const prompt = note.content
+      ? `About my note "${note.title}": ${note.content}`
+      : `Help me think about: "${note.title}"`;
+    onAskSage(prompt);
+  };
+
+  const handleShareToGroup = (note: PersonalNoteItem) => {
+    const content = note.content
+      ? `📝 ${note.title}\n${note.content}`
+      : `📝 ${note.title}`;
+    shareToGroupMutation.mutate(content);
+  };
+
+  const activePersonal = personalNotesList?.filter(n => !n.isCompleted) || [];
+  const completedPersonal = personalNotesList?.filter(n => n.isCompleted) || [];
+  const activeShared = sharedNotesList?.filter(n => !n.isCompleted) || [];
+  const completedShared = sharedNotesList?.filter(n => n.isCompleted) || [];
+
+  return (
+    <div className="flex-1 overflow-y-auto p-4 space-y-5">
+      {/* Personal Notes section */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Lock className="w-4 h-4 text-muted-foreground" />
+            <h3 className="font-semibold text-sm">Personal Notes</h3>
+            <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-full">Private</span>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 text-xs"
+            onClick={() => setShowAddPersonalForm(!showAddPersonalForm)}
+            data-testid="button-add-personal-note"
+          >
+            {showAddPersonalForm ? <X className="w-3.5 h-3.5 mr-1" /> : <Plus className="w-3.5 h-3.5 mr-1" />}
+            {showAddPersonalForm ? "Cancel" : "Add"}
+          </Button>
+        </div>
+
+        {showAddPersonalForm && (
+          <Card className="p-4 space-y-3">
+            <Input
+              value={newPersonalTitle}
+              onChange={(e) => setNewPersonalTitle(e.target.value)}
+              placeholder="Note title…"
+              data-testid="input-personal-note-title"
+            />
+            <div className="space-y-2">
+              <FormatToolbar textareaRef={personalContentRef} value={newPersonalContent} onChange={setNewPersonalContent} />
+              <Textarea
+                ref={personalContentRef}
+                value={newPersonalContent}
+                onChange={(e) => setNewPersonalContent(e.target.value)}
+                onKeyDown={handlePersonalSmartKeyDown}
+                placeholder="Note content (optional)…"
+                rows={3}
+                className="resize-none font-mono text-sm"
+                data-testid="input-personal-note-content"
+              />
+            </div>
+            <Button
+              onClick={() => { if (newPersonalTitle.trim()) createPersonalMutation.mutate({ title: newPersonalTitle.trim(), content: newPersonalContent.trim() }); }}
+              disabled={!newPersonalTitle.trim() || createPersonalMutation.isPending}
+              className="w-full rounded-xl"
+              data-testid="button-save-personal-note"
+            >
+              {t("save")}
+            </Button>
+          </Card>
+        )}
+
+        {personalLoading ? (
+          <div className="space-y-3">
+            {[1, 2].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
+          </div>
+        ) : activePersonal.length === 0 && completedPersonal.length === 0 && !showAddPersonalForm ? (
+          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground border border-dashed border-border/50 rounded-xl">
+            <Lock className="w-8 h-8 mb-2 opacity-20" />
+            <p className="text-sm font-medium">No personal notes yet</p>
+            <p className="text-xs mt-1">Only you can see these</p>
+          </div>
+        ) : (
+          <>
+            {activePersonal.map(note => (
+              <PersonalNoteCard
+                key={note.id}
+                note={note}
+                onToggleNote={() => togglePersonalMutation.mutate({ id: note.id, isCompleted: true })}
+                onDelete={() => deletePersonalMutation.mutate(note.id)}
+                onToggleTodo={(id, content) => updatePersonalContentMutation.mutate({ id, content })}
+                onAskSage={handleAskSage}
+                onShareToGroup={handleShareToGroup}
+                hasGroup={hasGroup}
+              />
+            ))}
+            {completedPersonal.length > 0 && (
+              <div className="space-y-3 pt-1">
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide px-1">
+                  Done ({completedPersonal.length})
+                </p>
+                {completedPersonal.map(note => (
+                  <PersonalNoteCard
+                    key={note.id}
+                    note={note}
+                    onToggleNote={() => togglePersonalMutation.mutate({ id: note.id, isCompleted: false })}
+                    onDelete={() => deletePersonalMutation.mutate(note.id)}
+                    onToggleTodo={(id, content) => updatePersonalContentMutation.mutate({ id, content })}
+                    onAskSage={handleAskSage}
+                    onShareToGroup={handleShareToGroup}
+                    hasGroup={hasGroup}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Shared Notes section — group users only */}
+      {hasGroup && (
+        <>
+          <div className="border-t border-border/30 pt-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-muted-foreground" />
+                <h3 className="font-semibold text-sm">Shared Notes</h3>
+                <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-full">Group</span>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 text-xs"
+                onClick={() => setShowAddSharedForm(!showAddSharedForm)}
+                data-testid="button-add-note"
+              >
+                {showAddSharedForm ? <X className="w-3.5 h-3.5 mr-1" /> : <Plus className="w-3.5 h-3.5 mr-1" />}
+                {showAddSharedForm ? "Cancel" : "Add"}
+              </Button>
+            </div>
+
+            {showAddSharedForm && (
+              <Card className="p-4 space-y-3">
+                <Input
+                  value={newSharedTitle}
+                  onChange={(e) => setNewSharedTitle(e.target.value)}
+                  placeholder={t("noteTitlePlaceholder")}
+                  data-testid="input-note-title"
+                />
+                <div className="space-y-2">
+                  <FormatToolbar textareaRef={sharedContentRef} value={newSharedContent} onChange={setNewSharedContent} />
+                  <Textarea
+                    ref={sharedContentRef}
+                    value={newSharedContent}
+                    onChange={(e) => setNewSharedContent(e.target.value)}
+                    onKeyDown={handleSharedSmartKeyDown}
+                    placeholder={t("noteContentPlaceholder")}
+                    rows={4}
+                    className="resize-none font-mono text-sm"
+                    data-testid="input-note-content"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Use the toolbar above to add bullets, numbered lists, or to-do items.
+                  </p>
+                </div>
+                <Button
+                  onClick={() => { if (newSharedTitle.trim()) createSharedMutation.mutate({ title: newSharedTitle.trim(), content: newSharedContent.trim() }); }}
+                  disabled={!newSharedTitle.trim() || createSharedMutation.isPending}
+                  className="w-full rounded-xl"
+                  data-testid="button-save-note"
+                >
+                  {t("save")}
+                </Button>
+              </Card>
+            )}
+
+            {sharedLoading ? (
+              <div className="space-y-3">
+                {[1, 2].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
+              </div>
+            ) : activeShared.length === 0 && completedShared.length === 0 && !showAddSharedForm ? (
+              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground border border-dashed border-border/50 rounded-xl">
+                <Users className="w-8 h-8 mb-2 opacity-20" />
+                <p className="text-sm font-medium">{t("noNotes")}</p>
+                <p className="text-xs mt-1">{t("addFirstNote")}</p>
+              </div>
+            ) : (
+              <>
+                {activeShared.map(note => (
+                  <SharedNoteCard
+                    key={note.id}
+                    note={note}
+                    currentUserId={user?.id}
+                    onToggleNote={() => toggleSharedMutation.mutate({ id: note.id, isCompleted: true })}
+                    onDelete={() => deleteSharedMutation.mutate(note.id)}
+                    onToggleTodo={(id, content) => updateSharedContentMutation.mutate({ id, content })}
+                    t={t}
+                  />
+                ))}
+                {completedShared.length > 0 && (
+                  <div className="space-y-3 pt-1">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide px-1">
+                      {t("statusCompleted")} ({completedShared.length})
+                    </p>
+                    {completedShared.map(note => (
+                      <SharedNoteCard
+                        key={note.id}
+                        note={note}
+                        currentUserId={user?.id}
+                        onToggleNote={() => toggleSharedMutation.mutate({ id: note.id, isCompleted: false })}
+                        onDelete={() => deleteSharedMutation.mutate(note.id)}
+                        onToggleTodo={(id, content) => updateSharedContentMutation.mutate({ id, content })}
+                        t={t}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Messages Conversation List ───────────────────────────────────────────────
+
+function MessagesConversationList({
+  onOpenSage,
+  onOpenGroupChat,
+}: {
+  onOpenSage: () => void;
+  onOpenGroupChat: () => void;
+}) {
+  const { user } = useAuth();
+  const hasGroup = !!user?.familyId;
+
+  const { data: preview } = useQuery<MessagesPreview>({
+    queryKey: ["/api/messages/preview"],
+    enabled: hasGroup,
+    refetchInterval: hasGroup ? 10000 : false,
+  });
+
+  const { data: familyInfo } = useQuery<FamilyInfo>({
+    queryKey: ["/api/family/info"],
+    enabled: hasGroup,
+  });
+
+  const lastMsg = preview?.lastMessage;
+  const unreadCount = preview?.unreadCount ?? 0;
+  const groupName = familyInfo?.name ?? "Group Chat";
+
+  const lastMsgTime = lastMsg ? (() => {
+    const d = new Date(lastMsg.createdAt);
+    if (isToday(d)) return format(d, "h:mm a");
+    if (isYesterday(d)) return "Yesterday";
+    return format(d, "MMM d");
+  })() : null;
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      {/* Sage AI row — always first */}
+      <button
+        className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-secondary/40 transition-colors border-b border-border/30"
+        onClick={onOpenSage}
+        data-testid="button-open-sage-chat"
+      >
+        <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+          <Sparkles className="w-5 h-5 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0 text-left">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm">Sage</span>
+            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">Beta</span>
+          </div>
+          <p className="text-xs text-muted-foreground truncate">AI Financial Advisor</p>
+        </div>
+        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+      </button>
+
+      {/* Group Chat row — group users only */}
+      {hasGroup && (
+        <button
+          className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-secondary/40 transition-colors border-b border-border/30"
+          onClick={onOpenGroupChat}
+          data-testid="button-open-group-chat"
+        >
+          <div className="w-11 h-11 rounded-full bg-secondary flex items-center justify-center shrink-0">
+            <Users className="w-5 h-5 text-muted-foreground" />
+          </div>
+          <div className="flex-1 min-w-0 text-left">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-semibold text-sm truncate">{groupName}</span>
+              {lastMsgTime && (
+                <span className="text-[11px] text-muted-foreground shrink-0">{lastMsgTime}</span>
+              )}
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground truncate">
+                {lastMsg ? lastMsg.content : "No messages yet"}
+              </p>
+              {unreadCount > 0 && (
+                <Badge className="h-5 min-w-5 px-1.5 text-[10px] shrink-0 bg-primary text-primary-foreground" data-testid="badge-unread-count">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </Badge>
+              )}
+            </div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+        </button>
+      )}
+
+      {/* Solo user join prompt */}
+      {!hasGroup && (
+        <div className="p-6 text-center text-muted-foreground">
+          <MessageCircle className="w-10 h-10 mx-auto mb-3 opacity-20" />
+          <p className="text-sm font-medium">No group yet</p>
+          <p className="text-xs mt-1">Join or create a group to chat with your household</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function MessagesPage() {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<TabType>("messages");
+  const [messagesView, setMessagesView] = useState<MessagesView>("list");
+  const [pendingSagePrompt, setPendingSagePrompt] = useState<string | null>(null);
+
   const isSolo = !((user as any)?.familyId);
-  const [activeTab, setActiveTab] = useState<TabType>(isSolo ? "sage" : "messages");
+
+  const handleAskSageFromNote = (prompt: string) => {
+    setPendingSagePrompt(prompt);
+    setActiveTab("messages");
+    setMessagesView("sage");
+  };
+
+  const { data: familyInfo } = useQuery<FamilyInfo>({
+    queryKey: ["/api/family/info"],
+    enabled: !isSolo,
+  });
 
   return (
     <div
       className="flex flex-col h-[calc(100vh-8rem)] lg:h-[calc(100vh-2rem)] -m-4 md:-m-8"
       data-tutorial="messages-area"
     >
+      {/* 2-tab pill */}
       <div className="px-4 pt-4 pb-2">
         <div className="flex items-center gap-1 p-1 bg-secondary/50 rounded-xl">
-          {!isSolo && (
-            <button
-              onClick={() => setActiveTab("messages")}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all",
-                activeTab === "messages"
-                  ? "bg-background shadow-sm text-foreground"
-                  : "text-muted-foreground"
-              )}
-              data-testid="tab-messages"
-            >
-              <MessageCircle className="w-4 h-4" />
-              {t("messages")}
-            </button>
-          )}
-          {!isSolo && (
-            <button
-              onClick={() => setActiveTab("notes")}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all",
-                activeTab === "notes"
-                  ? "bg-background shadow-sm text-foreground"
-                  : "text-muted-foreground"
-              )}
-              data-testid="tab-notes"
-            >
-              <StickyNote className="w-4 h-4" />
-              {t("savedNotes")}
-            </button>
-          )}
           <button
-            onClick={() => { setActiveTab("sage"); captureEvent("sage_tab_opened"); }}
+            onClick={() => setActiveTab("messages")}
             className={cn(
               "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all",
-              activeTab === "sage"
+              activeTab === "messages"
                 ? "bg-background shadow-sm text-foreground"
                 : "text-muted-foreground"
             )}
-            data-testid="tab-sage"
+            data-testid="tab-messages"
           >
-            <Sparkles className="w-4 h-4" />
-            Sage
+            <MessageCircle className="w-4 h-4" />
+            {t("messages")}
+          </button>
+          <button
+            onClick={() => setActiveTab("notes")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all",
+              activeTab === "notes"
+                ? "bg-background shadow-sm text-foreground"
+                : "text-muted-foreground"
+            )}
+            data-testid="tab-notes"
+          >
+            <StickyNote className="w-4 h-4" />
+            Notes
           </button>
         </div>
       </div>
 
-      {activeTab === "messages" && <MessagesTab />}
-      {activeTab === "notes" && <NotesTab />}
-      {activeTab === "sage" && <SageTab />}
+      {/* Messages tab */}
+      {activeTab === "messages" && (
+        <>
+          {messagesView === "list" && (
+            <MessagesConversationList
+              onOpenSage={() => { captureEvent("sage_tab_opened"); setMessagesView("sage"); }}
+              onOpenGroupChat={() => setMessagesView("group-chat")}
+            />
+          )}
+          {messagesView === "sage" && (
+            <SageTab
+              onBack={() => setMessagesView("list")}
+              initialPrompt={pendingSagePrompt}
+              onInitialPromptHandled={() => setPendingSagePrompt(null)}
+            />
+          )}
+          {messagesView === "group-chat" && (
+            <GroupChatPanel
+              onBack={() => setMessagesView("list")}
+              groupName={familyInfo?.name ?? "Group Chat"}
+            />
+          )}
+        </>
+      )}
+
+      {/* Notes tab */}
+      {activeTab === "notes" && (
+        <NotesTab onAskSage={handleAskSageFromNote} />
+      )}
     </div>
   );
 }

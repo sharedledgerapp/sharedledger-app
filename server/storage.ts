@@ -4,7 +4,7 @@ import {
   users, families, expenses, goals, allowances, expenseSplits, goalApprovals,
   messages, notes, messageReadStatus, recurringExpenses, budgets, budgetSetupPrompts,
   settlements, pushSubscriptions, pushNotificationLog, friendGroupMembers, incomeEntries,
-  sageConversations, sageMessages, aiAnalyses,
+  sageConversations, sageMessages, aiAnalyses, personalNotes,
   type User, type InsertUser, type Family, type InsertFamily,
   type Expense, type InsertExpense, type Goal, type InsertGoal,
   type GoalApproval, type InsertGoalApproval,
@@ -15,7 +15,8 @@ import {
   type Budget, type InsertBudget, type BudgetSetupPrompt, type InsertBudgetSetupPrompt,
   type Settlement, type InsertSettlement, type FriendGroupMember,
   type IncomeEntry, type InsertIncomeEntry,
-  type SageConversation, type SageMessage, type AiAnalysis
+  type SageConversation, type SageMessage, type AiAnalysis,
+  type PersonalNote, type InsertPersonalNote
 } from "@shared/schema";
 import { eq, and, desc, or, ne, gte, lte, sql, inArray, aliasedTable } from "drizzle-orm";
 import session from "express-session";
@@ -154,6 +155,13 @@ export interface IStorage {
   updateSageMessageFeedback(id: number, feedback: number): Promise<void>;
   updateFamilyGroupSettings(familyId: number, settings: { groupType?: string; currency?: string }): Promise<Family>;
 
+  // Personal Notes
+  getPersonalNotes(userId: number): Promise<PersonalNote[]>;
+  getPersonalNote(id: number): Promise<PersonalNote | undefined>;
+  createPersonalNote(data: InsertPersonalNote): Promise<PersonalNote>;
+  updatePersonalNote(id: number, updates: Partial<Pick<PersonalNote, 'title' | 'content' | 'isCompleted'>>): Promise<PersonalNote>;
+  deletePersonalNote(id: number): Promise<void>;
+
   sessionStore: session.Store;
 }
 
@@ -262,6 +270,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(budgets).where(eq(budgets.userId, id));
     await db.delete(budgetSetupPrompts).where(eq(budgetSetupPrompts.userId, id));
     await db.delete(pushNotificationLog).where(eq(pushNotificationLog.userId, id));
+    await db.delete(personalNotes).where(eq(personalNotes.userId, id));
     
     await db.delete(users).where(eq(users.id, id));
   }
@@ -1330,6 +1339,35 @@ export class DatabaseStorage implements IStorage {
 
   async updateAiAnalysisFeedback(id: number, feedback: number): Promise<void> {
     await db.update(aiAnalyses).set({ feedback }).where(eq(aiAnalyses.id, id));
+  }
+
+  // Personal Notes
+  async getPersonalNotes(userId: number): Promise<PersonalNote[]> {
+    return db.select().from(personalNotes)
+      .where(eq(personalNotes.userId, userId))
+      .orderBy(desc(personalNotes.createdAt));
+  }
+
+  async getPersonalNote(id: number): Promise<PersonalNote | undefined> {
+    const [note] = await db.select().from(personalNotes).where(eq(personalNotes.id, id));
+    return note;
+  }
+
+  async createPersonalNote(data: InsertPersonalNote): Promise<PersonalNote> {
+    const [note] = await db.insert(personalNotes).values(data).returning();
+    return note;
+  }
+
+  async updatePersonalNote(id: number, updates: Partial<Pick<PersonalNote, 'title' | 'content' | 'isCompleted'>>): Promise<PersonalNote> {
+    const [note] = await db.update(personalNotes)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(personalNotes.id, id))
+      .returning();
+    return note;
+  }
+
+  async deletePersonalNote(id: number): Promise<void> {
+    await db.delete(personalNotes).where(eq(personalNotes.id, id));
   }
 }
 
