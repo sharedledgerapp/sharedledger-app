@@ -1090,20 +1090,27 @@ function PersonalNoteCard({
   onDelete: () => void;
   onToggleTodo: (noteId: number, newContent: string) => void;
   onAskSage: (note: PersonalNoteItem) => void;
-  onShareToGroup: (note: PersonalNoteItem) => void;
+  onShareToGroup: (note: PersonalNoteItem) => Promise<void>;
   hasGroup: boolean;
 }) {
   const [localContent, setLocalContent] = useState(note.content);
   const [shareSent, setShareSent] = useState(false);
+  const [shareError, setShareError] = useState(false);
 
   useEffect(() => { setLocalContent(note.content); }, [note.content]);
 
   const blocks = parseContent(localContent);
 
-  const handleShareToGroup = () => {
-    onShareToGroup(note);
-    setShareSent(true);
-    setTimeout(() => setShareSent(false), 3000);
+  const handleShareToGroup = async () => {
+    setShareError(false);
+    try {
+      await onShareToGroup(note);
+      setShareSent(true);
+      setTimeout(() => setShareSent(false), 3000);
+    } catch {
+      setShareError(true);
+      setTimeout(() => setShareError(false), 3000);
+    }
   };
 
   return (
@@ -1164,6 +1171,8 @@ function PersonalNoteCard({
                   <Check className="w-3 h-3" />
                   Shared!
                 </span>
+              ) : shareError ? (
+                <span className="text-[10px] text-destructive">Failed to share</span>
               ) : (
                 <button
                   onClick={handleShareToGroup}
@@ -1391,11 +1400,11 @@ function NotesTab({
     onAskSage(prompt);
   };
 
-  const handleShareToGroup = (note: PersonalNoteItem) => {
+  const handleShareToGroup = async (note: PersonalNoteItem): Promise<void> => {
     const content = note.content
       ? `📝 ${note.title}\n${note.content}`
       : `📝 ${note.title}`;
-    shareToGroupMutation.mutate(content);
+    await shareToGroupMutation.mutateAsync(content);
   };
 
   const activePersonal = personalNotesList?.filter(n => !n.isCompleted) || [];
@@ -1703,7 +1712,7 @@ function MessagesConversationList({
         <div className="p-6 text-center text-muted-foreground">
           <MessageCircle className="w-10 h-10 mx-auto mb-3 opacity-20" />
           <p className="text-sm font-medium">No group yet</p>
-          <p className="text-xs mt-1">Join or create a group to chat with your household</p>
+          <p className="text-xs mt-1">Create or join a group to chat with your household</p>
         </div>
       )}
     </div>
