@@ -94,7 +94,7 @@ async function checkDailyReminders() {
   const currentHour = now.getHours();
   const currentMinute = now.getMinutes();
 
-  const allUsers = await db.select().from(users).where(eq(users.dailyReminderEnabled, true));
+  const allUsers = await db.select().from(users).where(and(eq(users.dailyReminderEnabled, true), eq(users.onboardingCompleted, true)));
 
   for (const user of allUsers) {
     try {
@@ -125,7 +125,7 @@ async function checkLateReminders() {
 
   if (currentHour !== 21 || currentMinute >= 30) return;
 
-  const allUsers = await db.select().from(users).where(eq(users.dailyReminderEnabled, true));
+  const allUsers = await db.select().from(users).where(and(eq(users.dailyReminderEnabled, true), eq(users.onboardingCompleted, true)));
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -168,7 +168,7 @@ async function checkWeeklyReminders() {
   if (now.getDay() !== 0) return;
   if (now.getHours() < 10 || now.getHours() >= 11) return;
 
-  const allUsers = await db.select().from(users).where(eq(users.weeklyReminderEnabled, true));
+  const allUsers = await db.select().from(users).where(and(eq(users.weeklyReminderEnabled, true), eq(users.onboardingCompleted, true)));
 
   for (const user of allUsers) {
     try {
@@ -193,7 +193,7 @@ async function checkMonthlyReminders() {
   if (now.getDate() !== lastDay) return;
   if (now.getHours() < 10 || now.getHours() >= 11) return;
 
-  const allUsers = await db.select().from(users).where(eq(users.monthlyReminderEnabled, true));
+  const allUsers = await db.select().from(users).where(and(eq(users.monthlyReminderEnabled, true), eq(users.onboardingCompleted, true)));
 
   for (const user of allUsers) {
     try {
@@ -215,7 +215,7 @@ async function checkMonthlyReminders() {
 const ESCALATION_BANDS = [110, 125, 150, 200];
 
 async function checkBudgetAlerts() {
-  const allUsers = await db.select().from(users);
+  const allUsers = await db.select().from(users).where(eq(users.onboardingCompleted, true));
   const userMap = new Map(allUsers.map(u => [u.id, u]));
 
   const allBudgets = await db.select().from(budgets);
@@ -352,6 +352,10 @@ async function checkRecurringReminders() {
   const todayMonth = now.getMonth();
   const todayYear = now.getFullYear();
 
+  const onboardedUserIds = new Set(
+    (await db.select({ id: users.id }).from(users).where(eq(users.onboardingCompleted, true))).map(u => u.id)
+  );
+
   // Only monthly expenses have a predictable dueDay within each calendar month
   const allRecurring = await db.select().from(recurringExpenses)
     .where(and(
@@ -362,6 +366,7 @@ async function checkRecurringReminders() {
 
   for (const expense of allRecurring) {
     try {
+      if (!onboardedUserIds.has(expense.userId)) continue;
       const dueDay = expense.dueDay;
       const daysBefore = expense.reminderDaysBefore ?? 3;
       if (!dueDay) continue;
@@ -409,7 +414,7 @@ async function checkRecurringReminders() {
 
         const familyMembers = await db.select({ id: users.id })
           .from(users)
-          .where(eq(users.familyId, expense.familyId));
+          .where(and(eq(users.familyId, expense.familyId), eq(users.onboardingCompleted, true)));
 
         for (const member of familyMembers) {
           if (member.id === expense.userId) continue; // owner already handled above
@@ -442,6 +447,7 @@ async function checkRecurringReminders() {
 
   for (const entry of allIncome) {
     try {
+      if (!onboardedUserIds.has(entry.userId)) continue;
       const daysBefore = entry.reminderDaysBefore ?? 3;
       if (!entry.recurringInterval) continue;
 
@@ -498,7 +504,7 @@ async function checkSageAnalyses() {
   const now = new Date();
   const dayOfMonth = now.getDate();
 
-  const allUsers = await db.select({ id: users.id }).from(users);
+  const allUsers = await db.select({ id: users.id }).from(users).where(eq(users.onboardingCompleted, true));
 
   for (const { id: userId } of allUsers) {
     try {
@@ -562,6 +568,7 @@ async function checkGroupIdleNudge() {
 
       const nudgeType = `group_idle_nudge_${family.id}`;
       for (const member of members) {
+        if (!member.onboardingCompleted) continue;
         if (await wasNotifiedSince(member.id, nudgeType, threeDaysAgo)) continue;
         const sent = await sendPushToUser(member.id, {
           title: "Check in with your group 💬",

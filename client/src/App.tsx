@@ -38,7 +38,7 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
 
   useEffect(() => {
-    if (user) {
+    if (user && user.onboardingCompleted) {
       const prefs = {
         dailyReminderEnabled: user.dailyReminderEnabled ?? true,
         dailyReminderTime: user.dailyReminderTime || "19:00",
@@ -52,7 +52,7 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
   }, [user]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !user.onboardingCompleted) return;
     const checkBudgets = async () => {
       try {
         const data = await queryClient.fetchQuery({
