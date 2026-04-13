@@ -393,6 +393,9 @@ export async function registerRoutes(
       budgetAlertsEnabled: z.boolean().optional(),
       includeQuickGroupInSummary: z.boolean().optional(),
       sageNotesPermission: z.boolean().optional(),
+      sageExpensePermission: z.boolean().optional(),
+      sageIncomePermission: z.boolean().optional(),
+      sageBudgetGoalsPermission: z.boolean().optional(),
       financialProfile: z.string().max(2000).optional().nullable(),
     });
     

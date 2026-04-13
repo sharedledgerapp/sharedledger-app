@@ -49,10 +49,20 @@ export async function buildSageContext(userId: number): Promise<string> {
 
   const currency = user.currency || "EUR";
 
-  // ── All expenses for the last 3 months ─────────────────────────────────────
-  const recentExpenses = await db.select().from(expenses)
-    .where(and(eq(expenses.userId, userId), gte(expenses.date, threeMonthsAgo)))
-    .orderBy(desc(expenses.date));
+  // ── User permission flags ─────────────────────────────────────────────────
+  // Default true for data access (opt-out); default false for notes (opt-in)
+  const expenseAllowed = user.sageExpensePermission !== false;
+  const incomeAllowed = user.sageIncomePermission !== false;
+  const budgetGoalsAllowed = user.sageBudgetGoalsPermission !== false;
+
+  // ── All expenses for the last 3 months (gated) ────────────────────────────
+  type ExpenseRow = typeof expenses.$inferSelect;
+  let recentExpenses: ExpenseRow[] = [];
+  if (expenseAllowed) {
+    recentExpenses = await db.select().from(expenses)
+      .where(and(eq(expenses.userId, userId), gte(expenses.date, threeMonthsAgo)))
+      .orderBy(desc(expenses.date));
+  }
 
   // ── Build per-month breakdowns (3 months) ──────────────────────────────────
   const monthBreakdowns: Array<{ label: string; total: number; cats: string; count: number }> = [];
@@ -73,10 +83,6 @@ export async function buildSageContext(userId: number): Promise<string> {
       .join(', ');
     monthBreakdowns.push({ label: format(mStart, 'MMM yyyy'), total: mTotal, cats, count: mExp.length });
   }
-
-  const curMonthData = monthBreakdowns[2];
-  const prevMonthData = monthBreakdowns[1];
-  const twoMonthsAgoData = monthBreakdowns[0];
 
   // ── Day-of-week breakdown (current month) ──────────────────────────────────
   const mStart = startOfMonth(now);
@@ -102,10 +108,14 @@ export async function buildSageContext(userId: number): Promise<string> {
     .slice(0, 20)
     .map(e => `"${e.note}" (${e.category}, ${Number(e.amount).toFixed(2)}, ${format(new Date(e.date), 'MMM d')})`);
 
-  // ── Income history (3 months) ──────────────────────────────────────────────
-  const incomeHistory = await db.select().from(incomeEntries)
-    .where(and(eq(incomeEntries.userId, userId), gte(incomeEntries.date, threeMonthsAgo)))
-    .orderBy(desc(incomeEntries.date));
+  // ── Income history (3 months) (gated) ────────────────────────────────────
+  type IncomeRow = typeof incomeEntries.$inferSelect;
+  let incomeHistory: IncomeRow[] = [];
+  if (incomeAllowed) {
+    incomeHistory = await db.select().from(incomeEntries)
+      .where(and(eq(incomeEntries.userId, userId), gte(incomeEntries.date, threeMonthsAgo)))
+      .orderBy(desc(incomeEntries.date));
+  }
 
   // Per-month income totals
   const incomeByMonth: Record<string, number> = {};
@@ -142,30 +152,37 @@ export async function buildSageContext(userId: number): Promise<string> {
     return `${m.label}: ${total > 0 ? total.toFixed(2) + ' ' + currency : 'not recorded'}`;
   }).join(' | ');
 
-  // ── Budgets ────────────────────────────────────────────────────────────────
-  const userBudgets = await storage.getBudgets(userId);
-  const budgetLines = userBudgets.map(b => {
-    const spent = curMonthExp
-      .filter(e => e.category === b.category)
-      .reduce((s, e) => s + Number(e.amount), 0);
-    const pct = b.amount ? Math.round((spent / Number(b.amount)) * 100) : 0;
-    return `${b.category}: ${spent.toFixed(2)}/${Number(b.amount).toFixed(2)} (${pct}% used, ${b.periodType})`;
-  }).join('\n');
+  // ── Budgets (gated) ───────────────────────────────────────────────────────
+  let budgetLines = "";
+  let recurringLines = "";
+  let recurringTotal = 0;
+  if (budgetGoalsAllowed) {
+    const userBudgets = await storage.getBudgets(userId);
+    budgetLines = userBudgets.map(b => {
+      const spent = curMonthExp
+        .filter(e => e.category === b.category)
+        .reduce((s, e) => s + Number(e.amount), 0);
+      const pct = b.amount ? Math.round((spent / Number(b.amount)) * 100) : 0;
+      return `${b.category}: ${spent.toFixed(2)}/${Number(b.amount).toFixed(2)} (${pct}% used, ${b.periodType})`;
+    }).join('\n');
 
-  // ── Goals ──────────────────────────────────────────────────────────────────
-  const userGoals = await storage.getGoals(userId, user.familyId || 0);
-  const goalLines = userGoals.slice(0, 5).map(g => {
-    const pct = g.targetAmount ? Math.round((Number(g.currentAmount) / Number(g.targetAmount)) * 100) : 0;
-    const deadline = g.deadline ? ` — due ${format(new Date(g.deadline), 'MMM yyyy')}` : '';
-    return `"${g.title}": ${Number(g.currentAmount).toFixed(2)}/${Number(g.targetAmount).toFixed(2)} (${pct}%${deadline})`;
-  }).join('\n');
+    const recurring = await storage.getRecurringExpenses(userId);
+    recurringTotal = recurring.filter(r => r.isActive && r.frequency === 'monthly')
+      .reduce((s, r) => s + Number(r.amount), 0);
+    recurringLines = recurring.filter(r => r.isActive).slice(0, 6)
+      .map(r => `${r.name}: ${Number(r.amount).toFixed(2)}/${r.frequency}`).join(', ');
+  }
 
-  // ── Recurring expenses ─────────────────────────────────────────────────────
-  const recurring = await storage.getRecurringExpenses(userId);
-  const recurringTotal = recurring.filter(r => r.isActive && r.frequency === 'monthly')
-    .reduce((s, r) => s + Number(r.amount), 0);
-  const recurringLines = recurring.filter(r => r.isActive).slice(0, 6)
-    .map(r => `${r.name}: ${Number(r.amount).toFixed(2)}/${r.frequency}`).join(', ');
+  // ── Goals (gated) ─────────────────────────────────────────────────────────
+  let goalLines = "";
+  if (budgetGoalsAllowed) {
+    const userGoals = await storage.getGoals(userId, user.familyId || 0);
+    goalLines = userGoals.slice(0, 5).map(g => {
+      const pct = g.targetAmount ? Math.round((Number(g.currentAmount) / Number(g.targetAmount)) * 100) : 0;
+      const deadline = g.deadline ? ` — due ${format(new Date(g.deadline), 'MMM yyyy')}` : '';
+      return `"${g.title}": ${Number(g.currentAmount).toFixed(2)}/${Number(g.targetAmount).toFixed(2)} (${pct}%${deadline})`;
+    }).join('\n');
+  }
 
   // ── Group context ──────────────────────────────────────────────────────────
   let groupContext = "";
@@ -212,11 +229,23 @@ ${activeNotes.join('\n')}`;
     `${m.label}: ${m.total > 0 ? m.total.toFixed(2) + ' ' + currency + ` (${m.count} expenses)` : 'no data'}`
   ).join(' → ');
 
+  // ── Data access summary for Sage ──────────────────────────────────────────
+  const restrictions: string[] = [];
+  if (!expenseAllowed) restrictions.push("expense history");
+  if (!incomeAllowed) restrictions.push("income data");
+  if (!budgetGoalsAllowed) restrictions.push("budgets & goals");
+  if (!user.sageNotesPermission) restrictions.push("personal notes (not shared by user)");
+  const dataAccessNote = restrictions.length > 0
+    ? `\nDATA ACCESS RESTRICTIONS (user has chosen not to share these with Sage): ${restrictions.join(', ')}.\nIf the user asks about restricted data, politely explain they can enable access in Settings > Sage AI.`
+    : "\nDATA ACCESS: Full access granted by user.";
+
   return `
 USER FINANCIAL CONTEXT (currency: ${currency}):
 Name: ${user.name}
 Current date: ${format(now, 'MMMM d, yyyy')} (day ${now.getDate()} of ${endOfMonth(now).getDate()})
 ${profileContext}
+${dataAccessNote}
+${expenseAllowed ? `
 SPENDING TREND (3 months):
 ${monthTrend}
 
@@ -227,14 +256,14 @@ TOP SPENDING DAYS THIS MONTH (by day of week):
 ${dayBreakdown || 'Not enough data'}
 
 EXPENSE NOTES (last 90 days — what users wrote about their spending):
-${allExpenseNotes.length > 0 ? allExpenseNotes.join('\n') : 'No noted expenses in the last 90 days'}
-
+${allExpenseNotes.length > 0 ? allExpenseNotes.join('\n') : 'No noted expenses in the last 90 days'}` : ''}
+${incomeAllowed ? `
 INCOME:
 Monthly income history: ${incomeMonthlyLines}
 Income sources (last 3 months): ${incomeSourceLines || 'not recorded'}
 ${avgIncomeDay ? `Typical income arrival: around day ${avgIncomeDay} of the month` : ''}
-${incomeNotes.length > 0 ? `Income notes:\n${incomeNotes.join('\n')}` : ''}
-
+${incomeNotes.length > 0 ? `Income notes:\n${incomeNotes.join('\n')}` : ''}` : ''}
+${budgetGoalsAllowed ? `
 RECURRING EXPENSES (active):
 ${recurringLines || 'None set up'}
 Monthly recurring total: ${recurringTotal.toFixed(2)} ${currency}
@@ -243,7 +272,7 @@ BUDGETS:
 ${budgetLines || 'No budgets set up'}
 
 SAVINGS GOALS:
-${goalLines || 'No goals set up'}
+${goalLines || 'No goals set up'}` : ''}
 ${groupContext}
 ${personalNotesContext}
 ${historyContext ? `\nPAST ANALYSES (for context, most recent first):\n${historyContext}` : ''}

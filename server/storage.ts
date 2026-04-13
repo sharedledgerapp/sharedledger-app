@@ -34,7 +34,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   getAllUsersWithEmail(): Promise<{ id: number; name: string; email: string }[]>;
   createUser(user: InsertUser & { familyId?: number; googleId?: string | null; appleId?: string | null }): Promise<User>;
-  updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId' | 'onboardingCompleted' | 'userNumber' | 'includeQuickGroupInSummary' | 'incomeSources' | 'sageNotesPermission' | 'financialProfile'>>): Promise<User>;
+  updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId' | 'onboardingCompleted' | 'userNumber' | 'includeQuickGroupInSummary' | 'incomeSources' | 'sageNotesPermission' | 'sageExpensePermission' | 'sageIncomePermission' | 'sageBudgetGoalsPermission' | 'financialProfile'>>): Promise<User>;
   countOnboardedUsers(): Promise<number>;
   assignUserNumber(userId: number): Promise<User>;
   deleteUser(id: number): Promise<void>;
@@ -239,7 +239,7 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId' | 'onboardingCompleted' | 'userNumber' | 'includeQuickGroupInSummary' | 'incomeSources' | 'sageNotesPermission' | 'financialProfile'>>): Promise<User> {
+  async updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId' | 'onboardingCompleted' | 'userNumber' | 'includeQuickGroupInSummary' | 'incomeSources' | 'sageNotesPermission' | 'sageExpensePermission' | 'sageIncomePermission' | 'sageBudgetGoalsPermission' | 'financialProfile'>>): Promise<User> {
     const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
     return user;
   }

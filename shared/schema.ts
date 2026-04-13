@@ -46,6 +46,9 @@ export const users = pgTable("users", {
   includeQuickGroupInSummary: boolean("include_quick_group_in_summary").default(false).notNull(),
   incomeSources: text("income_sources").array(),
   sageNotesPermission: boolean("sage_notes_permission").default(false).notNull(),
+  sageExpensePermission: boolean("sage_expense_permission").default(true).notNull(),
+  sageIncomePermission: boolean("sage_income_permission").default(true).notNull(),
+  sageBudgetGoalsPermission: boolean("sage_budget_goals_permission").default(true).notNull(),
   financialProfile: text("financial_profile"),
   createdAt: timestamp("created_at").defaultNow(),
 });

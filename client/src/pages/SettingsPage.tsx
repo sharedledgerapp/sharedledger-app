@@ -133,6 +133,9 @@ export default function SettingsPage() {
   const [budgetAlertsEnabled, setBudgetAlertsEnabled] = useState((user as any)?.budgetAlertsEnabled ?? true);
   const [includeQuickGroupInSummary, setIncludeQuickGroupInSummary] = useState((user as any)?.includeQuickGroupInSummary ?? false);
   const [sageNotesPermission, setSageNotesPermission] = useState<boolean>((user as any)?.sageNotesPermission ?? false);
+  const [sageExpensePermission, setSageExpensePermission] = useState<boolean>((user as any)?.sageExpensePermission ?? true);
+  const [sageIncomePermission, setSageIncomePermission] = useState<boolean>((user as any)?.sageIncomePermission ?? true);
+  const [sageBudgetGoalsPermission, setSageBudgetGoalsPermission] = useState<boolean>((user as any)?.sageBudgetGoalsPermission ?? true);
   const [financialProfile, setFinancialProfile] = useState<string>((user as any)?.financialProfile ?? "");
   const [financialProfileDraft, setFinancialProfileDraft] = useState<string>((user as any)?.financialProfile ?? "");
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
@@ -300,6 +303,21 @@ export default function SettingsPage() {
   const handleToggleSageNotes = (enabled: boolean) => {
     setSageNotesPermission(enabled);
     updateSageMutation.mutate({ sageNotesPermission: enabled });
+  };
+
+  const handleToggleSageExpense = (enabled: boolean) => {
+    setSageExpensePermission(enabled);
+    updateSageMutation.mutate({ sageExpensePermission: enabled });
+  };
+
+  const handleToggleSageIncome = (enabled: boolean) => {
+    setSageIncomePermission(enabled);
+    updateSageMutation.mutate({ sageIncomePermission: enabled });
+  };
+
+  const handleToggleSageBudgetGoals = (enabled: boolean) => {
+    setSageBudgetGoalsPermission(enabled);
+    updateSageMutation.mutate({ sageBudgetGoalsPermission: enabled });
   };
 
   const handleToggleQuickGroupSummary = (enabled: boolean) => {
@@ -1166,12 +1184,53 @@ export default function SettingsPage() {
               </Button>
             </div>
           </div>
-          <div className="border-t border-border/50 pt-4">
-            <div className="flex items-start gap-3">
+          <div className="border-t border-border/50 pt-4 space-y-1">
+            <p className="text-sm font-medium mb-3">What Sage can access</p>
+            <p className="text-xs text-muted-foreground mb-4">
+              Control exactly what data Sage sees when you chat. You're always in charge — turn off anything you'd rather keep private.
+            </p>
+
+            <div className="flex items-start gap-3 py-2">
               <div className="flex-1">
-                <p className="font-medium text-sm">Let Sage read personal notes</p>
+                <p className="font-medium text-sm">Expense history</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Spending trends, category breakdowns, and expense notes from the last 3 months</p>
+              </div>
+              <Switch
+                checked={sageExpensePermission}
+                onCheckedChange={handleToggleSageExpense}
+                data-testid="switch-sage-expense-permission"
+              />
+            </div>
+
+            <div className="flex items-start gap-3 py-2">
+              <div className="flex-1">
+                <p className="font-medium text-sm">Income data</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Income entries, sources, notes, and typical payment timing</p>
+              </div>
+              <Switch
+                checked={sageIncomePermission}
+                onCheckedChange={handleToggleSageIncome}
+                data-testid="switch-sage-income-permission"
+              />
+            </div>
+
+            <div className="flex items-start gap-3 py-2">
+              <div className="flex-1">
+                <p className="font-medium text-sm">Budgets &amp; goals</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Budget progress, savings goals, and recurring expenses</p>
+              </div>
+              <Switch
+                checked={sageBudgetGoalsPermission}
+                onCheckedChange={handleToggleSageBudgetGoals}
+                data-testid="switch-sage-budget-goals-permission"
+              />
+            </div>
+
+            <div className="flex items-start gap-3 py-2 border-t border-border/30 mt-2 pt-4">
+              <div className="flex-1">
+                <p className="font-medium text-sm">Personal notes</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  When enabled, Sage can read your private notes to give you more personalised advice. Your notes are never shared with your group.
+                  Your private notes — off by default. Turn on to let Sage use them for more personalised advice.
                 </p>
               </div>
               <Switch
