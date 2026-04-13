@@ -25,7 +25,7 @@ import {
   Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, CreditCard,
   Users, UserCircle2, PartyPopper, Sparkles, X
 } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { format } from "date-fns";
 import type { Budget } from "@shared/schema";
 import { DEFAULT_CATEGORIES } from "@/pages/SettingsPage";
@@ -94,6 +94,7 @@ export default function BudgetPage() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const currencySymbol = getCurrencySymbol(user?.currency);
 
   const userCategories = (user as any)?.categories as string[] | null;
@@ -552,28 +553,42 @@ export default function BudgetPage() {
                           </div>
                         )}
 
-                        <div className="flex gap-2 justify-end">
+                        <div className="flex gap-2 justify-between items-center">
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
-                            onClick={() => openEditDialog(budget)}
-                            data-testid={`button-edit-budget-${budget.category.toLowerCase()}`}
-                          >
-                            <Pencil className="w-3.5 h-3.5 mr-1" /> {t("edit")}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
+                            className="text-primary hover:text-primary/80 hover:bg-primary/10 px-2"
                             onClick={() => {
-                              deleteMutation.mutate(budget.id, {
-                                onSuccess: () => captureEvent("budget_deleted", { category: budget.category }),
-                              });
+                              captureEvent("sage_opened_from_budget", { category: budget.category });
+                              setLocation(`/app/messages?sageContext=budget&topic=${encodeURIComponent(budget.category)}`);
                             }}
-                            disabled={deleteMutation.isPending}
-                            data-testid={`button-delete-budget-${budget.category.toLowerCase()}`}
+                            data-testid={`button-ask-sage-budget-${budget.category.toLowerCase()}`}
                           >
-                            <Trash2 className="w-3.5 h-3.5 mr-1" /> {t("delete")}
+                            <Sparkles className="w-3.5 h-3.5 mr-1" /> Ask Sage
                           </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openEditDialog(budget)}
+                              data-testid={`button-edit-budget-${budget.category.toLowerCase()}`}
+                            >
+                              <Pencil className="w-3.5 h-3.5 mr-1" /> {t("edit")}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                deleteMutation.mutate(budget.id, {
+                                  onSuccess: () => captureEvent("budget_deleted", { category: budget.category }),
+                                });
+                              }}
+                              disabled={deleteMutation.isPending}
+                              data-testid={`button-delete-budget-${budget.category.toLowerCase()}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5 mr-1" /> {t("delete")}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     )}

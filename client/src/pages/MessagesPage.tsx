@@ -149,14 +149,53 @@ function SageText({ content }: { content: string }) {
 
 const FEEDBACK_NUDGE_AFTER = 4;
 
+const PAGE_CONTEXT_GREETINGS: Record<string, { message: string; quickReplies: string[] }> = {
+  budget: {
+    message: "I can see you're looking at your budgets. I can give you a full breakdown of how you're tracking, flag any categories that are trending over, or help you think through whether your limits make sense. What would you prefer?",
+    quickReplies: [
+      "How am I tracking across all my budgets?",
+      "Which budget am I closest to exceeding?",
+      "Help me decide if my budget limits make sense",
+    ],
+  },
+  goals: {
+    message: "You're on your savings goals page. I can check how each goal is tracking, tell you if you're on pace to hit your targets, or help you prioritise which to focus on. What would you like to dig into?",
+    quickReplies: [
+      "Am I on track to reach my goals?",
+      "Which goal should I prioritise?",
+      "How much do I need to save each month to hit my goals?",
+    ],
+  },
+  expenses: {
+    message: "You're on the Money page. I can review your recent spending, flag anything unusual, or help you understand where your money is going this month. What's on your mind?",
+    quickReplies: [
+      "What did I spend the most on recently?",
+      "Flag anything unusual in my recent spending",
+      "How does this month compare to last month?",
+    ],
+  },
+  reports: {
+    message: "You're on your Reports page — a good moment to reflect. I can analyse your spending trends, compare months, or highlight patterns worth knowing about. What caught your eye?",
+    quickReplies: [
+      "What are my biggest spending patterns?",
+      "Compare this month to last month for me",
+      "What should I be paying more attention to?",
+    ],
+  },
+};
+
 function SageTab({
   onBack,
   initialPrompt,
   onInitialPromptHandled,
+  pageContext,
+  pageContextTopic,
 }: {
   onBack: () => void;
   initialPrompt?: string | null;
   onInitialPromptHandled?: () => void;
+  pageContext?: string | null;
+  pageContextTopic?: string | null;
 }) {
   const { user } = useAuth();
   const [activeConvId, setActiveConvId] = useState<number | null>(null);
@@ -353,6 +392,34 @@ function SageTab({
     return () => { cancelled = true; };
   }, [initialPrompt]);
 
+  // Handle pageContext: auto-create a conversation and pre-fill with topic if given
+  useEffect(() => {
+    if (!pageContext || initialPrompt) return;
+    let cancelled = false;
+    async function setup() {
+      try {
+        const greeting = PAGE_CONTEXT_GREETINGS[pageContext!];
+        const title = pageContextTopic
+          ? `${pageContextTopic} (${pageContext})`
+          : `From ${pageContext} page`;
+        const res = await apiRequest("POST", "/api/sage/conversations", { title });
+        const conv: SageConversation = await res.json();
+        if (cancelled) return;
+        queryClient.invalidateQueries({ queryKey: ["/api/sage/conversations"] });
+        setActiveConvId(conv.id);
+        resetNudge();
+        if (pageContextTopic) {
+          setInputText(`Tell me about my ${pageContextTopic} budget — how am I tracking?`);
+        } else if (greeting) {
+          setInputText("");
+        }
+        setLocalMessages([]);
+      } catch {}
+    }
+    setup();
+    return () => { cancelled = true; };
+  }, [pageContext]);
+
   // ── Conversation list view ──────────────────────────────────────────────────
   if (activeConvId === null) {
     return (
@@ -478,6 +545,41 @@ function SageTab({
             {[1, 2].map(i => <Skeleton key={i} className="h-16 w-3/4 rounded-2xl" />)}
           </div>
         ) : localMessages.length === 0 ? (
+          pageContext && PAGE_CONTEXT_GREETINGS[pageContext] ? (
+            <div className="flex flex-col h-full py-8 px-2 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                </div>
+                <div className="bg-secondary rounded-2xl rounded-bl-md px-4 py-3 max-w-[85%]">
+                  <p className="text-sm text-secondary-foreground leading-relaxed">
+                    {pageContextTopic
+                      ? `You're looking at your ${pageContextTopic} budget. I can break down how you're tracking, flag trends, or help you decide if the limit makes sense. What would you like to know?`
+                      : PAGE_CONTEXT_GREETINGS[pageContext].message}
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-2 pl-11">
+                {(pageContextTopic
+                  ? [
+                      `How am I tracking on ${pageContextTopic} this month?`,
+                      `Is my ${pageContextTopic} budget realistic?`,
+                      `How does my ${pageContextTopic} spending compare to last month?`,
+                    ]
+                  : PAGE_CONTEXT_GREETINGS[pageContext].quickReplies
+                ).map((q, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { captureEvent("sage_context_quick_reply", { pageContext, index: i }); handleSend(q, undefined, true); }}
+                    className="text-left text-xs px-3 py-2.5 rounded-xl border border-border/60 hover:bg-secondary/40 hover:border-primary/30 transition-colors"
+                    data-testid={`button-context-reply-${i}`}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-16 space-y-4">
             <Sparkles className="w-12 h-12 opacity-20" />
             <p className="font-medium">Ask Sage anything</p>
@@ -494,6 +596,7 @@ function SageTab({
               ))}
             </div>
           </div>
+          )
         ) : (
           <>
             {localMessages.map((msg) => {
@@ -1368,6 +1471,7 @@ function NotesTab({
   const [selectedSharedId, setSelectedSharedId] = useState<number | null>(null);
 
   const [showAddPersonalForm, setShowAddPersonalForm] = useState(false);
+  const [showGuidedQuestions, setShowGuidedQuestions] = useState(false);
   const [newPersonalTitle, setNewPersonalTitle] = useState("");
   const [newPersonalContent, setNewPersonalContent] = useState("");
   const personalContentRef = useRef<HTMLTextAreaElement>(null);
@@ -1586,31 +1690,41 @@ function NotesTab({
           {showAddPersonalForm && (
             <Card className="p-4 space-y-3">
               <div>
-                <p className="text-[11px] text-muted-foreground mb-2 font-medium uppercase tracking-wide">Questions to inspire your note</p>
-                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-                  {[
-                    "What am I saving up for right now?",
-                    "What was my biggest unnecessary expense lately?",
-                    "What financial habit am I working on this month?",
-                    "What recurring costs should I review or cut?",
-                    "What's coming up financially that I need to plan for?",
-                    "What was an unexpected expense I want to remember?",
-                    "What do I want to change about my spending?",
-                    "What am I proud of financially this month?",
-                    "When does my income usually arrive, and what do I do first?",
-                    "What's my financial goal for next month?",
-                  ].map((q) => (
-                    <button
-                      key={q}
-                      type="button"
-                      onClick={() => setNewPersonalTitle(q)}
-                      className="shrink-0 text-[11px] bg-secondary text-secondary-foreground hover:bg-primary/10 hover:text-primary px-2.5 py-1.5 rounded-full transition-colors text-left max-w-[180px] truncate"
-                      data-testid={`button-guided-question-${q.slice(0, 20).replace(/\s/g, "-")}`}
-                    >
-                      {q}
-                    </button>
-                  ))}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowGuidedQuestions(v => !v)}
+                  className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium uppercase tracking-wide hover:text-primary transition-colors"
+                  data-testid="button-toggle-guided-questions"
+                >
+                  <ChevronRight className={cn("w-3 h-3 transition-transform", showGuidedQuestions && "rotate-90")} />
+                  Questions to inspire your note
+                </button>
+                {showGuidedQuestions && (
+                  <div className="mt-2 space-y-1">
+                    {[
+                      "What am I saving up for right now?",
+                      "What was my biggest unnecessary expense lately?",
+                      "What financial habit am I working on this month?",
+                      "What recurring costs should I review or cut?",
+                      "What's coming up financially that I need to plan for?",
+                      "What was an unexpected expense I want to remember?",
+                      "What do I want to change about my spending?",
+                      "What am I proud of financially this month?",
+                      "When does my income usually arrive, and what do I do first?",
+                      "What's my financial goal for next month?",
+                    ].map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => { setNewPersonalTitle(q); setShowGuidedQuestions(false); }}
+                        className="w-full text-left text-xs bg-secondary/60 hover:bg-primary/10 hover:text-primary px-3 py-2 rounded-lg transition-colors"
+                        data-testid={`button-guided-question-${q.slice(0, 20).replace(/\s/g, "-")}`}
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <Input
                 value={newPersonalTitle}
@@ -1985,8 +2099,31 @@ export default function MessagesPage() {
   const [activeTab, setActiveTab] = useState<TabType>("messages");
   const [messagesView, setMessagesView] = useState<MessagesView>("list");
   const [pendingSagePrompt, setPendingSagePrompt] = useState<string | null>(null);
+  const [pendingPageContext, setPendingPageContext] = useState<string | null>(null);
+  const [pendingPageContextTopic, setPendingPageContextTopic] = useState<string | null>(null);
 
   const isSolo = !((user as any)?.familyId);
+
+  // Read URL params for context-awareness (e.g. opened from Budget page)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sageContext = params.get("sageContext");
+    const topic = params.get("topic");
+    const q = params.get("q");
+    if (sageContext) {
+      setActiveTab("messages");
+      setMessagesView("sage");
+      setPendingPageContext(sageContext);
+      if (topic) setPendingPageContextTopic(topic);
+      if (q) setPendingSagePrompt(q);
+      // Clean up URL without reloading
+      const url = new URL(window.location.href);
+      url.searchParams.delete("sageContext");
+      url.searchParams.delete("topic");
+      url.searchParams.delete("q");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
 
   const handleAskSageFromNote = (prompt: string) => {
     setPendingSagePrompt(prompt);
@@ -2050,6 +2187,8 @@ export default function MessagesPage() {
               onBack={() => setMessagesView("list")}
               initialPrompt={pendingSagePrompt}
               onInitialPromptHandled={() => setPendingSagePrompt(null)}
+              pageContext={pendingPageContext}
+              pageContextTopic={pendingPageContextTopic}
             />
           )}
           {messagesView === "group-chat" && (
