@@ -190,7 +190,9 @@ async function checkWeeklyReminders() {
 async function checkMonthlyReminders() {
   const now = new Date();
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  if (now.getDate() !== lastDay) return;
+  const isLastDay = now.getDate() === lastDay;
+  const isFirstDay = now.getDate() === 1;
+  if (!isLastDay && !isFirstDay) return;
   if (now.getHours() < 10 || now.getHours() >= 11) return;
 
   const allUsers = await db.select().from(users).where(and(eq(users.monthlyReminderEnabled, true), eq(users.onboardingCompleted, true)));
@@ -200,10 +202,10 @@ async function checkMonthlyReminders() {
       if (await wasNotifiedThisMonth(user.id, "monthly")) continue;
 
       const sent = await sendPushToUser(user.id, {
-        title: "Monthly Spending Review",
-        body: "Your monthly summary is ready. Review your spending in SharedLedger!",
+        title: "Another month, another step forward",
+        body: "Your review is ready — come see what you've built this month.",
         tag: "monthly-reminder",
-        url: "/app/reports",
+        url: "/app/budget",
       });
       if (sent) await markNotified(user.id, "monthly");
     } catch (err) {

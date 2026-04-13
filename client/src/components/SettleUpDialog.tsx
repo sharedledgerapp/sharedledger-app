@@ -10,13 +10,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { getCurrencySymbol } from "@/lib/currency";
+import { useCelebration } from "@/hooks/use-celebration";
 import { ArrowRight } from "lucide-react";
-
-interface Member {
-  id: number;
-  name: string;
-  memberRole: string;
-}
 
 interface Balance {
   fromUserId: number;
@@ -41,6 +36,7 @@ const settleSchema = z.object({
 
 export function SettleUpDialog({ open, onOpenChange, balance, groupId, groupCurrency }: Props) {
   const { toast } = useToast();
+  const { celebrate } = useCelebration();
   const currencySymbol = getCurrencySymbol(groupCurrency);
 
   const form = useForm<z.infer<typeof settleSchema>>({
@@ -63,11 +59,26 @@ export function SettleUpDialog({ open, onOpenChange, balance, groupId, groupCurr
       });
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/friend-groups", groupId, "balances"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/friend-groups", groupId, "balances"] });
       queryClient.invalidateQueries({ queryKey: ["/api/friend-groups", groupId] });
       queryClient.invalidateQueries({ queryKey: ["/api/friend-groups", groupId, "expenses"] });
       toast({ title: "Payment recorded!", description: `Settlement of ${currencySymbol}${form.getValues("amount")} recorded.` });
+
+      try {
+        const freshRes = await fetch(`/api/friend-groups/${groupId}/balances`, { credentials: "include" });
+        if (freshRes.ok) {
+          const freshBalances: Balance[] = await freshRes.json();
+          queryClient.setQueryData(["/api/friend-groups", groupId, "balances"], freshBalances);
+          if (freshBalances.length === 0) {
+            celebrate("light");
+            toast({ title: "You're all square!", description: "Clean slate, fresh start." });
+          }
+        }
+      } catch (err) {
+        console.warn("[SettleUp] Could not check final balances for celebration:", err);
+      }
+
       onOpenChange(false);
     },
     onError: (e: Error) => {

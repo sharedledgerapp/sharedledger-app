@@ -46,7 +46,7 @@ function wasNotifiedThisMonth(type: string): boolean {
   return lastDate.getMonth() === now.getMonth() && lastDate.getFullYear() === now.getFullYear();
 }
 
-function showNotification(title: string, body: string) {
+function showNotification(title: string, body: string, url?: string) {
   if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
   
   try {
@@ -55,6 +55,7 @@ function showNotification(title: string, body: string) {
         type: "SHOW_NOTIFICATION",
         title,
         body,
+        url,
       });
     } else {
       new Notification(title, { body, icon: "/icons/icon-192.png" });
@@ -94,10 +95,13 @@ export function checkAndSendNotifications(prefs: NotificationPrefs) {
 
   if (prefs.monthlyReminderEnabled && !wasNotifiedThisMonth("monthly")) {
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    if (now.getDate() === lastDay && currentHour >= 10 && currentHour < 11) {
+    const isLastDay = now.getDate() === lastDay;
+    const isFirstDay = now.getDate() === 1;
+    if ((isLastDay || isFirstDay) && currentHour >= 10 && currentHour < 11) {
       showNotification(
-        "Monthly Spending Review",
-        "Your monthly summary is ready. Review your spending in SharedLedger!"
+        "Another month, another step forward",
+        "Your review is ready — come see what you've built this month.",
+        "/app/budget"
       );
       setLastNotification("monthly");
     }

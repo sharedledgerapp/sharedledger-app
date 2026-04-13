@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useCelebration } from "@/hooks/use-celebration";
 import { useCategoryEmoji as useAICategoryEmoji, useCategoryIconName, getLucideIcon } from "@/hooks/use-category-icon";
 import { useExpenses, useCreateExpense, useUpdateExpense, useUpload, useFamily } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
@@ -94,6 +95,7 @@ export default function ExpensesPage() {
   const qc = useQueryClient();
   const deleteMutation = useDeleteExpense();
   const [, navigate] = useLocation();
+  const { celebrate } = useCelebration();
   
   const currencySymbol = getCurrencySymbol(user?.currency);
   const { data: familyData } = useFamily();
@@ -216,6 +218,14 @@ export default function ExpensesPage() {
         captureEvent("income_shared", { shareDetails: variables.shareDetails, source: variables.source, isRecurring: variables.isRecurring });
       }
       toast({ title: "Income added" });
+      if (!expenses?.length && !incomeEntries?.length && !localStorage.getItem("celebration_first_transaction")) {
+        localStorage.setItem("celebration_first_transaction", "1");
+        celebrate("light");
+        toast({
+          title: "Your financial journey starts here",
+          description: "Every entry counts — you've taken the first step!",
+        });
+      }
       resetIncomeForm();
     },
     onError: () => toast({ title: "Failed to add income", variant: "destructive" }),
@@ -1615,6 +1625,7 @@ export default function ExpensesPage() {
         }} 
         editingExpense={editingExpense}
         isFirstExpense={!expenses || expenses.length === 0}
+        isFirstEverTransaction={(!expenses || expenses.length === 0) && (!incomeEntries || incomeEntries.length === 0)}
       />
     </div>
   );
@@ -1632,12 +1643,14 @@ function CreateExpenseDialog({
   open, 
   onOpenChange, 
   editingExpense,
-  isFirstExpense = false
+  isFirstExpense = false,
+  isFirstEverTransaction = false
 }: { 
   open: boolean; 
   onOpenChange: (open: boolean) => void;
   editingExpense?: any;
   isFirstExpense?: boolean;
+  isFirstEverTransaction?: boolean;
 }) {
   const [amount, setAmount] = useState("0");
   const [category, setCategory] = useState(DEFAULT_CATEGORIES[0]);
@@ -1659,7 +1672,9 @@ function CreateExpenseDialog({
   const createMutation = useCreateExpense();
   const updateMutation = useUpdateExpense();
   const uploadMutation = useUpload();
-  
+  const { celebrate } = useCelebration();
+  const { toast: celebrationToast } = useToast();
+
   const CATEGORIES = (user as any)?.categories || DEFAULT_CATEGORIES;
   
   const updateCurrencyMutation = useMutation({
@@ -1712,6 +1727,14 @@ function CreateExpenseDialog({
         has_date: !!data.extracted?.date,
         has_merchant: !!data.extracted?.note,
       });
+      if (!localStorage.getItem("celebration_first_receipt_scan")) {
+        localStorage.setItem("celebration_first_receipt_scan", "1");
+        celebrate("light");
+        celebrationToast({
+          title: "Nice — let the app do the heavy lifting!",
+          description: "Your receipt has been scanned and ready to review.",
+        });
+      }
     },
     onError: () => {
       captureEvent("receipt_scan_failed");
@@ -1861,6 +1884,14 @@ function CreateExpenseDialog({
             is_shared: isPublic || paymentSource === "family",
             has_note: !!note,
           });
+          if (isFirstEverTransaction && !localStorage.getItem("celebration_first_transaction")) {
+            localStorage.setItem("celebration_first_transaction", "1");
+            celebrate("light");
+            celebrationToast({
+              title: "Your financial journey starts here",
+              description: "Every entry counts — you've taken the first step!",
+            });
+          }
           onOpenChange(false);
         }
       });

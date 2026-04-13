@@ -6,6 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { checkBudgetThresholdNotifications } from "@/lib/notifications";
 import { getCurrencySymbol, formatAmount } from "@/lib/currency";
+import { useCelebration } from "@/hooks/use-celebration";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,12 +23,26 @@ import {
   ArrowLeft, Plus, Pencil, Trash2, Bell, BellOff, StickyNote,
   TrendingUp, Wallet, PiggyBank, ChevronDown, ChevronUp,
   Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, CreditCard,
-  Users, UserCircle2
+  Users, UserCircle2, PartyPopper, Sparkles, X
 } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import type { Budget } from "@shared/schema";
 import { DEFAULT_CATEGORIES } from "@/pages/SettingsPage";
+
+type MonthlyReviewCategory = {
+  category: string;
+  budgetAmount: number;
+  spent: number;
+  remaining: number;
+  percentUsed: number;
+  underBudget: boolean;
+};
+
+type MonthlyReviewData = {
+  categories: MonthlyReviewCategory[];
+  month: string;
+};
 
 type BudgetSummary = Budget & {
   spent: number;
@@ -88,6 +103,7 @@ export default function BudgetPage() {
   const [editingBudget, setEditingBudget] = useState<BudgetSummary | SharedBudgetSummary | null>(null);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [expandedSharedBudgetId, setExpandedSharedBudgetId] = useState<number | null>(null);
+  const [showMonthlyReview, setShowMonthlyReview] = useState(false);
   const [form, setForm] = useState({
     category: "",
     amount: "",
@@ -97,9 +113,14 @@ export default function BudgetPage() {
     note: "",
     scope: "personal" as "personal" | "shared",
   });
+  const { celebrate } = useCelebration();
 
   const { data: summary, isLoading } = useQuery<SummaryResponse>({
     queryKey: ["/api/budget-summary"],
+  });
+
+  const { data: monthlyReview } = useQuery<MonthlyReviewData>({
+    queryKey: ["/api/budget-monthly-review"],
   });
 
   const { data: sharedBudgetData, isLoading: sharedLoading } = useQuery<{ budgets: SharedBudgetSummary[] }>({
@@ -133,6 +154,44 @@ export default function BudgetPage() {
       );
     }
   }, [summary]);
+
+  useEffect(() => {
+    if (!monthlyReview || !monthlyReview.categories.length) return;
+
+    const reviewKey = `budget_monthly_review_shown_${monthlyReview.month}`;
+    if (localStorage.getItem(reviewKey)) return;
+
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    if (monthlyReview.month >= currentMonth) return;
+
+    localStorage.setItem(reviewKey, "1");
+
+    const wins = monthlyReview.categories.filter(c => c.underBudget);
+    const hasAnyWin = wins.length > 0;
+    if (hasAnyWin) {
+      celebrate("full");
+    }
+
+    const streakKey = "budget_streak_months";
+    const allUnder = monthlyReview.categories.every(c => c.underBudget);
+    if (allUnder) {
+      const currentStreak = parseInt(localStorage.getItem(streakKey) || "0", 10) + 1;
+      localStorage.setItem(streakKey, String(currentStreak));
+      if (currentStreak >= 2) {
+        setTimeout(() => {
+          toast({
+            title: currentStreak === 2 ? "Two months running" : `${currentStreak} months in a row`,
+            description: "You're building something real here.",
+          });
+        }, 2500);
+      }
+    } else {
+      localStorage.setItem(streakKey, "0");
+    }
+
+    setShowMonthlyReview(true);
+  }, [monthlyReview]);
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -267,6 +326,10 @@ export default function BudgetPage() {
     );
   }
 
+  const monthlyReviewWins = monthlyReview?.categories.filter(c => c.underBudget) || [];
+  const monthlyReviewReflect = monthlyReview?.categories.filter(c => !c.underBudget) || [];
+  const allOverBudget = monthlyReview && monthlyReview.categories.length > 0 && monthlyReviewWins.length === 0;
+
   return (
     <div className="space-y-6 pb-20">
       <div className="flex items-center gap-3">
@@ -277,6 +340,81 @@ export default function BudgetPage() {
         </Link>
         <h1 className="font-display font-bold text-2xl">{t("budgetPlanning")}</h1>
       </div>
+
+      {showMonthlyReview && monthlyReview && (
+        <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5 shadow-md" data-testid="card-monthly-review">
+          <CardContent className="p-5 space-y-4">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-2">
+                <PartyPopper className="w-5 h-5 text-primary" />
+                <span className="font-display font-bold text-base text-foreground">
+                  {format(new Date(monthlyReview.month + "-01"), "MMMM")} Review
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 -mr-1 -mt-1"
+                onClick={() => setShowMonthlyReview(false)}
+                data-testid="button-close-monthly-review"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {allOverBudget ? (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  This month had its challenges — and that's completely okay. Here's what might be worth revisiting.
+                </p>
+                <div className="space-y-2">
+                  {monthlyReviewReflect.map(cat => (
+                    <div key={cat.category} className="flex justify-between items-center text-sm py-1" data-testid={`review-reflect-${cat.category.toLowerCase()}`}>
+                      <span className="font-medium text-foreground">{cat.category}</span>
+                      <span className="text-muted-foreground">{formatAmount(cat.spent, user?.currency)} / {formatAmount(cat.budgetAmount, user?.currency)}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground pt-1">Every month is a new chance to learn what works for you.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                    Here's what you nailed this month.
+                  </p>
+                  <div className="space-y-2">
+                    {monthlyReviewWins.map(cat => (
+                      <div key={cat.category} className="flex justify-between items-center text-sm py-1" data-testid={`review-win-${cat.category.toLowerCase()}`}>
+                        <span className="font-medium text-foreground">{cat.category}</span>
+                        <span className="text-primary font-semibold">
+                          {formatAmount(cat.remaining, user?.currency)} saved
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {monthlyReviewReflect.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-border/40">
+                    <p className="text-sm font-medium text-muted-foreground">A few things worth a closer look.</p>
+                    <div className="space-y-2">
+                      {monthlyReviewReflect.map(cat => (
+                        <div key={cat.category} className="flex justify-between items-center text-sm py-1" data-testid={`review-reflect-${cat.category.toLowerCase()}`}>
+                          <span className="text-muted-foreground">{cat.category}</span>
+                          <span className="text-muted-foreground">{formatAmount(cat.spent, user?.currency)} / {formatAmount(cat.budgetAmount, user?.currency)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Every month is a new chance to learn what works for you.</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-border/50 shadow-sm" data-testid="card-budget-overview" data-tutorial="budget-card">
         <CardHeader className="pb-2">

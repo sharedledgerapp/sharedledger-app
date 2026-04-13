@@ -2135,6 +2135,42 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     });
   });
 
+  app.get("/api/budget-monthly-review", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const userBudgets = await storage.getBudgets(user.id);
+    const allExpenses = await storage.getExpenses(user.id);
+
+    const now = new Date();
+    const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const monthlyBudgets = userBudgets.filter(b => b.periodType === "monthly");
+
+    const results = monthlyBudgets.map(budget => {
+      const categoryExpenses = allExpenses.filter(e => {
+        const expDate = new Date(e.date);
+        return e.category === budget.category && expDate >= prevMonthStart && expDate < prevMonthEnd;
+      });
+      const spent = categoryExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
+      const budgetAmount = Number(budget.amount);
+      const remaining = budgetAmount - spent;
+      const percentUsed = budgetAmount > 0 ? Math.round((spent / budgetAmount) * 100) : 0;
+      return {
+        category: budget.category,
+        budgetAmount,
+        spent,
+        remaining,
+        percentUsed,
+        underBudget: spent <= budgetAmount,
+      };
+    });
+
+    res.json({
+      categories: results,
+      month: prevMonthStart.toISOString().slice(0, 7),
+    });
+  });
+
   app.get("/api/budget-setup", requireAuth, async (req, res) => {
     const user = req.user as any;
     const prompt = await storage.getBudgetSetupPrompt(user.id);

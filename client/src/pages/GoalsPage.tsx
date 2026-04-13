@@ -2,12 +2,13 @@ import { useState, useEffect } from "react";
 import { useGoals, useCreateGoal, useUpdateGoal, useDeleteGoal, useUpload } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
 import { captureEvent } from "@/lib/analytics";
+import { useCelebration } from "@/hooks/use-celebration";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Trophy, Target, Trash2, Loader2, Save, Calendar, FileText, Camera, Flag, Lock, Users, Globe } from "lucide-react";
+import { Plus, Trophy, Target, Trash2, Loader2, Save, Calendar, FileText, Camera, Flag, Lock, Users, Globe, PartyPopper } from "lucide-react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { InsertGoal } from "@shared/schema";
 import { format } from "date-fns";
@@ -22,9 +23,11 @@ export default function GoalsPage() {
   const { data: goals, isLoading } = useGoals();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<any>(null);
+  const [completedGoal, setCompletedGoal] = useState<{ title: string } | null>(null);
 
   const deleteMutation = useDeleteGoal();
   const updateMutation = useUpdateGoal();
+  const { celebrate } = useCelebration();
   const currencySymbol = getCurrencySymbol(user?.currency);
 
   return (
@@ -142,8 +145,17 @@ export default function GoalsPage() {
                         const amount = prompt("Enter amount to add:");
                         if (amount && !isNaN(Number(amount))) {
                           const newAmount = Number(goal.currentAmount) + Number(amount);
+                          const willComplete = newAmount >= Number(goal.targetAmount);
+                          const goalKey = `celebration_goal_completed_${goal.id}`;
                           updateMutation.mutate({ id: goal.id, currentAmount: newAmount.toString() }, {
-                            onSuccess: () => captureEvent("goal_funds_added", { amount_added: Number(amount) }),
+                            onSuccess: () => {
+                              captureEvent("goal_funds_added", { amount_added: Number(amount) });
+                              if (willComplete && !localStorage.getItem(goalKey)) {
+                                localStorage.setItem(goalKey, "1");
+                                celebrate("full");
+                                setCompletedGoal({ title: goal.title });
+                              }
+                            },
                           });
                         }
                      }}
@@ -174,6 +186,31 @@ export default function GoalsPage() {
         }} 
         editingGoal={editingGoal}
       />
+
+      <Dialog open={!!completedGoal} onOpenChange={(open) => { if (!open) setCompletedGoal(null); }}>
+        <DialogContent className="max-w-sm rounded-2xl text-center" data-testid="dialog-goal-completed">
+          <div className="flex flex-col items-center gap-4 py-4">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-primary to-accent flex items-center justify-center shadow-xl shadow-primary/25">
+              <PartyPopper className="w-10 h-10 text-white" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="font-display font-bold text-2xl" data-testid="text-goal-completed-title">You did it!</h2>
+              {completedGoal && (
+                <p className="text-muted-foreground text-base">
+                  You've fully saved for <span className="font-semibold text-foreground">{completedGoal.title}</span>. That took real commitment.
+                </p>
+              )}
+            </div>
+            <Button
+              className="w-full rounded-xl"
+              onClick={() => setCompletedGoal(null)}
+              data-testid="button-goal-completed-close"
+            >
+              Keep going!
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
