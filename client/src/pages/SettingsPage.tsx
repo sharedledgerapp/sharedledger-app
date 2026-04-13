@@ -138,6 +138,8 @@ export default function SettingsPage() {
   const [sageBudgetGoalsPermission, setSageBudgetGoalsPermission] = useState<boolean>((user as any)?.sageBudgetGoalsPermission ?? true);
   const [financialProfile, setFinancialProfile] = useState<string>((user as any)?.financialProfile ?? "");
   const [financialProfileDraft, setFinancialProfileDraft] = useState<string>((user as any)?.financialProfile ?? "");
+  const [intention, setIntention] = useState<string>((user as any)?.onboardingIntention ?? "");
+  const [intentionDraft, setIntentionDraft] = useState<string>((user as any)?.onboardingIntention ?? "");
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
     typeof Notification !== "undefined" ? Notification.permission : "default"
   );
@@ -281,7 +283,7 @@ export default function SettingsPage() {
   };
 
   const updateSageMutation = useMutation({
-    mutationFn: async (data: { sageNotesPermission?: boolean; financialProfile?: string | null }) => {
+    mutationFn: async (data: { sageNotesPermission?: boolean; financialProfile?: string | null; onboardingIntention?: string | null }) => {
       const res = await apiRequest("PATCH", "/api/user/profile", data);
       return res.json();
     },
@@ -298,6 +300,12 @@ export default function SettingsPage() {
     const trimmed = financialProfileDraft.trim();
     setFinancialProfile(trimmed);
     updateSageMutation.mutate({ financialProfile: trimmed || null });
+  };
+
+  const handleSaveIntention = () => {
+    const trimmed = intentionDraft.trim();
+    setIntention(trimmed);
+    updateSageMutation.mutate({ onboardingIntention: trimmed || null });
   };
 
   const handleToggleSageNotes = (enabled: boolean) => {
@@ -1159,29 +1167,58 @@ export default function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
-          <div>
-            <p className="text-sm font-medium mb-1">Your Financial Profile</p>
-            <p className="text-xs text-muted-foreground mb-3">
-              Tell Sage about yourself so it can give you better advice from the start. This is read every time you chat with Sage.
-            </p>
-            <Textarea
-              value={financialProfileDraft}
-              onChange={(e) => setFinancialProfileDraft(e.target.value)}
-              placeholder={"For example:\n• My income usually arrives on the 1st and 15th\n• My biggest commitment is rent — 60% of income\n• I'm saving to move out by year-end\n• We split groceries and utilities with my flatmate"}
-              className="min-h-[120px] text-sm resize-none"
-              maxLength={2000}
-              data-testid="textarea-financial-profile"
-            />
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-xs text-muted-foreground">{financialProfileDraft.length}/2000</span>
-              <Button
-                size="sm"
-                onClick={handleSaveFinancialProfile}
-                disabled={updateSageMutation.isPending || financialProfileDraft === financialProfile}
-                data-testid="button-save-financial-profile"
-              >
-                {updateSageMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save"}
-              </Button>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-medium mb-1">Your Sage context</p>
+              <p className="text-xs text-muted-foreground mb-3">
+                Everything here is read every time you chat with Sage — keep it current and it will give you sharper, more personal advice.
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Your financial intention</p>
+              <p className="text-xs text-muted-foreground mb-2">In 3 months, what would have to be true for you to feel your finances are on track? Sage uses this as your north star.</p>
+              <Textarea
+                value={intentionDraft}
+                onChange={(e) => setIntentionDraft(e.target.value)}
+                placeholder={"For example:\n• I'd have paid off my credit card\n• We'd have 3 months of emergency savings\n• We'd have stopped arguing about money"}
+                className="min-h-[90px] text-sm resize-none"
+                maxLength={500}
+                data-testid="textarea-intention"
+              />
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-muted-foreground">{intentionDraft.length}/500</span>
+                <Button
+                  size="sm"
+                  onClick={handleSaveIntention}
+                  disabled={updateSageMutation.isPending || intentionDraft === intention}
+                  data-testid="button-save-intention"
+                >
+                  {updateSageMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save"}
+                </Button>
+              </div>
+            </div>
+            <div className="border-t border-border/40 pt-4">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Your financial profile</p>
+              <p className="text-xs text-muted-foreground mb-2">Anything else Sage should know — income patterns, major commitments, lifestyle context. Sage also adds to this when you ask it to remember something from a chat.</p>
+              <Textarea
+                value={financialProfileDraft}
+                onChange={(e) => setFinancialProfileDraft(e.target.value)}
+                placeholder={"For example:\n• My income usually arrives on the 1st and 15th\n• My biggest commitment is rent — 60% of income\n• I'm saving to move out by year-end\n• We split groceries and utilities with my flatmate"}
+                className="min-h-[120px] text-sm resize-none"
+                maxLength={2000}
+                data-testid="textarea-financial-profile"
+              />
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-muted-foreground">{financialProfileDraft.length}/2000</span>
+                <Button
+                  size="sm"
+                  onClick={handleSaveFinancialProfile}
+                  disabled={updateSageMutation.isPending || financialProfileDraft === financialProfile}
+                  data-testid="button-save-financial-profile"
+                >
+                  {updateSageMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save"}
+                </Button>
+              </div>
             </div>
           </div>
           <div className="border-t border-border/50 pt-4 space-y-1">

@@ -34,7 +34,7 @@ import {
   Camera,
 } from "lucide-react";
 
-const TOTAL_STEPS = 11;
+const TOTAL_STEPS = 7;
 
 function extractInviteCode(raw: string): string {
   try {
@@ -433,14 +433,6 @@ export default function OnboardingPage() {
               />
             )}
             {step === 2 && (
-              <Step2Goal
-                goal={goal}
-                setGoal={setGoal}
-                onContinue={handleStep2Continue}
-                onBack={goPrev}
-              />
-            )}
-            {step === 3 && (
               <Step3Name
                 userName={userName}
                 setUserName={setUserName}
@@ -449,7 +441,7 @@ export default function OnboardingPage() {
                 isPending={updateProfileMutation.isPending}
               />
             )}
-            {step === 4 && (
+            {step === 3 && (
               <Step4Currency
                 currency={currency}
                 setCurrency={setCurrency}
@@ -462,33 +454,7 @@ export default function OnboardingPage() {
                 isPending={updateProfileMutation.isPending}
               />
             )}
-            {step === 5 && (
-              <Step5Personality
-                personality={personality}
-                setPersonality={setPersonality}
-                onContinue={handleStep5Continue}
-                onBack={goPrev}
-              />
-            )}
-            {step === 6 && (
-              <Step6SpendingInsights
-                onAccept={() => handleStep6Continue(true)}
-                onSkip={() => handleStep6Continue(false)}
-                onBack={goPrev}
-              />
-            )}
-            {step === 7 && (
-              <Step7Budget
-                suggestedBudgets={suggestedBudgets}
-                selectedBudgets={selectedBudgets}
-                setSelectedBudgets={setSelectedBudgets}
-                onContinue={handleStep7Continue}
-                onBack={goPrev}
-                isPending={createBudgetsMutation.isPending}
-                currency={currency}
-              />
-            )}
-            {step === 8 && (
+            {step === 4 && (
               <Step8Group
                 groupMode={groupMode}
                 setGroupMode={setGroupMode}
@@ -504,7 +470,7 @@ export default function OnboardingPage() {
                 alreadyInGroup={!!user?.familyId}
               />
             )}
-            {step === 9 && (
+            {step === 5 && (
               <Step9Notifications
                 notifEnabled={notifEnabled}
                 setNotifEnabled={setNotifEnabled}
@@ -515,7 +481,7 @@ export default function OnboardingPage() {
                 isPending={updateProfileMutation.isPending}
               />
             )}
-            {step === 10 && (
+            {step === 6 && (
               <Step10Intention
                 intention={intention}
                 setIntention={setIntention}
@@ -525,7 +491,7 @@ export default function OnboardingPage() {
                 isPending={updateProfileMutation.isPending}
               />
             )}
-            {step === 11 && (
+            {step === 7 && (
               <Step11Celebration
                 userName={userName}
                 userNumber={assignedUserNumber}

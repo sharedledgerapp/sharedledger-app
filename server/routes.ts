@@ -20,7 +20,7 @@ import passport from "passport";
 import { db } from "./db";
 import { GoogleGenAI } from "@google/genai";
 import { startPushScheduler, sendPushToUser, markNotified, wasNotifiedSince } from "./push-scheduler";
-import { generateSageReply, generateAnalysis, checkSageDailyLimit } from "./sage";
+import { generateSageReply, generateAnalysis, checkSageDailyLimit, sageAi } from "./sage";
 import { sendFeedbackEmail, sendWelcomeEmail, sendPasswordResetEmail, sendWhatsNewEmail, sendSageUpdateEmail } from "./email";
 import { scheduleWhatsNewEmail, cancelWhatsNewEmail, getWhatsNewStatus } from "./email-scheduler";
 import rateLimit from "express-rate-limit";
@@ -2998,6 +2998,45 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       res.json({ success: true });
     } catch (e) {
       res.status(500).json({ message: "Failed to save feedback" });
+    }
+  });
+
+  app.post("/api/sage/remember", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { content } = req.body;
+      if (!content || typeof content !== "string") {
+        return res.status(400).json({ message: "content is required" });
+      }
+      const prompt = `You are evaluating whether a piece of text contains information relevant to a user's financial context — things that would help a personal finance AI give better advice. Relevant context includes: income patterns, major financial commitments, savings goals, spending habits, life circumstances affecting money (e.g. new job, moving, new baby), financial anxiety or priorities.
+
+Here is the text to evaluate:
+"""
+${content.slice(0, 1000)}
+"""
+
+If this text contains relevant financial context, extract ONLY the key facts as 1–3 short bullet points (each under 120 characters, starting with "• "). Do not include generic advice or summaries — only concrete facts about this user's situation.
+If the text is NOT relevant (general advice, greetings, unrelated topics, Sage's own questions), respond with exactly: NOT_RELEVANT`;
+
+      const response = await sageAi.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+      });
+      const result = (response.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+
+      if (!result || result === "NOT_RELEVANT") {
+        return res.json({ remembered: false });
+      }
+
+      const freshUser = await storage.getUser(user.id);
+      const currentProfile = (freshUser as any)?.financialProfile || "";
+      const separator = currentProfile.trim() ? "\n" : "";
+      const newProfile = (currentProfile + separator + result).slice(0, 2000);
+      await storage.updateUser(user.id, { financialProfile: newProfile });
+      return res.json({ remembered: true, extracted: result });
+    } catch (e) {
+      console.error("sage/remember error:", e);
+      res.status(500).json({ message: "Failed to evaluate memory" });
     }
   });
 

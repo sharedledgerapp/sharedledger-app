@@ -33,6 +33,7 @@ import {
   Users,
   ChevronRight,
   Pencil,
+  BookMarked,
 } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
 
@@ -203,6 +204,7 @@ function SageTab({
   const [localMessages, setLocalMessages] = useState<SageMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [feedbackMap, setFeedbackMap] = useState<Record<number, number>>({});
+  const [rememberMap, setRememberMap] = useState<Record<number, "pending" | "saved" | "skipped">>({});
   const [nudgeDismissed, setNudgeDismissed] = useState(() => {
     try { return sessionStorage.getItem("sage_nudge_dismissed") === "true"; } catch { return false; }
   });
@@ -270,6 +272,21 @@ function SageTab({
   const feedbackMutation = useMutation({
     mutationFn: async ({ id, feedback }: { id: number; feedback: number }) => {
       await apiRequest("PATCH", `/api/sage/messages/${id}/feedback`, { feedback });
+    },
+  });
+
+  const rememberMutation = useMutation({
+    mutationFn: async ({ id, content }: { id: number; content: string }) => {
+      setRememberMap(prev => ({ ...prev, [id]: "pending" }));
+      const res = await apiRequest("POST", "/api/sage/remember", { content });
+      return res.json() as Promise<{ remembered: boolean; extracted?: string }>;
+    },
+    onSuccess: (data, { id }) => {
+      setRememberMap(prev => ({ ...prev, [id]: data.remembered ? "saved" : "skipped" }));
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+    },
+    onError: (_err, { id }) => {
+      setRememberMap(prev => ({ ...prev, [id]: "skipped" }));
     },
   });
 
@@ -655,6 +672,23 @@ function SageTab({
                             <Share2 className="w-3 h-3" />
                           </button>
                         )}
+                        <button
+                          onClick={() => {
+                            if (!rememberMap[msg.id]) {
+                              rememberMutation.mutate({ id: msg.id, content: msg.content });
+                              captureEvent("sage_remember_tapped", { msg_id: msg.id });
+                            }
+                          }}
+                          disabled={!!rememberMap[msg.id]}
+                          className={cn(
+                            "p-1 rounded transition-colors ml-1",
+                            rememberMap[msg.id] === "saved" ? "text-primary" : rememberMap[msg.id] === "skipped" ? "text-muted-foreground/40" : "hover:bg-secondary text-muted-foreground"
+                          )}
+                          data-testid={`button-remember-sage-${msg.id}`}
+                          title={rememberMap[msg.id] === "saved" ? "Sage remembered this" : rememberMap[msg.id] === "skipped" ? "Not relevant for Sage context" : "Ask Sage to remember this"}
+                        >
+                          <BookMarked className="w-3 h-3" />
+                        </button>
                       </div>
                       {shareMessageId === msg.id && (
                         <div className="mt-2 ml-1 w-[85%] rounded-xl border border-border/50 bg-background/80 p-3 space-y-2">
@@ -1769,6 +1803,7 @@ function NotesTab({
                       "What am I proud of financially this month?",
                       "When does my income usually arrive, and what do I do first?",
                       "What's my financial goal for next month?",
+                      "Has what I want from my finances changed since I started using this app?",
                     ].map((q) => (
                       <button
                         key={q}
