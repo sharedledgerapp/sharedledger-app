@@ -164,7 +164,9 @@ function SageTab({
   const [localMessages, setLocalMessages] = useState<SageMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [feedbackMap, setFeedbackMap] = useState<Record<number, number>>({});
-  const [nudgeDismissed, setNudgeDismissed] = useState(false);
+  const [nudgeDismissed, setNudgeDismissed] = useState(() => {
+    try { return sessionStorage.getItem("sage_nudge_dismissed") === "true"; } catch { return false; }
+  });
   const [nudgeSent, setNudgeSent] = useState(false);
   const [nudgeText, setNudgeText] = useState("");
   const [shareMessageId, setShareMessageId] = useState<number | null>(null);
@@ -192,9 +194,13 @@ function SageTab({
   }, [localMessages.length, isGenerating]);
 
   const resetNudge = () => {
-    setNudgeDismissed(false);
     setNudgeSent(false);
     setNudgeText("");
+  };
+
+  const dismissNudge = () => {
+    setNudgeDismissed(true);
+    try { sessionStorage.setItem("sage_nudge_dismissed", "true"); } catch {}
   };
 
   const createConvMutation = useMutation({
@@ -325,12 +331,6 @@ function SageTab({
     captureEvent("sage_message_feedback", { feedback });
   };
 
-  // Auto-open the only conversation if there is one (and no initialPrompt pending)
-  useEffect(() => {
-    if (conversations && conversations.length === 1 && activeConvId === null && !initialPrompt) {
-      setActiveConvId(conversations[0].id);
-    }
-  }, [conversations, activeConvId, initialPrompt]);
 
   // Handle initialPrompt: create a new conversation and pre-fill the input
   useEffect(() => {
@@ -387,57 +387,66 @@ function SageTab({
             <div className="space-y-3">
               {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
             </div>
-          ) : conversations && conversations.length > 0 ? (
-            <div className="space-y-2">
-              {conversations.map(conv => (
-                <Card
-                  key={conv.id}
-                  className="p-3 cursor-pointer hover:bg-secondary/40 transition-colors flex items-center justify-between"
-                  onClick={() => setActiveConvId(conv.id)}
-                  data-testid={`card-sage-conversation-${conv.id}`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Sparkles className="w-4 h-4 text-primary shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{conv.title}</p>
-                      <p className="text-xs text-muted-foreground">{format(new Date(conv.updatedAt), "MMM d, h:mm a")}</p>
-                    </div>
-                  </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="shrink-0 text-muted-foreground hover:text-destructive"
-                    onClick={(e) => { e.stopPropagation(); deleteConvMutation.mutate(conv.id); }}
-                    data-testid={`button-delete-sage-conv-${conv.id}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </Card>
-              ))}
-            </div>
           ) : (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground font-medium">Start by asking something:</p>
-              <div className="grid grid-cols-1 gap-2">
-                {SUGGESTED_QUESTIONS.map((q, i) => (
-                  <button
-                    key={i}
-                    onClick={async () => {
-                      captureEvent("sage_suggested_question_tapped", { question_index: i });
-                      const conv = await createConvMutation.mutateAsync(q.slice(0, 60));
-                      if (conv) {
-                        setActiveConvId(conv.id);
-                        handleSend(q, conv.id, true);
-                      }
-                    }}
-                    className="text-left text-sm px-3 py-2.5 rounded-xl border border-border/60 hover:bg-secondary/40 hover:border-primary/30 transition-colors text-muted-foreground"
-                    data-testid={`button-suggested-question-${i}`}
-                  >
-                    {q}
-                  </button>
-                ))}
+            <>
+              {/* Past conversations */}
+              {conversations && conversations.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide px-1">Recent chats</p>
+                  {conversations.map(conv => (
+                    <Card
+                      key={conv.id}
+                      className="p-3 cursor-pointer hover:bg-secondary/40 transition-colors flex items-center justify-between"
+                      onClick={() => setActiveConvId(conv.id)}
+                      data-testid={`card-sage-conversation-${conv.id}`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Sparkles className="w-4 h-4 text-primary shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{conv.title}</p>
+                          <p className="text-xs text-muted-foreground">{format(new Date(conv.updatedAt), "MMM d, h:mm a")}</p>
+                        </div>
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="shrink-0 text-muted-foreground hover:text-destructive"
+                        onClick={(e) => { e.stopPropagation(); deleteConvMutation.mutate(conv.id); }}
+                        data-testid={`button-delete-sage-conv-${conv.id}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {/* Suggested questions — always shown */}
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide px-1">
+                  {conversations && conversations.length > 0 ? "Start something new" : "Ask Sage something"}
+                </p>
+                <div className="grid grid-cols-1 gap-2">
+                  {SUGGESTED_QUESTIONS.map((q, i) => (
+                    <button
+                      key={i}
+                      onClick={async () => {
+                        captureEvent("sage_suggested_question_tapped", { question_index: i });
+                        const conv = await createConvMutation.mutateAsync(q.slice(0, 60));
+                        if (conv) {
+                          setActiveConvId(conv.id);
+                          handleSend(q, conv.id, true);
+                        }
+                      }}
+                      className="text-left text-sm px-3 py-2.5 rounded-xl border border-border/60 hover:bg-secondary/40 hover:border-primary/30 transition-colors text-muted-foreground"
+                      data-testid={`button-suggested-question-${i}`}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>
@@ -629,7 +638,7 @@ function SageTab({
                         size="sm"
                         variant="ghost"
                         className="text-xs text-muted-foreground h-8 px-3"
-                        onClick={() => setNudgeDismissed(true)}
+                        onClick={dismissNudge}
                         data-testid="button-dismiss-sage-feedback"
                       >
                         Not now
@@ -1343,6 +1352,8 @@ function SharedNoteCard({
 
 // ─── Notes Tab ────────────────────────────────────────────────────────────────
 
+type NotesView = "list" | "personal" | "personal-detail" | "shared" | "shared-detail";
+
 function NotesTab({
   onAskSage,
 }: {
@@ -1351,6 +1362,10 @@ function NotesTab({
   const { t } = useLanguage();
   const { user } = useAuth();
   const hasGroup = !!user?.familyId;
+
+  const [notesView, setNotesView] = useState<NotesView>("list");
+  const [selectedPersonalId, setSelectedPersonalId] = useState<number | null>(null);
+  const [selectedSharedId, setSelectedSharedId] = useState<number | null>(null);
 
   const [showAddPersonalForm, setShowAddPersonalForm] = useState(false);
   const [newPersonalTitle, setNewPersonalTitle] = useState("");
@@ -1480,20 +1495,85 @@ function NotesTab({
   const activeShared = sharedNotesList?.filter(n => !n.isCompleted) || [];
   const completedShared = sharedNotesList?.filter(n => n.isCompleted) || [];
 
-  return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-5">
-      {/* Personal Notes section */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Lock className="w-4 h-4 text-muted-foreground" />
-            <h3 className="font-semibold text-sm">Personal Notes</h3>
-            <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-full">Private</span>
+  const selectedPersonalNote = personalNotesList?.find(n => n.id === selectedPersonalId) ?? null;
+  const selectedSharedNote = sharedNotesList?.find(n => n.id === selectedSharedId) ?? null;
+
+  // ─── NOTES FOLDER LIST ─────────────────────────────────────────────────────
+  if (notesView === "list") {
+    return (
+      <div className="flex-1 overflow-y-auto">
+        <button
+          className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-secondary/40 transition-colors border-b border-border/30"
+          onClick={() => setNotesView("personal")}
+          data-testid="button-open-personal-notes"
+        >
+          <div className="w-11 h-11 rounded-full bg-secondary flex items-center justify-center shrink-0">
+            <Lock className="w-5 h-5 text-muted-foreground" />
           </div>
+          <div className="flex-1 min-w-0 text-left">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm">Personal Notes</span>
+              <span className="text-[10px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-full font-medium">Private</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {personalLoading ? "Loading…" : activePersonal.length > 0
+                ? `${activePersonal.length} active note${activePersonal.length !== 1 ? "s" : ""}`
+                : "Your private planning notes"}
+            </p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+        </button>
+
+        {hasGroup ? (
+          <button
+            className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-secondary/40 transition-colors border-b border-border/30"
+            onClick={() => setNotesView("shared")}
+            data-testid="button-open-shared-notes"
+          >
+            <div className="w-11 h-11 rounded-full bg-secondary flex items-center justify-center shrink-0">
+              <Users className="w-5 h-5 text-muted-foreground" />
+            </div>
+            <div className="flex-1 min-w-0 text-left">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-sm">Shared Notes</span>
+                <span className="text-[10px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-full font-medium">Group</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {sharedLoading ? "Loading…" : activeShared.length > 0
+                  ? `${activeShared.length} active note${activeShared.length !== 1 ? "s" : ""}`
+                  : "Shopping lists, to-dos and shared plans"}
+              </p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+          </button>
+        ) : (
+          <div className="p-6 text-center text-muted-foreground">
+            <Users className="w-10 h-10 mx-auto mb-3 opacity-20" />
+            <p className="text-sm font-medium">No group yet</p>
+            <p className="text-xs mt-1">Create or join a group to access shared notes</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─── PERSONAL NOTES LIST ───────────────────────────────────────────────────
+  if (notesView === "personal") {
+    return (
+      <div className="flex flex-col flex-1 min-h-0">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-border/40 bg-background/80">
           <Button
-            size="sm"
-            variant="ghost"
-            className="h-8 text-xs"
+            size="icon" variant="ghost"
+            onClick={() => { setNotesView("list"); setShowAddPersonalForm(false); }}
+            data-testid="button-back-from-personal-notes"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </Button>
+          <Lock className="w-4 h-4 text-muted-foreground" />
+          <span className="font-semibold text-sm flex-1">Personal Notes</span>
+          <span className="text-[10px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-full font-medium">Private</span>
+          <Button
+            size="sm" variant="ghost" className="h-8 text-xs ml-1"
             onClick={() => setShowAddPersonalForm(!showAddPersonalForm)}
             data-testid="button-add-personal-note"
           >
@@ -1502,219 +1582,300 @@ function NotesTab({
           </Button>
         </div>
 
-        {showAddPersonalForm && (
-          <Card className="p-4 space-y-3">
-            <div>
-              <p className="text-[11px] text-muted-foreground mb-2 font-medium uppercase tracking-wide">Questions to inspire your note</p>
-              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-                {[
-                  "What am I saving up for right now?",
-                  "What was my biggest unnecessary expense lately?",
-                  "What financial habit am I working on this month?",
-                  "What recurring costs should I review or cut?",
-                  "What's coming up financially that I need to plan for?",
-                  "What was an unexpected expense I want to remember?",
-                  "What do I want to change about my spending?",
-                  "What am I proud of financially this month?",
-                  "When does my income usually arrive, and what do I do first?",
-                  "What's my financial goal for next month?",
-                ].map((q) => (
-                  <button
-                    key={q}
-                    type="button"
-                    onClick={() => setNewPersonalTitle(q)}
-                    className="shrink-0 text-[11px] bg-secondary text-secondary-foreground hover:bg-primary/10 hover:text-primary px-2.5 py-1.5 rounded-full transition-colors text-left max-w-[180px] truncate"
-                    data-testid={`button-guided-question-${q.slice(0, 20).replace(/\s/g, '-')}`}
-                  >
-                    {q}
-                  </button>
-                ))}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {showAddPersonalForm && (
+            <Card className="p-4 space-y-3">
+              <div>
+                <p className="text-[11px] text-muted-foreground mb-2 font-medium uppercase tracking-wide">Questions to inspire your note</p>
+                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+                  {[
+                    "What am I saving up for right now?",
+                    "What was my biggest unnecessary expense lately?",
+                    "What financial habit am I working on this month?",
+                    "What recurring costs should I review or cut?",
+                    "What's coming up financially that I need to plan for?",
+                    "What was an unexpected expense I want to remember?",
+                    "What do I want to change about my spending?",
+                    "What am I proud of financially this month?",
+                    "When does my income usually arrive, and what do I do first?",
+                    "What's my financial goal for next month?",
+                  ].map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => setNewPersonalTitle(q)}
+                      className="shrink-0 text-[11px] bg-secondary text-secondary-foreground hover:bg-primary/10 hover:text-primary px-2.5 py-1.5 rounded-full transition-colors text-left max-w-[180px] truncate"
+                      data-testid={`button-guided-question-${q.slice(0, 20).replace(/\s/g, "-")}`}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-            <Input
-              value={newPersonalTitle}
-              onChange={(e) => setNewPersonalTitle(e.target.value)}
-              placeholder="Note title…"
-              data-testid="input-personal-note-title"
-            />
-            <div className="space-y-2">
-              <FormatToolbar textareaRef={personalContentRef} value={newPersonalContent} onChange={setNewPersonalContent} />
-              <Textarea
-                ref={personalContentRef}
-                value={newPersonalContent}
-                onChange={(e) => setNewPersonalContent(e.target.value)}
-                onKeyDown={handlePersonalSmartKeyDown}
-                placeholder="Note content (optional)…"
-                rows={3}
-                className="resize-none font-mono text-sm"
-                data-testid="input-personal-note-content"
+              <Input
+                value={newPersonalTitle}
+                onChange={(e) => setNewPersonalTitle(e.target.value)}
+                placeholder="Note title…"
+                data-testid="input-personal-note-title"
               />
-            </div>
-            <Button
-              onClick={() => { if (newPersonalTitle.trim()) createPersonalMutation.mutate({ title: newPersonalTitle.trim(), content: newPersonalContent.trim() }); }}
-              disabled={!newPersonalTitle.trim() || createPersonalMutation.isPending}
-              className="w-full rounded-xl"
-              data-testid="button-save-personal-note"
-            >
-              {t("save")}
-            </Button>
-          </Card>
-        )}
-
-        {personalLoading ? (
-          <div className="space-y-3">
-            {[1, 2].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
-          </div>
-        ) : activePersonal.length === 0 && completedPersonal.length === 0 && !showAddPersonalForm ? (
-          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground border border-dashed border-border/50 rounded-xl">
-            <Lock className="w-8 h-8 mb-2 opacity-20" />
-            <p className="text-sm font-medium">No personal notes yet</p>
-            <p className="text-xs mt-1">Only you can see these</p>
-          </div>
-        ) : (
-          <>
-            {activePersonal.map(note => (
-              <PersonalNoteCard
-                key={note.id}
-                note={note}
-                onToggleNote={() => togglePersonalMutation.mutate({ id: note.id, isCompleted: true })}
-                onDelete={() => deletePersonalMutation.mutate(note.id)}
-                onUpdate={(id, title, content) => updatePersonalNoteMutation.mutate({ id, title, content })}
-                onToggleTodo={(id, content) => updatePersonalContentMutation.mutate({ id, content })}
-                onAskSage={handleAskSage}
-                onShareToGroup={handleShareToGroup}
-                hasGroup={hasGroup}
-              />
-            ))}
-            {completedPersonal.length > 0 && (
-              <div className="space-y-3 pt-1">
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide px-1">
-                  Done ({completedPersonal.length})
-                </p>
-                {completedPersonal.map(note => (
-                  <PersonalNoteCard
-                    key={note.id}
-                    note={note}
-                    onToggleNote={() => togglePersonalMutation.mutate({ id: note.id, isCompleted: false })}
-                    onDelete={() => deletePersonalMutation.mutate(note.id)}
-                    onUpdate={(id, title, content) => updatePersonalNoteMutation.mutate({ id, title, content })}
-                    onToggleTodo={(id, content) => updatePersonalContentMutation.mutate({ id, content })}
-                    onAskSage={handleAskSage}
-                    onShareToGroup={handleShareToGroup}
-                    hasGroup={hasGroup}
-                  />
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Shared Notes section — group users only */}
-      {hasGroup && (
-        <>
-          <div className="border-t border-border/30 pt-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-muted-foreground" />
-                <h3 className="font-semibold text-sm">Shared Notes</h3>
-                <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-full">Group</span>
+              <div className="space-y-2">
+                <FormatToolbar textareaRef={personalContentRef} value={newPersonalContent} onChange={setNewPersonalContent} />
+                <Textarea
+                  ref={personalContentRef}
+                  value={newPersonalContent}
+                  onChange={(e) => setNewPersonalContent(e.target.value)}
+                  onKeyDown={handlePersonalSmartKeyDown}
+                  placeholder="Note content (optional)…"
+                  rows={3}
+                  className="resize-none font-mono text-sm"
+                  data-testid="input-personal-note-content"
+                />
               </div>
               <Button
-                size="sm"
-                variant="ghost"
-                className="h-8 text-xs"
-                onClick={() => setShowAddSharedForm(!showAddSharedForm)}
-                data-testid="button-add-note"
+                onClick={() => { if (newPersonalTitle.trim()) createPersonalMutation.mutate({ title: newPersonalTitle.trim(), content: newPersonalContent.trim() }); }}
+                disabled={!newPersonalTitle.trim() || createPersonalMutation.isPending}
+                className="w-full rounded-xl"
+                data-testid="button-save-personal-note"
               >
-                {showAddSharedForm ? <X className="w-3.5 h-3.5 mr-1" /> : <Plus className="w-3.5 h-3.5 mr-1" />}
-                {showAddSharedForm ? "Cancel" : "Add"}
+                {t("save")}
               </Button>
+            </Card>
+          )}
+
+          {personalLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}
             </div>
-
-            {showAddSharedForm && (
-              <Card className="p-4 space-y-3">
-                <Input
-                  value={newSharedTitle}
-                  onChange={(e) => setNewSharedTitle(e.target.value)}
-                  placeholder={t("noteTitlePlaceholder")}
-                  data-testid="input-note-title"
-                />
-                <div className="space-y-2">
-                  <FormatToolbar textareaRef={sharedContentRef} value={newSharedContent} onChange={setNewSharedContent} />
-                  <Textarea
-                    ref={sharedContentRef}
-                    value={newSharedContent}
-                    onChange={(e) => setNewSharedContent(e.target.value)}
-                    onKeyDown={handleSharedSmartKeyDown}
-                    placeholder={t("noteContentPlaceholder")}
-                    rows={4}
-                    className="resize-none font-mono text-sm"
-                    data-testid="input-note-content"
-                  />
-                  <p className="text-[10px] text-muted-foreground">
-                    Use the toolbar above to add bullets, numbered lists, or to-do items.
-                  </p>
-                </div>
-                <Button
-                  onClick={() => { if (newSharedTitle.trim()) createSharedMutation.mutate({ title: newSharedTitle.trim(), content: newSharedContent.trim() }); }}
-                  disabled={!newSharedTitle.trim() || createSharedMutation.isPending}
-                  className="w-full rounded-xl"
-                  data-testid="button-save-note"
+          ) : activePersonal.length === 0 && completedPersonal.length === 0 && !showAddPersonalForm ? (
+            <div className="flex flex-col items-center justify-center py-10 text-muted-foreground border border-dashed border-border/50 rounded-xl">
+              <Lock className="w-8 h-8 mb-2 opacity-20" />
+              <p className="text-sm font-medium">No personal notes yet</p>
+              <p className="text-xs mt-1">Tap Add to write your first note</p>
+            </div>
+          ) : (
+            <>
+              {activePersonal.map(note => (
+                <button
+                  key={note.id}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/50 bg-card hover:bg-secondary/30 transition-colors text-left"
+                  onClick={() => { setSelectedPersonalId(note.id); setNotesView("personal-detail"); }}
+                  data-testid={`button-personal-note-${note.id}`}
                 >
-                  {t("save")}
-                </Button>
-              </Card>
-            )}
-
-            {sharedLoading ? (
-              <div className="space-y-3">
-                {[1, 2].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
-              </div>
-            ) : activeShared.length === 0 && completedShared.length === 0 && !showAddSharedForm ? (
-              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground border border-dashed border-border/50 rounded-xl">
-                <Users className="w-8 h-8 mb-2 opacity-20" />
-                <p className="text-sm font-medium">{t("noNotes")}</p>
-                <p className="text-xs mt-1">{t("addFirstNote")}</p>
-              </div>
-            ) : (
-              <>
-                {activeShared.map(note => (
-                  <SharedNoteCard
-                    key={note.id}
-                    note={note}
-                    currentUserId={user?.id}
-                    onToggleNote={() => toggleSharedMutation.mutate({ id: note.id, isCompleted: true })}
-                    onDelete={() => deleteSharedMutation.mutate(note.id)}
-                    onToggleTodo={(id, content) => updateSharedContentMutation.mutate({ id, content })}
-                    t={t}
-                  />
-                ))}
-                {completedShared.length > 0 && (
-                  <div className="space-y-3 pt-1">
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide px-1">
-                      {t("statusCompleted")} ({completedShared.length})
-                    </p>
-                    {completedShared.map(note => (
-                      <SharedNoteCard
-                        key={note.id}
-                        note={note}
-                        currentUserId={user?.id}
-                        onToggleNote={() => toggleSharedMutation.mutate({ id: note.id, isCompleted: false })}
-                        onDelete={() => deleteSharedMutation.mutate(note.id)}
-                        onToggleTodo={(id, content) => updateSharedContentMutation.mutate({ id, content })}
-                        t={t}
-                      />
-                    ))}
+                  <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{note.title}</p>
+                    {note.content && (
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">{note.content.replace(/[#*`_\[\]]/g, "").slice(0, 60)}</p>
+                    )}
                   </div>
-                )}
-              </>
-            )}
-          </div>
-        </>
-      )}
-    </div>
-  );
+                  <span className="text-[11px] text-muted-foreground shrink-0">{format(new Date(note.createdAt), "MMM d")}</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                </button>
+              ))}
+              {completedPersonal.length > 0 && (
+                <div className="space-y-2 pt-2">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide px-1">Done ({completedPersonal.length})</p>
+                  {completedPersonal.map(note => (
+                    <button
+                      key={note.id}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/30 bg-card/50 hover:bg-secondary/30 transition-colors text-left opacity-60"
+                      onClick={() => { setSelectedPersonalId(note.id); setNotesView("personal-detail"); }}
+                      data-testid={`button-personal-note-done-${note.id}`}
+                    >
+                      <div className="w-4 h-4 rounded-full bg-primary border-primary border-2 flex items-center justify-center shrink-0">
+                        <Check className="w-2.5 h-2.5 text-primary-foreground" />
+                      </div>
+                      <p className="text-sm text-muted-foreground line-through truncate flex-1">{note.title}</p>
+                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ─── PERSONAL NOTE DETAIL ──────────────────────────────────────────────────
+  if (notesView === "personal-detail" && selectedPersonalNote) {
+    return (
+      <div className="flex flex-col flex-1 min-h-0">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-border/40 bg-background/80">
+          <Button
+            size="icon" variant="ghost"
+            onClick={() => { setNotesView("personal"); setSelectedPersonalId(null); }}
+            data-testid="button-back-from-personal-note-detail"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </Button>
+          <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-sm font-semibold flex-1 truncate">Personal Note</span>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          <PersonalNoteCard
+            note={selectedPersonalNote}
+            onToggleNote={() => togglePersonalMutation.mutate({ id: selectedPersonalNote.id, isCompleted: !selectedPersonalNote.isCompleted })}
+            onDelete={() => { deletePersonalMutation.mutate(selectedPersonalNote.id); setNotesView("personal"); setSelectedPersonalId(null); }}
+            onUpdate={(id, title, content) => updatePersonalNoteMutation.mutate({ id, title, content })}
+            onToggleTodo={(id, content) => updatePersonalContentMutation.mutate({ id, content })}
+            onAskSage={handleAskSage}
+            onShareToGroup={handleShareToGroup}
+            hasGroup={hasGroup}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // ─── SHARED NOTES LIST ─────────────────────────────────────────────────────
+  if (notesView === "shared") {
+    return (
+      <div className="flex flex-col flex-1 min-h-0">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-border/40 bg-background/80">
+          <Button
+            size="icon" variant="ghost"
+            onClick={() => { setNotesView("list"); setShowAddSharedForm(false); }}
+            data-testid="button-back-from-shared-notes"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </Button>
+          <Users className="w-4 h-4 text-muted-foreground" />
+          <span className="font-semibold text-sm flex-1">Shared Notes</span>
+          <span className="text-[10px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-full font-medium">Group</span>
+          <Button
+            size="sm" variant="ghost" className="h-8 text-xs ml-1"
+            onClick={() => setShowAddSharedForm(!showAddSharedForm)}
+            data-testid="button-add-note"
+          >
+            {showAddSharedForm ? <X className="w-3.5 h-3.5 mr-1" /> : <Plus className="w-3.5 h-3.5 mr-1" />}
+            {showAddSharedForm ? "Cancel" : "Add"}
+          </Button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {showAddSharedForm && (
+            <Card className="p-4 space-y-3">
+              <Input
+                value={newSharedTitle}
+                onChange={(e) => setNewSharedTitle(e.target.value)}
+                placeholder={t("noteTitlePlaceholder")}
+                data-testid="input-note-title"
+              />
+              <div className="space-y-2">
+                <FormatToolbar textareaRef={sharedContentRef} value={newSharedContent} onChange={setNewSharedContent} />
+                <Textarea
+                  ref={sharedContentRef}
+                  value={newSharedContent}
+                  onChange={(e) => setNewSharedContent(e.target.value)}
+                  onKeyDown={handleSharedSmartKeyDown}
+                  placeholder={t("noteContentPlaceholder")}
+                  rows={4}
+                  className="resize-none font-mono text-sm"
+                  data-testid="input-note-content"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Use the toolbar above to add bullets, numbered lists, or to-do items.
+                </p>
+              </div>
+              <Button
+                onClick={() => { if (newSharedTitle.trim()) createSharedMutation.mutate({ title: newSharedTitle.trim(), content: newSharedContent.trim() }); }}
+                disabled={!newSharedTitle.trim() || createSharedMutation.isPending}
+                className="w-full rounded-xl"
+                data-testid="button-save-note"
+              >
+                {t("save")}
+              </Button>
+            </Card>
+          )}
+
+          {sharedLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}
+            </div>
+          ) : activeShared.length === 0 && completedShared.length === 0 && !showAddSharedForm ? (
+            <div className="flex flex-col items-center justify-center py-10 text-muted-foreground border border-dashed border-border/50 rounded-xl">
+              <Users className="w-8 h-8 mb-2 opacity-20" />
+              <p className="text-sm font-medium">{t("noNotes")}</p>
+              <p className="text-xs mt-1">{t("addFirstNote")}</p>
+            </div>
+          ) : (
+            <>
+              {activeShared.map(note => (
+                <button
+                  key={note.id}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/50 bg-card hover:bg-secondary/30 transition-colors text-left"
+                  onClick={() => { setSelectedSharedId(note.id); setNotesView("shared-detail"); }}
+                  data-testid={`button-shared-note-${note.id}`}
+                >
+                  <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{note.title}</p>
+                    {note.content && (
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">{note.content.replace(/[#*`_\[\]]/g, "").slice(0, 60)}</p>
+                    )}
+                  </div>
+                  <span className="text-[11px] text-muted-foreground shrink-0">{format(new Date(note.createdAt), "MMM d")}</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                </button>
+              ))}
+              {completedShared.length > 0 && (
+                <div className="space-y-2 pt-2">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide px-1">{t("statusCompleted")} ({completedShared.length})</p>
+                  {completedShared.map(note => (
+                    <button
+                      key={note.id}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/30 bg-card/50 hover:bg-secondary/30 transition-colors text-left opacity-60"
+                      onClick={() => { setSelectedSharedId(note.id); setNotesView("shared-detail"); }}
+                      data-testid={`button-shared-note-done-${note.id}`}
+                    >
+                      <div className="w-4 h-4 rounded-full bg-primary border-primary border-2 flex items-center justify-center shrink-0">
+                        <Check className="w-2.5 h-2.5 text-primary-foreground" />
+                      </div>
+                      <p className="text-sm text-muted-foreground line-through truncate flex-1">{note.title}</p>
+                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ─── SHARED NOTE DETAIL ────────────────────────────────────────────────────
+  if (notesView === "shared-detail" && selectedSharedNote) {
+    return (
+      <div className="flex flex-col flex-1 min-h-0">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-border/40 bg-background/80">
+          <Button
+            size="icon" variant="ghost"
+            onClick={() => { setNotesView("shared"); setSelectedSharedId(null); }}
+            data-testid="button-back-from-shared-note-detail"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </Button>
+          <Users className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-sm font-semibold flex-1 truncate">Shared Note</span>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          <SharedNoteCard
+            note={selectedSharedNote}
+            currentUserId={user?.id}
+            onToggleNote={() => toggleSharedMutation.mutate({ id: selectedSharedNote.id, isCompleted: !selectedSharedNote.isCompleted })}
+            onDelete={() => { deleteSharedMutation.mutate(selectedSharedNote.id); setNotesView("shared"); setSelectedSharedId(null); }}
+            onToggleTodo={(id, content) => updateSharedContentMutation.mutate({ id, content })}
+            t={t}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 // ─── Messages Conversation List ───────────────────────────────────────────────
