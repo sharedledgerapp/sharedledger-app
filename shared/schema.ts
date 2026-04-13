@@ -169,6 +169,7 @@ export const budgets = pgTable("budgets", {
   updatedByUserId: integer("updated_by_user_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  changeCount: integer("change_count").default(0).notNull(),
 });
 
 export const budgetSetupPrompts = pgTable("budget_setup_prompts", {

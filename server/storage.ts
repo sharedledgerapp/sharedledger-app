@@ -811,7 +811,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateBudget(id: number, updates: Partial<InsertBudget> & { updatedByUserId?: number | null }): Promise<Budget> {
-    const [updated] = await db.update(budgets).set({ ...updates, updatedAt: new Date() }).where(eq(budgets.id, id)).returning();
+    const current = await db.select({ changeCount: budgets.changeCount }).from(budgets).where(eq(budgets.id, id)).limit(1);
+    const newCount = (current[0]?.changeCount ?? 0) + 1;
+    const [updated] = await db.update(budgets).set({ ...updates, updatedAt: new Date(), changeCount: newCount }).where(eq(budgets.id, id)).returning();
     return updated;
   }
 

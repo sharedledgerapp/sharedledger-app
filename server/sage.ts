@@ -154,17 +154,69 @@ export async function buildSageContext(userId: number): Promise<string> {
 
   // ── Budgets (gated) ───────────────────────────────────────────────────────
   let budgetLines = "";
+  let budgetBehaviorLines = "";
   let recurringLines = "";
   let recurringTotal = 0;
   if (budgetGoalsAllowed) {
     const userBudgets = await storage.getBudgets(userId);
+
+    // Per-month spending per category for the last 3 months
+    const monthKeys = monthBreakdowns.map(m => m.label); // ['Feb 2025', 'Mar 2025', 'Apr 2025']
+    const catMonthSpend: Record<string, number[]> = {}; // category -> [m-2 spend, m-1 spend, m0 spend]
+    for (let i = 2; i >= 0; i--) {
+      const mStart = startOfMonth(subMonths(now, i));
+      const mEnd = endOfMonth(subMonths(now, i));
+      const mExp = recentExpenses.filter(e =>
+        e.date >= mStart && e.date <= mEnd && e.category !== '__income__'
+      );
+      for (const b of userBudgets) {
+        const spent = mExp
+          .filter(e => e.category === b.category)
+          .reduce((s, e) => s + Number(e.amount), 0);
+        if (!catMonthSpend[b.category]) catMonthSpend[b.category] = [];
+        catMonthSpend[b.category].push(spent);
+      }
+    }
+
+    // Current month lines (this month's progress)
     budgetLines = userBudgets.map(b => {
       const spent = curMonthExp
         .filter(e => e.category === b.category)
         .reduce((s, e) => s + Number(e.amount), 0);
-      const pct = b.amount ? Math.round((spent / Number(b.amount)) * 100) : 0;
-      return `${b.category}: ${spent.toFixed(2)}/${Number(b.amount).toFixed(2)} (${pct}% used, ${b.periodType})`;
+      const limit = Number(b.amount);
+      const pct = limit ? Math.round((spent / limit) * 100) : 0;
+      const changeNote = (b.changeCount ?? 0) > 1 ? ` [adjusted ${b.changeCount} times]` : '';
+      return `${b.category}: ${spent.toFixed(2)}/${limit.toFixed(2)} (${pct}% used, ${b.periodType}${changeNote})`;
     }).join('\n');
+
+    // Budget behavioral analysis — identify consistently overspent budgets
+    const behaviorEntries: string[] = [];
+    for (const b of userBudgets) {
+      const limit = Number(b.amount);
+      if (!limit) continue;
+      const monthlySpends = catMonthSpend[b.category] || [];
+      const overspentMonths = monthlySpends.filter((s, idx) => {
+        // For current month (last entry), only flag if already over
+        return s > limit;
+      });
+      const monthLabels = monthKeys.map((label, idx) => {
+        const s = monthlySpends[idx] ?? 0;
+        return `${label}: ${s.toFixed(2)}${s > limit ? ' ⚠ OVER' : ''}`;
+      }).join(' | ');
+      if (overspentMonths.length >= 2) {
+        const changeNote = (b.changeCount ?? 0) > 1
+          ? ` Budget has been adjusted ${b.changeCount} times already.`
+          : '';
+        behaviorEntries.push(
+          `CONSISTENTLY OVERSPENT — ${b.category} (limit: ${limit.toFixed(2)}/month): ${monthLabels}.${changeNote}`
+        );
+      } else if (overspentMonths.length === 1 && (b.changeCount ?? 0) > 1) {
+        behaviorEntries.push(
+          `FREQUENT ADJUSTMENT — ${b.category} (limit: ${limit.toFixed(2)}/month, adjusted ${b.changeCount} times): ${monthLabels}`
+        );
+      }
+    }
+    budgetBehaviorLines = behaviorEntries.join('\n');
 
     const recurring = await storage.getRecurringExpenses(userId);
     recurringTotal = recurring.filter(r => r.isActive && r.frequency === 'monthly')
@@ -268,8 +320,11 @@ RECURRING EXPENSES (active):
 ${recurringLines || 'None set up'}
 Monthly recurring total: ${recurringTotal.toFixed(2)} ${currency}
 
-BUDGETS:
+BUDGETS (current month progress):
 ${budgetLines || 'No budgets set up'}
+${budgetBehaviorLines ? `
+BUDGET BEHAVIORAL PATTERNS (3-month analysis):
+${budgetBehaviorLines}` : ''}
 
 SAVINGS GOALS:
 ${goalLines || 'No goals set up'}` : ''}
@@ -291,6 +346,8 @@ Your role:
 - Be warm, direct, and non-judgmental — money is personal
 - Reference specific numbers, dates, and notes from the user's data when relevant
 - When the user asks about trends (e.g. "my spending habits"), reference the 3-month breakdown you have
+- When you see a budget marked CONSISTENTLY OVERSPENT in the data, proactively mention it even if not asked — offer the user the choice: raise the budget to reflect reality, or get advice on reducing that spending
+- If a budget has been adjusted many times (changeCount), note it gently — repeated changes signal a habit worth examining, not just a number problem
 
 Your limits (be clear about these if asked):
 - You do not give investment advice or recommend specific financial products
@@ -349,6 +406,15 @@ export async function generateAnalysis(
   const financialContext = await buildSageContext(userId);
   const systemPrompt = buildSystemPrompt(financialContext);
 
+  const BUDGET_BEHAVIOR_INSTRUCTION = `
+Budget behavioural patterns — IMPORTANT:
+Check the "BUDGET BEHAVIORAL PATTERNS" section in the financial data. For any category marked CONSISTENTLY OVERSPENT (overspent in 2 or more of the last 3 months):
+- Name the category and show the actual numbers (spent vs limit, for each month)
+- Ask the user directly: "Do you want to increase this budget so it reflects how you actually spend, or would you prefer some ideas to bring the spending down?"
+- If the budget has been adjusted multiple times (the data says "adjusted X times"), mention it: "You've tweaked this budget X times already — it might be worth committing to a number that truly fits your life, or working on the habit behind it."
+For categories marked FREQUENT ADJUSTMENT (adjusted multiple times with mixed results): note that repeated changes suggest the limit may not reflect real life, and invite them to think about whether to set a more honest number or work on the behaviour.
+Keep this section warm and non-judgmental — the goal is self-awareness, not shame.`;
+
   let prompt: string;
   if (type === 'monthly_review') {
     const now = new Date();
@@ -360,10 +426,13 @@ Include:
 2. Income vs spending — savings rate if income was recorded; note any patterns in when income arrived
 3. Top spending categories and what drove them (use any expense notes where relevant)
 4. Budget performance — which budgets were met, which were exceeded and by how much
-5. Spending pattern insights — notable days or timing patterns
-6. Goal progress — are they on track?
-7. Recurring expenses — any worth reviewing?
-8. 2–3 specific, actionable suggestions for next month
+5. Consistently overspent budgets — follow the budget behavioural pattern instruction below
+6. Spending pattern insights — notable days or timing patterns
+7. Goal progress — are they on track?
+8. Recurring expenses — any worth reviewing?
+9. 2–3 specific, actionable suggestions for next month
+
+${BUDGET_BEHAVIOR_INSTRUCTION}
 
 Be specific with numbers. Reference expense notes and income notes where relevant. Use the currency from their data. Keep it readable but thorough — this is a monthly sealed record.`;
   } else {
@@ -376,9 +445,12 @@ Be specific with numbers. Reference expense notes and income notes where relevan
 Focus on:
 1. Quick status — how is spending tracking vs last month at this point? Reference the 3-month trend if relevant.
 2. Budget health — which budgets are at risk of being exceeded? Project end-of-month spend for those.
-3. Income check — has income arrived as expected? Any gaps?
-4. The 1–2 most important course corrections they can still make this month
-5. Anything positive that's going well worth noting
+3. Consistently overspent budgets — follow the budget behavioural pattern instruction below; mid-month is the right time to flag if a pattern is repeating
+4. Income check — has income arrived as expected? Any gaps?
+5. The 1–2 most important course corrections they can still make this month
+6. Anything positive that's going well worth noting
+
+${BUDGET_BEHAVIOR_INSTRUCTION}
 
 Keep it brief and action-focused. This is a course-correction nudge, not a full review.`;
   }
