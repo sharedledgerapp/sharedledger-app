@@ -19,12 +19,17 @@ function getSystemTheme(): ResolvedTheme {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-function applyTheme(resolved: ResolvedTheme) {
+function applyTheme(resolved: ResolvedTheme, isSystem = false) {
   const root = document.documentElement;
   if (resolved === "dark") {
     root.classList.add("dark");
   } else {
     root.classList.remove("dark");
+  }
+  if (isSystem) {
+    root.style.removeProperty("color-scheme");
+  } else {
+    root.style.colorScheme = resolved;
   }
 }
 
@@ -40,13 +45,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const resolvedTheme: ResolvedTheme = theme === "system" ? getSystemTheme() : theme;
 
   useEffect(() => {
-    applyTheme(resolvedTheme);
-  }, [resolvedTheme]);
+    applyTheme(resolvedTheme, theme === "system");
+  }, [resolvedTheme, theme]);
 
   useEffect(() => {
     if (theme !== "system") return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = (e: MediaQueryListEvent) => applyTheme(e.matches ? "dark" : "light");
+    const handler = (e: MediaQueryListEvent) => applyTheme(e.matches ? "dark" : "light", true);
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, [theme]);
@@ -56,7 +61,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("sl-theme", newTheme);
     } catch {}
     const resolved: ResolvedTheme = newTheme === "system" ? getSystemTheme() : (newTheme as ResolvedTheme);
-    applyTheme(resolved);
+    applyTheme(resolved, newTheme === "system");
     setThemeState(newTheme);
   };
 
