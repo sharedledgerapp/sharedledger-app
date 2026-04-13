@@ -132,6 +132,9 @@ export default function SettingsPage() {
   const [monthlyReminderEnabled, setMonthlyReminderEnabled] = useState((user as any)?.monthlyReminderEnabled ?? true);
   const [budgetAlertsEnabled, setBudgetAlertsEnabled] = useState((user as any)?.budgetAlertsEnabled ?? true);
   const [includeQuickGroupInSummary, setIncludeQuickGroupInSummary] = useState((user as any)?.includeQuickGroupInSummary ?? false);
+  const [sageNotesPermission, setSageNotesPermission] = useState<boolean>((user as any)?.sageNotesPermission ?? false);
+  const [financialProfile, setFinancialProfile] = useState<string>((user as any)?.financialProfile ?? "");
+  const [financialProfileDraft, setFinancialProfileDraft] = useState<string>((user as any)?.financialProfile ?? "");
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
     typeof Notification !== "undefined" ? Notification.permission : "default"
   );
@@ -272,6 +275,31 @@ export default function SettingsPage() {
   const handleToggleBudgetAlerts = (enabled: boolean) => {
     setBudgetAlertsEnabled(enabled);
     updateNotificationMutation.mutate({ budgetAlertsEnabled: enabled });
+  };
+
+  const updateSageMutation = useMutation({
+    mutationFn: async (data: { sageNotesPermission?: boolean; financialProfile?: string | null }) => {
+      const res = await apiRequest("PATCH", "/api/user/profile", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      toast({ title: "Sage AI updated", description: "Your settings have been saved." });
+    },
+    onError: () => {
+      toast({ title: t("error"), description: t("failedToUpdate"), variant: "destructive" });
+    },
+  });
+
+  const handleSaveFinancialProfile = () => {
+    const trimmed = financialProfileDraft.trim();
+    setFinancialProfile(trimmed);
+    updateSageMutation.mutate({ financialProfile: trimmed || null });
+  };
+
+  const handleToggleSageNotes = (enabled: boolean) => {
+    setSageNotesPermission(enabled);
+    updateSageMutation.mutate({ sageNotesPermission: enabled });
   };
 
   const handleToggleQuickGroupSummary = (enabled: boolean) => {
@@ -1099,6 +1127,57 @@ export default function SettingsPage() {
                 checked={budgetAlertsEnabled}
                 onCheckedChange={handleToggleBudgetAlerts}
                 data-testid="switch-budget-alerts"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            Sage AI
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div>
+            <p className="text-sm font-medium mb-1">Your Financial Profile</p>
+            <p className="text-xs text-muted-foreground mb-3">
+              Tell Sage about yourself so it can give you better advice from the start. This is read every time you chat with Sage.
+            </p>
+            <Textarea
+              value={financialProfileDraft}
+              onChange={(e) => setFinancialProfileDraft(e.target.value)}
+              placeholder={"For example:\n• My income usually arrives on the 1st and 15th\n• My biggest commitment is rent — 60% of income\n• I'm saving to move out by year-end\n• We split groceries and utilities with my flatmate"}
+              className="min-h-[120px] text-sm resize-none"
+              maxLength={2000}
+              data-testid="textarea-financial-profile"
+            />
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-xs text-muted-foreground">{financialProfileDraft.length}/2000</span>
+              <Button
+                size="sm"
+                onClick={handleSaveFinancialProfile}
+                disabled={updateSageMutation.isPending || financialProfileDraft === financialProfile}
+                data-testid="button-save-financial-profile"
+              >
+                {updateSageMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save"}
+              </Button>
+            </div>
+          </div>
+          <div className="border-t border-border/50 pt-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-1">
+                <p className="font-medium text-sm">Let Sage read personal notes</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  When enabled, Sage can read your private notes to give you more personalised advice. Your notes are never shared with your group.
+                </p>
+              </div>
+              <Switch
+                checked={sageNotesPermission}
+                onCheckedChange={handleToggleSageNotes}
+                data-testid="switch-sage-notes-permission"
               />
             </div>
           </div>

@@ -44,6 +44,8 @@ export const users = pgTable("users", {
   onboardingCompleted: boolean("onboarding_completed").default(false).notNull(),
   includeQuickGroupInSummary: boolean("include_quick_group_in_summary").default(false).notNull(),
   incomeSources: text("income_sources").array(),
+  sageNotesPermission: boolean("sage_notes_permission").default(false).notNull(),
+  financialProfile: text("financial_profile"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

@@ -29,47 +29,61 @@ SharedLedger App Features:
 - Reports page: charts, category breakdowns, spending trends month-over-month, spending reflections (weekly/monthly charts)
 - Group/Family page: manage shared finances with family, couple, or roommates — shared budgets, shared goals, member balances, settlements
 - Friend Groups: split expenses with friends for trips or events, track who owes whom, settle debts
-- Messages page: group chat with members, shared notes and to-do lists, Sage AI chat
-- Settings: change currency, language (English/French/Dutch), notifications, daily/weekly/monthly reminders, budget alerts, profile
-- Push notifications: budget alerts at custom thresholds, recurring expense reminders, daily/weekly/monthly summaries
+- Messages page: group chat with members, shared notes and to-do lists, Sage AI chat, personal private notes
+- Settings: change currency, language (English/French/Dutch), notifications, daily/weekly/monthly reminders, budget alerts, profile, Sage AI financial profile
+- Push notifications: budget alerts at custom thresholds, recurring expense reminders, daily/weekly/monthly summaries, note-taking reminders at month milestones
 - Receipt scanning: take a photo of any receipt and Sage automatically extracts amount, category, and item details
 - Currency support: dozens of currencies, can be changed anytime in Settings — all past entries update instantly
 - Dark mode: toggle in Settings
+- Personal Notes: private notes only visible to the owner. Users can allow Sage to read these for better advice (opt-in in Settings)
+- Financial Profile: users can describe their financial habits in Settings so Sage understands them better from the start
 `;
 
 // ── Context builder ──────────────────────────────────────────────────────────
 export async function buildSageContext(userId: number): Promise<string> {
   const now = new Date();
-  const monthStart = startOfMonth(now);
-  const monthEnd = endOfMonth(now);
-  const prevMonthStart = startOfMonth(subMonths(now, 1));
-  const prevMonthEnd = endOfMonth(subMonths(now, 1));
-  const threeMonthsAgo = startOfMonth(subMonths(now, 3));
+  const threeMonthsAgo = startOfMonth(subMonths(now, 2));
 
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) return "";
 
   const currency = user.currency || "EUR";
 
-  // Recent expenses (90 days)
+  // ── All expenses for the last 3 months ─────────────────────────────────────
   const recentExpenses = await db.select().from(expenses)
     .where(and(eq(expenses.userId, userId), gte(expenses.date, threeMonthsAgo)))
     .orderBy(desc(expenses.date));
 
-  // Current month expenses
-  const curMonthExp = recentExpenses.filter(e => e.date >= monthStart && e.date <= monthEnd);
-  const prevMonthExp = recentExpenses.filter(e => e.date >= prevMonthStart && e.date <= prevMonthEnd);
-
-  // Category totals
-  const buildCatTotals = (exps: typeof recentExpenses) => {
-    const map: Record<string, number> = {};
-    for (const e of exps) {
-      if (e.category !== '__income__') map[e.category] = (map[e.category] || 0) + Number(e.amount);
+  // ── Build per-month breakdowns (3 months) ──────────────────────────────────
+  const monthBreakdowns: Array<{ label: string; total: number; cats: string; count: number }> = [];
+  for (let i = 2; i >= 0; i--) {
+    const mStart = startOfMonth(subMonths(now, i));
+    const mEnd = endOfMonth(subMonths(now, i));
+    const mExp = recentExpenses.filter(e =>
+      e.date >= mStart && e.date <= mEnd && e.category !== '__income__'
+    );
+    const mTotal = mExp.reduce((s, e) => s + Number(e.amount), 0);
+    const catMap: Record<string, number> = {};
+    for (const e of mExp) {
+      catMap[e.category] = (catMap[e.category] || 0) + Number(e.amount);
     }
-    return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([cat, amt]) => `${cat}: ${amt.toFixed(2)}`).join(', ');
-  };
+    const cats = Object.entries(catMap)
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, amt]) => `${cat}: ${amt.toFixed(2)}`)
+      .join(', ');
+    monthBreakdowns.push({ label: format(mStart, 'MMM yyyy'), total: mTotal, cats, count: mExp.length });
+  }
 
-  // Day-of-week breakdown (current month)
+  const curMonthData = monthBreakdowns[2];
+  const prevMonthData = monthBreakdowns[1];
+  const twoMonthsAgoData = monthBreakdowns[0];
+
+  // ── Day-of-week breakdown (current month) ──────────────────────────────────
+  const mStart = startOfMonth(now);
+  const mEnd = endOfMonth(now);
+  const curMonthExp = recentExpenses.filter(e =>
+    e.date >= mStart && e.date <= mEnd && e.category !== '__income__'
+  );
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const dayTotals: Record<number, number> = {};
   for (const e of curMonthExp) {
@@ -82,18 +96,53 @@ export async function buildSageContext(userId: number): Promise<string> {
     .map(([d, amt]) => `${dayNames[Number(d)]}: ${amt.toFixed(2)}`)
     .join(', ');
 
-  // Notes with notable entries (top 5 notes this month)
-  const notableNotes = curMonthExp
+  // ── All expense notes across 90 days ──────────────────────────────────────
+  const allExpenseNotes = recentExpenses
+    .filter(e => e.note && e.note.trim().length > 0 && e.category !== '__income__')
+    .slice(0, 20)
+    .map(e => `"${e.note}" (${e.category}, ${Number(e.amount).toFixed(2)}, ${format(new Date(e.date), 'MMM d')})`);
+
+  // ── Income history (3 months) ──────────────────────────────────────────────
+  const incomeHistory = await db.select().from(incomeEntries)
+    .where(and(eq(incomeEntries.userId, userId), gte(incomeEntries.date, threeMonthsAgo)))
+    .orderBy(desc(incomeEntries.date));
+
+  // Per-month income totals
+  const incomeByMonth: Record<string, number> = {};
+  for (const entry of incomeHistory) {
+    const key = format(new Date(entry.date), 'MMM yyyy');
+    incomeByMonth[key] = (incomeByMonth[key] || 0) + Number(entry.amount);
+  }
+
+  // Income by source (cumulative)
+  const incomeBySource: Record<string, number> = {};
+  for (const entry of incomeHistory) {
+    incomeBySource[entry.source] = (incomeBySource[entry.source] || 0) + Number(entry.amount);
+  }
+  const incomeSourceLines = Object.entries(incomeBySource)
+    .sort((a, b) => b[1] - a[1])
+    .map(([src, amt]) => `${src}: ${amt.toFixed(2)}`)
+    .join(', ');
+
+  // Income notes (up to 15 across 90 days)
+  const incomeNotes = incomeHistory
     .filter(e => e.note && e.note.trim().length > 0)
-    .sort((a, b) => Number(b.amount) - Number(a.amount))
-    .slice(0, 5)
-    .map(e => `"${e.note}" (${e.category}, ${Number(e.amount).toFixed(2)})`)
-    .join('; ');
+    .slice(0, 15)
+    .map(e => `"${e.note}" (${e.source}, ${Number(e.amount).toFixed(2)}, ${format(new Date(e.date), 'MMM d')})`);
 
-  const curTotal = curMonthExp.reduce((s, e) => s + Number(e.amount), 0);
-  const prevTotal = prevMonthExp.reduce((s, e) => s + Number(e.amount), 0);
+  // Income timing — average day of month income arrives
+  const incomeDays = incomeHistory.map(e => new Date(e.date).getDate());
+  const avgIncomeDay = incomeDays.length > 0
+    ? Math.round(incomeDays.reduce((a, b) => a + b, 0) / incomeDays.length)
+    : null;
 
-  // Budgets
+  // Monthly income per-month summary
+  const incomeMonthlyLines = monthBreakdowns.map(m => {
+    const total = incomeByMonth[m.label] || 0;
+    return `${m.label}: ${total > 0 ? total.toFixed(2) + ' ' + currency : 'not recorded'}`;
+  }).join(' | ');
+
+  // ── Budgets ────────────────────────────────────────────────────────────────
   const userBudgets = await storage.getBudgets(userId);
   const budgetLines = userBudgets.map(b => {
     const spent = curMonthExp
@@ -103,7 +152,7 @@ export async function buildSageContext(userId: number): Promise<string> {
     return `${b.category}: ${spent.toFixed(2)}/${Number(b.amount).toFixed(2)} (${pct}% used, ${b.periodType})`;
   }).join('\n');
 
-  // Goals
+  // ── Goals ──────────────────────────────────────────────────────────────────
   const userGoals = await storage.getGoals(userId, user.familyId || 0);
   const goalLines = userGoals.slice(0, 5).map(g => {
     const pct = g.targetAmount ? Math.round((Number(g.currentAmount) / Number(g.targetAmount)) * 100) : 0;
@@ -111,19 +160,14 @@ export async function buildSageContext(userId: number): Promise<string> {
     return `"${g.title}": ${Number(g.currentAmount).toFixed(2)}/${Number(g.targetAmount).toFixed(2)} (${pct}%${deadline})`;
   }).join('\n');
 
-  // Recurring expenses
+  // ── Recurring expenses ─────────────────────────────────────────────────────
   const recurring = await storage.getRecurringExpenses(userId);
   const recurringTotal = recurring.filter(r => r.isActive && r.frequency === 'monthly')
     .reduce((s, r) => s + Number(r.amount), 0);
   const recurringLines = recurring.filter(r => r.isActive).slice(0, 6)
     .map(r => `${r.name}: ${Number(r.amount).toFixed(2)}/${r.frequency}`).join(', ');
 
-  // Income (current month)
-  const incomeRows = await db.select().from(incomeEntries)
-    .where(and(eq(incomeEntries.userId, userId), gte(incomeEntries.date, monthStart), lte(incomeEntries.date, monthEnd)));
-  const incomeTotal = incomeRows.reduce((s, i) => s + Number(i.amount), 0);
-
-  // Group context
+  // ── Group context ──────────────────────────────────────────────────────────
   let groupContext = "";
   if (user.familyId) {
     const family = await storage.getFamily(user.familyId);
@@ -137,34 +181,59 @@ Shared budgets: ${sharedBudgets.length > 0 ? sharedBudgets.map(b => `${b.categor
 Shared goals: ${sharedGoals.length > 0 ? sharedGoals.map(g => `"${g.title}" ${Number(g.currentAmount).toFixed(2)}/${Number(g.targetAmount).toFixed(2)}`).join(', ') : 'none'}`;
   }
 
-  // Past analyses (last 3)
+  // ── Past analyses ──────────────────────────────────────────────────────────
   const pastAnalyses = await storage.getAiAnalyses(userId);
   const historyContext = pastAnalyses.slice(0, 3).map(a =>
     `[${a.type === 'monthly_review' ? 'Monthly review' : 'Mid-month check'} ${a.periodKey}]: ${a.content.slice(0, 400)}...`
   ).join('\n\n');
 
+  // ── Personal notes (if user granted permission) ────────────────────────────
+  let personalNotesContext = "";
+  if (user.sageNotesPermission) {
+    const personalNotes = await storage.getPersonalNotes(userId);
+    const activeNotes = personalNotes
+      .filter(n => !n.isCompleted)
+      .slice(0, 6)
+      .map(n => `"${n.title}"${n.content ? ': ' + n.content.slice(0, 300) : ''}`);
+    if (activeNotes.length > 0) {
+      personalNotesContext = `
+PERSONAL NOTES (user has shared these with you for better advice):
+${activeNotes.join('\n')}`;
+    }
+  }
+
+  // ── Financial profile ──────────────────────────────────────────────────────
+  const profileContext = user.financialProfile?.trim()
+    ? `\nUSER'S FINANCIAL PROFILE (written by the user to help you understand them):\n${user.financialProfile.trim()}`
+    : "";
+
+  // ── Trend context ──────────────────────────────────────────────────────────
+  const monthTrend = monthBreakdowns.map(m =>
+    `${m.label}: ${m.total > 0 ? m.total.toFixed(2) + ' ' + currency + ` (${m.count} expenses)` : 'no data'}`
+  ).join(' → ');
+
   return `
 USER FINANCIAL CONTEXT (currency: ${currency}):
 Name: ${user.name}
-Current month: ${format(now, 'MMMM yyyy')} (day ${now.getDate()} of ${endOfMonth(now).getDate()})
+Current date: ${format(now, 'MMMM d, yyyy')} (day ${now.getDate()} of ${endOfMonth(now).getDate()})
+${profileContext}
+SPENDING TREND (3 months):
+${monthTrend}
 
-SPENDING:
-This month total: ${curTotal.toFixed(2)} ${currency}
-Last month total: ${prevTotal.toFixed(2)} ${currency}
-Change: ${prevTotal > 0 ? ((curTotal - prevTotal) / prevTotal * 100).toFixed(1) : 'n/a'}%
-Income this month: ${incomeTotal > 0 ? incomeTotal.toFixed(2) + ' ' + currency : 'not recorded'}
+MONTH-BY-MONTH BREAKDOWN:
+${monthBreakdowns.map(m => `${m.label} — Total: ${m.total.toFixed(2)} ${currency}\n  Categories: ${m.cats || 'none'}`).join('\n')}
 
-CATEGORY BREAKDOWN (this month):
-${buildCatTotals(curMonthExp) || 'No expenses this month'}
-
-CATEGORY BREAKDOWN (last month):
-${buildCatTotals(prevMonthExp) || 'No expenses last month'}
-
-TOP SPENDING DAYS (this month):
+TOP SPENDING DAYS THIS MONTH (by day of week):
 ${dayBreakdown || 'Not enough data'}
 
-NOTABLE EXPENSE NOTES (this month):
-${notableNotes || 'No noted expenses'}
+EXPENSE NOTES (last 90 days — what users wrote about their spending):
+${allExpenseNotes.length > 0 ? allExpenseNotes.join('\n') : 'No noted expenses in the last 90 days'}
+
+INCOME:
+Monthly income history: ${incomeMonthlyLines}
+Income sources (last 3 months): ${incomeSourceLines || 'not recorded'}
+${avgIncomeDay ? `Typical income arrival: around day ${avgIncomeDay} of the month` : ''}
+${incomeNotes.length > 0 ? `Income notes:\n${incomeNotes.join('\n')}` : ''}
 
 RECURRING EXPENSES (active):
 ${recurringLines || 'None set up'}
@@ -176,7 +245,8 @@ ${budgetLines || 'No budgets set up'}
 SAVINGS GOALS:
 ${goalLines || 'No goals set up'}
 ${groupContext}
-${historyContext ? `\nPAST ANALYSES (for context):\n${historyContext}` : ''}
+${personalNotesContext}
+${historyContext ? `\nPAST ANALYSES (for context, most recent first):\n${historyContext}` : ''}
 `.trim();
 }
 
@@ -190,12 +260,20 @@ Your role:
 - Answer questions about their budgets, goals, expenses, and income
 - Explain how SharedLedger features work when asked
 - Be warm, direct, and non-judgmental — money is personal
+- Reference specific numbers, dates, and notes from the user's data when relevant
+- When the user asks about trends (e.g. "my spending habits"), reference the 3-month breakdown you have
 
 Your limits (be clear about these if asked):
 - You do not give investment advice or recommend specific financial products
 - You do not have access to external bank accounts or real-time market data
 - You cannot take any actions in the app — you advise only
 - Your insights are based on data the user has entered in SharedLedger
+- Your expense/income history goes back up to 3 months
+
+Personal notes access:
+- If the user has shared personal notes with you, treat them as trusted context about their financial intentions and concerns
+- If the user asks about accessing their notes, explain they can control this in Settings > Sage AI
+- Never reveal that a user has NOT shared notes — just work with what you have
 
 Tone: Practical, friendly, concise. Use bullet points when listing multiple items. Keep responses focused — don't pad with filler. Use the user's currency symbol in amounts.
 
@@ -249,8 +327,8 @@ export async function generateAnalysis(
     prompt = `Write a comprehensive end-of-month financial review for ${format(prevMonth, 'MMMM yyyy')}.
 
 Include:
-1. Overall summary — how did they do vs the previous month?
-2. Income vs spending — savings rate if income was recorded
+1. Overall summary — how did they do vs the previous months?
+2. Income vs spending — savings rate if income was recorded; note any patterns in when income arrived
 3. Top spending categories and what drove them (use any expense notes where relevant)
 4. Budget performance — which budgets were met, which were exceeded and by how much
 5. Spending pattern insights — notable days or timing patterns
@@ -258,7 +336,7 @@ Include:
 7. Recurring expenses — any worth reviewing?
 8. 2–3 specific, actionable suggestions for next month
 
-Be specific with numbers. Use the currency from their data. Keep it readable but thorough — this is a monthly sealed record.`;
+Be specific with numbers. Reference expense notes and income notes where relevant. Use the currency from their data. Keep it readable but thorough — this is a monthly sealed record.`;
   } else {
     const now = new Date();
     const daysIn = now.getDate();
@@ -267,10 +345,11 @@ Be specific with numbers. Use the currency from their data. Keep it readable but
     prompt = `Write a mid-month financial check-in for ${format(now, 'MMMM yyyy')} (day ${daysIn} of ${daysTotal}, ${daysLeft} days remaining).
 
 Focus on:
-1. Quick status — how is spending tracking vs last month at this point?
+1. Quick status — how is spending tracking vs last month at this point? Reference the 3-month trend if relevant.
 2. Budget health — which budgets are at risk of being exceeded? Project end-of-month spend for those.
-3. The 1–2 most important course corrections they can still make this month
-4. Anything positive that's going well worth noting
+3. Income check — has income arrived as expected? Any gaps?
+4. The 1–2 most important course corrections they can still make this month
+5. Anything positive that's going well worth noting
 
 Keep it brief and action-focused. This is a course-correction nudge, not a full review.`;
   }

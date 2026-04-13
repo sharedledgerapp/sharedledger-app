@@ -4,7 +4,7 @@ import { db } from "./db";
 import { users, expenses, budgets, pushNotificationLog, recurringExpenses, incomeEntries, messages, families } from "@shared/schema";
 import { eq, and, gte, lte, lt, sql, inArray } from "drizzle-orm";
 import { generateAnalysis } from "./sage";
-import { format, subMonths, startOfMonth } from "date-fns";
+import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 
 async function wasNotifiedToday(userId: number, type: string): Promise<boolean> {
   const today = new Date();
@@ -584,6 +584,51 @@ async function checkGroupIdleNudge() {
   }
 }
 
+async function checkNoteReminders() {
+  const now = new Date();
+  const day = now.getDate();
+  const daysInMonth = endOfMonth(now).getDate();
+  const yearMonth = format(now, 'yyyy-MM');
+  const mStart = startOfMonth(now);
+
+  let milestoneKey: string | null = null;
+  let title = '';
+  let body = '';
+  let tag = '';
+
+  if (day === 1) {
+    milestoneKey = `note_reminder_start_${yearMonth}`;
+    title = "New month, fresh start \uD83D\uDCDD";
+    body = `What are your financial goals for ${format(now, 'MMMM')}? Jot a note — Sage can help you plan.`;
+    tag = `note-reminder-start-${yearMonth}`;
+  } else if (day >= 14 && day <= 16) {
+    milestoneKey = `note_reminder_mid_${yearMonth}`;
+    title = "Half-month check-in \uD83D\uDCDD";
+    body = "How's your spending tracking? Take a note on what you want to adjust in the second half.";
+    tag = `note-reminder-mid-${yearMonth}`;
+  } else if (day >= daysInMonth - 1) {
+    milestoneKey = `note_reminder_end_${yearMonth}`;
+    title = "Month wrapping up \uD83D\uDCDD";
+    body = "Jot down your financial takeaways — Sage can use them to plan next month with you.";
+    tag = `note-reminder-end-${yearMonth}`;
+  }
+
+  if (!milestoneKey) return;
+
+  const allUsers = await db.select().from(users);
+  for (const user of allUsers) {
+    if (!user.onboardingCompleted || !user.monthlyReminderEnabled) continue;
+    if (await wasNotifiedSince(user.id, milestoneKey, mStart)) continue;
+    const sent = await sendPushToUser(user.id, {
+      title,
+      body,
+      tag,
+      url: '/app/messages',
+    });
+    if (sent) await markNotified(user.id, milestoneKey);
+  }
+}
+
 let schedulerInterval: ReturnType<typeof setInterval> | null = null;
 let schedulerStarted = false;
 
@@ -615,6 +660,7 @@ export function startPushScheduler() {
       { name: "recurringReminders", fn: checkRecurringReminders },
       { name: "sageAnalyses", fn: checkSageAnalyses },
       { name: "groupIdleNudge", fn: checkGroupIdleNudge },
+      { name: "noteReminders", fn: checkNoteReminders },
     ];
     for (const { name, fn } of checks) {
       try {

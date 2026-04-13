@@ -392,6 +392,8 @@ export async function registerRoutes(
       monthlyReminderEnabled: z.boolean().optional(),
       budgetAlertsEnabled: z.boolean().optional(),
       includeQuickGroupInSummary: z.boolean().optional(),
+      sageNotesPermission: z.boolean().optional(),
+      financialProfile: z.string().max(2000).optional().nullable(),
     });
     
     const updates = updateSchema.parse(req.body);

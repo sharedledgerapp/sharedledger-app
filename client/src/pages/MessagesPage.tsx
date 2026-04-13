@@ -1504,6 +1504,33 @@ function NotesTab({
 
         {showAddPersonalForm && (
           <Card className="p-4 space-y-3">
+            <div>
+              <p className="text-[11px] text-muted-foreground mb-2 font-medium uppercase tracking-wide">Questions to inspire your note</p>
+              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+                {[
+                  "What am I saving up for right now?",
+                  "What was my biggest unnecessary expense lately?",
+                  "What financial habit am I working on this month?",
+                  "What recurring costs should I review or cut?",
+                  "What's coming up financially that I need to plan for?",
+                  "What was an unexpected expense I want to remember?",
+                  "What do I want to change about my spending?",
+                  "What am I proud of financially this month?",
+                  "When does my income usually arrive, and what do I do first?",
+                  "What's my financial goal for next month?",
+                ].map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => setNewPersonalTitle(q)}
+                    className="shrink-0 text-[11px] bg-secondary text-secondary-foreground hover:bg-primary/10 hover:text-primary px-2.5 py-1.5 rounded-full transition-colors text-left max-w-[180px] truncate"
+                    data-testid={`button-guided-question-${q.slice(0, 20).replace(/\s/g, '-')}`}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
             <Input
               value={newPersonalTitle}
               onChange={(e) => setNewPersonalTitle(e.target.value)}
