@@ -42,6 +42,7 @@ export const users = pgTable("users", {
   monthlyReminderEnabled: boolean("monthly_reminder_enabled").default(true).notNull(),
   budgetAlertsEnabled: boolean("budget_alerts_enabled").default(true).notNull(),
   onboardingCompleted: boolean("onboarding_completed").default(false).notNull(),
+  userNumber: integer("user_number"),
   includeQuickGroupInSummary: boolean("include_quick_group_in_summary").default(false).notNull(),
   incomeSources: text("income_sources").array(),
   sageNotesPermission: boolean("sage_notes_permission").default(false).notNull(),

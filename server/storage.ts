@@ -34,7 +34,9 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   getAllUsersWithEmail(): Promise<{ id: number; name: string; email: string }[]>;
   createUser(user: InsertUser & { familyId?: number; googleId?: string | null; appleId?: string | null }): Promise<User>;
-  updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId' | 'onboardingCompleted' | 'includeQuickGroupInSummary' | 'incomeSources' | 'sageNotesPermission' | 'financialProfile'>>): Promise<User>;
+  updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId' | 'onboardingCompleted' | 'userNumber' | 'includeQuickGroupInSummary' | 'incomeSources' | 'sageNotesPermission' | 'financialProfile'>>): Promise<User>;
+  countOnboardedUsers(): Promise<number>;
+  assignUserNumber(userId: number): Promise<User>;
   deleteUser(id: number): Promise<void>;
   setPasswordResetToken(userId: number, token: string, expiry: Date): Promise<void>;
   getUserByResetToken(token: string): Promise<User | undefined>;
@@ -237,9 +239,42 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId' | 'onboardingCompleted' | 'includeQuickGroupInSummary' | 'incomeSources' | 'sageNotesPermission' | 'financialProfile'>>): Promise<User> {
+  async updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId' | 'onboardingCompleted' | 'userNumber' | 'includeQuickGroupInSummary' | 'incomeSources' | 'sageNotesPermission' | 'financialProfile'>>): Promise<User> {
     const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
     return user;
+  }
+
+  async countOnboardedUsers(): Promise<number> {
+    const [result] = await db.select({ count: sql<number>`count(*)` }).from(users).where(eq(users.onboardingCompleted, true));
+    return Number(result?.count ?? 0);
+  }
+
+  async assignUserNumber(userId: number): Promise<User> {
+    return await db.transaction(async (tx) => {
+      // Advisory lock ensures only one assignment runs at a time across all connections.
+      // Lock key 63 corresponds to task #63 (onboarding user counter).
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(63)`);
+
+      const [current] = await tx.select().from(users).where(eq(users.id, userId));
+      if (!current) throw new Error("User not found");
+
+      if (current.userNumber) {
+        if (!current.onboardingCompleted) {
+          const [updated] = await tx.update(users).set({ onboardingCompleted: true }).where(eq(users.id, userId)).returning();
+          return updated;
+        }
+        return current;
+      }
+
+      const [countRow] = await tx.select({ count: sql<string>`COUNT(*)` }).from(users).where(eq(users.onboardingCompleted, true));
+      const nextNumber = Number(countRow?.count ?? 0) + 1;
+
+      const [updated] = await tx.update(users)
+        .set({ onboardingCompleted: true, userNumber: nextNumber })
+        .where(eq(users.id, userId))
+        .returning();
+      return updated;
+    });
   }
 
   async deleteUser(id: number): Promise<void> {

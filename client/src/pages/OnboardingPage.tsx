@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import confetti from "canvas-confetti";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
@@ -169,6 +170,7 @@ export default function OnboardingPage() {
   const [notifEnabled, setNotifEnabled] = useState(true);
   const [notifTime, setNotifTime] = useState("19:00");
   const [currencySearch, setCurrencySearch] = useState("");
+  const [assignedUserNumber, setAssignedUserNumber] = useState<number | null>(null);
 
   useEffect(() => {
     if (isLoading) return;
@@ -228,6 +230,9 @@ export default function OnboardingPage() {
     onSuccess: (updatedUser) => {
       queryClient.setQueryData([api.auth.me.path], updatedUser);
       localStorage.setItem(TUTORIAL_STORAGE_KEY, "true");
+      if (updatedUser.userNumber) {
+        setAssignedUserNumber(updatedUser.userNumber);
+      }
     },
   });
 
@@ -375,9 +380,8 @@ export default function OnboardingPage() {
     goNext();
   };
 
-  const handleFinish = async (destination: "/app" | "/app/goals") => {
+  const handleFinish = (destination: "/app" | "/app/goals") => {
     captureEvent("onboarding_completed", { destination: destination === "/app" ? "expense_log" : "goals" });
-    await completeOnboardingMutation.mutateAsync();
     setLocation(destination);
   };
 
@@ -499,9 +503,13 @@ export default function OnboardingPage() {
             {step === 10 && (
               <Step10Celebration
                 userName={userName}
+                userNumber={assignedUserNumber}
                 onLogExpense={() => handleFinish("/app")}
                 onSetGoal={() => handleFinish("/app/goals")}
+                onMount={() => completeOnboardingMutation.mutate()}
                 isPending={completeOnboardingMutation.isPending}
+                isError={completeOnboardingMutation.isError}
+                onRetry={() => completeOnboardingMutation.mutate()}
               />
             )}
           </StepWrapper>
@@ -1314,16 +1322,51 @@ function Step9Notifications({
 
 function Step10Celebration({
   userName,
+  userNumber,
   onLogExpense,
   onSetGoal,
+  onMount,
   isPending,
+  isError,
+  onRetry,
 }: {
   userName: string;
+  userNumber: number | null;
   onLogExpense: () => void;
   onSetGoal: () => void;
+  onMount: () => void;
   isPending: boolean;
+  isError: boolean;
+  onRetry: () => void;
 }) {
   const firstName = userName.split(" ")[0] || userName;
+  const hasFired = useRef(false);
+
+  useEffect(() => {
+    if (hasFired.current) return;
+    hasFired.current = true;
+    onMount();
+
+    const fireConfetti = () => {
+      const count = 80;
+      const defaults = { startVelocity: 30, spread: 55, ticks: 60, zIndex: 9999 };
+      confetti({ ...defaults, particleCount: count, origin: { x: 0, y: 0.6 }, angle: 60 });
+      confetti({ ...defaults, particleCount: count, origin: { x: 1, y: 0.6 }, angle: 120 });
+    };
+
+    fireConfetti();
+    const timer = setTimeout(fireConfetti, 400);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const welcomeMessage = userNumber
+    ? userNumber <= 200
+      ? `You are user #${userNumber} of our first 200.`
+      : `Welcome to the community!`
+    : null;
+
+  const ctasDisabled = isPending || isError;
+
   return (
     <div className="text-center">
       <motion.div
@@ -1344,10 +1387,30 @@ function Step10Celebration({
         <h2 className="font-display font-bold text-3xl text-foreground">
           You're all set, {firstName}!
         </h2>
+        {welcomeMessage && (
+          <motion.p
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.6 }}
+            className="text-primary font-semibold text-sm"
+            data-testid="text-celebration-user-number"
+          >
+            {welcomeMessage}
+          </motion.p>
+        )}
         <p className="text-muted-foreground">
           Your account is personalised and ready to go. What would you like to do first?
         </p>
       </motion.div>
+
+      {isError && (
+        <div className="mb-4 text-sm text-destructive flex flex-col items-center gap-2">
+          <span>Something went wrong finalising your account.</span>
+          <Button variant="outline" size="sm" onClick={onRetry} data-testid="button-celebration-retry">
+            Try again
+          </Button>
+        </div>
+      )}
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -1357,7 +1420,7 @@ function Step10Celebration({
       >
         <Button
           onClick={onLogExpense}
-          disabled={isPending}
+          disabled={ctasDisabled}
           className="w-full h-14 rounded-2xl font-semibold text-base shadow-xl shadow-primary/25"
           data-testid="button-celebration-log-expense"
         >
@@ -1373,7 +1436,7 @@ function Step10Celebration({
         <Button
           variant="outline"
           onClick={onSetGoal}
-          disabled={isPending}
+          disabled={ctasDisabled}
           className="w-full h-14 rounded-2xl font-semibold text-base"
           data-testid="button-celebration-set-goal"
         >

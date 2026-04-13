@@ -403,7 +403,7 @@ export async function registerRoutes(
 
   app.post("/api/auth/complete-onboarding", requireAuth, async (req, res) => {
     const user = req.user as any;
-    const updated = await storage.updateUser(user.id, { onboardingCompleted: true });
+    const updated = await storage.assignUserNumber(user.id);
     res.json(sanitizeUser(updated));
   });
 
