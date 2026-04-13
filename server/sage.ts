@@ -243,11 +243,15 @@ export async function buildSageContext(userId: number): Promise<string> {
     const members = await storage.getFamilyMembers(user.familyId);
     const sharedBudgets = await storage.getSharedBudgets(user.familyId);
     const sharedGoals = await storage.getSharedGoals(user.familyId);
+    const memberIntentions = members
+      .filter(m => m.id !== userId && (m as any).onboardingIntention?.trim())
+      .map(m => `  - ${m.name}: "${(m as any).onboardingIntention!.trim()}"`)
+      .join('\n');
     groupContext = `
 GROUP (${family?.groupType || 'family'}: "${family?.name}"):
 Members: ${members.map(m => m.name).join(', ')}
 Shared budgets: ${sharedBudgets.length > 0 ? sharedBudgets.map(b => `${b.category}: ${b.amount}`).join(', ') : 'none'}
-Shared goals: ${sharedGoals.length > 0 ? sharedGoals.map(g => `"${g.title}" ${Number(g.currentAmount).toFixed(2)}/${Number(g.targetAmount).toFixed(2)}`).join(', ') : 'none'}`;
+Shared goals: ${sharedGoals.length > 0 ? sharedGoals.map(g => `"${g.title}" ${Number(g.currentAmount).toFixed(2)}/${Number(g.targetAmount).toFixed(2)}`).join(', ') : 'none'}${memberIntentions ? `\nOther members' intentions:\n${memberIntentions}` : ''}`;
   }
 
   // ── Past analyses ──────────────────────────────────────────────────────────
@@ -271,9 +275,13 @@ ${activeNotes.join('\n')}`;
     }
   }
 
-  // ── Financial profile ──────────────────────────────────────────────────────
+  // ── Financial profile & onboarding intention ────────────────────────────────
   const profileContext = user.financialProfile?.trim()
     ? `\nUSER'S FINANCIAL PROFILE (written by the user to help you understand them):\n${user.financialProfile.trim()}`
+    : "";
+
+  const intentionContext = (user as any).onboardingIntention?.trim()
+    ? `\nUSER'S ORIGINAL INTENTION (what they said when they first joined — treat this as their north star):\n"${(user as any).onboardingIntention.trim()}"\nReference this in monthly reviews and when their behaviour aligns with or diverges from this intention.`
     : "";
 
   // ── Trend context ──────────────────────────────────────────────────────────
@@ -296,6 +304,7 @@ USER FINANCIAL CONTEXT (currency: ${currency}):
 Name: ${user.name}
 Current date: ${format(now, 'MMMM d, yyyy')} (day ${now.getDate()} of ${endOfMonth(now).getDate()})
 ${profileContext}
+${intentionContext}
 ${dataAccessNote}
 ${expenseAllowed ? `
 SPENDING TREND (3 months):

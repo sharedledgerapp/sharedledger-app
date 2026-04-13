@@ -3,6 +3,7 @@ import { db } from "./db";
 import { 
   users, families, expenses, goals, allowances, expenseSplits, goalApprovals,
   messages, notes, messageReadStatus, recurringExpenses, budgets, budgetSetupPrompts,
+  intentionPrompts,
   settlements, pushSubscriptions, pushNotificationLog, friendGroupMembers, incomeEntries,
   sageConversations, sageMessages, aiAnalyses, personalNotes,
   type User, type InsertUser, type Family, type InsertFamily,
@@ -16,7 +17,8 @@ import {
   type Settlement, type InsertSettlement, type FriendGroupMember,
   type IncomeEntry, type InsertIncomeEntry,
   type SageConversation, type SageMessage, type AiAnalysis,
-  type PersonalNote, type InsertPersonalNote
+  type PersonalNote, type InsertPersonalNote,
+  type IntentionPrompt
 } from "@shared/schema";
 import { eq, and, desc, or, ne, gte, lte, sql, inArray, aliasedTable } from "drizzle-orm";
 import session from "express-session";
@@ -112,6 +114,10 @@ export interface IStorage {
   // Budget Setup Prompts
   getBudgetSetupPrompt(userId: number): Promise<BudgetSetupPrompt | undefined>;
   upsertBudgetSetupPrompt(userId: number, status: "pending" | "dismissed" | "remind_week" | "remind_month" | "completed", remindAt?: Date): Promise<BudgetSetupPrompt>;
+
+  // Intention Prompts
+  getIntentionPrompt(userId: number): Promise<IntentionPrompt | undefined>;
+  upsertIntentionPrompt(userId: number, status: "pending" | "snoozed" | "completed", snoozeUntil?: Date): Promise<IntentionPrompt>;
 
   // Push Subscriptions
   savePushSubscription(userId: number, subscription: { endpoint: string; p256dh: string; auth: string }): Promise<void>;
@@ -839,6 +845,27 @@ export class DatabaseStorage implements IStorage {
     }
     const [created] = await db.insert(budgetSetupPrompts)
       .values({ userId, status, remindAt: remindAt || null })
+      .returning();
+    return created;
+  }
+
+  async getIntentionPrompt(userId: number): Promise<IntentionPrompt | undefined> {
+    const [prompt] = await db.select().from(intentionPrompts)
+      .where(eq(intentionPrompts.userId, userId));
+    return prompt;
+  }
+
+  async upsertIntentionPrompt(userId: number, status: "pending" | "snoozed" | "completed", snoozeUntil?: Date): Promise<IntentionPrompt> {
+    const existing = await this.getIntentionPrompt(userId);
+    if (existing) {
+      const [updated] = await db.update(intentionPrompts)
+        .set({ status, snoozeUntil: snoozeUntil || null })
+        .where(eq(intentionPrompts.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(intentionPrompts)
+      .values({ userId, status, snoozeUntil: snoozeUntil || null })
       .returning();
     return created;
   }

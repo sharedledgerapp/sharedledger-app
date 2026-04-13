@@ -397,6 +397,7 @@ export async function registerRoutes(
       sageIncomePermission: z.boolean().optional(),
       sageBudgetGoalsPermission: z.boolean().optional(),
       financialProfile: z.string().max(2000).optional().nullable(),
+      onboardingIntention: z.string().max(500).optional().nullable(),
     });
     
     const updates = updateSchema.parse(req.body);
@@ -2194,6 +2195,28 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
 
     const prompt = await storage.upsertBudgetSetupPrompt(user.id, status, remindAt);
+    res.json(prompt);
+  });
+
+  // === INTENTION PROMPT ===
+  app.get("/api/intention-prompt", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const prompt = await storage.getIntentionPrompt(user.id);
+    res.json(prompt || null);
+  });
+
+  app.post("/api/intention-prompt", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const schema = z.object({
+      status: z.enum(["pending", "snoozed", "completed"]),
+    });
+    const { status } = schema.parse(req.body);
+    let snoozeUntil: Date | undefined;
+    if (status === "snoozed") {
+      snoozeUntil = new Date();
+      snoozeUntil.setDate(snoozeUntil.getDate() + 3);
+    }
+    const prompt = await storage.upsertIntentionPrompt(user.id, status, snoozeUntil);
     res.json(prompt);
   });
 

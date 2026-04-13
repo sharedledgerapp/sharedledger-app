@@ -50,6 +50,7 @@ export const users = pgTable("users", {
   sageIncomePermission: boolean("sage_income_permission").default(true).notNull(),
   sageBudgetGoalsPermission: boolean("sage_budget_goals_permission").default(true).notNull(),
   financialProfile: text("financial_profile"),
+  onboardingIntention: text("onboarding_intention"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -177,6 +178,14 @@ export const budgetSetupPrompts = pgTable("budget_setup_prompts", {
   userId: integer("user_id").notNull().references(() => users.id),
   status: text("status", { enum: ["pending", "dismissed", "remind_week", "remind_month", "completed"] }).default("pending").notNull(),
   remindAt: timestamp("remind_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const intentionPrompts = pgTable("intention_prompts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  status: text("status", { enum: ["pending", "snoozed", "completed"] }).default("pending").notNull(),
+  snoozeUntil: timestamp("snooze_until"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -478,6 +487,7 @@ export const insertSageConversationSchema = createInsertSchema(sageConversations
 export const insertSageMessageSchema = createInsertSchema(sageMessages).omit({ id: true, createdAt: true });
 export const insertAiAnalysisSchema = createInsertSchema(aiAnalyses).omit({ id: true, createdAt: true });
 export const insertPersonalNoteSchema = createInsertSchema(personalNotes).omit({ id: true, createdAt: true, updatedAt: true, isCompleted: true });
+export const insertIntentionPromptSchema = createInsertSchema(intentionPrompts).omit({ id: true, createdAt: true });
 
 // === TYPES ===
 
@@ -504,6 +514,7 @@ export type SageConversation = typeof sageConversations.$inferSelect;
 export type SageMessage = typeof sageMessages.$inferSelect;
 export type AiAnalysis = typeof aiAnalyses.$inferSelect;
 export type PersonalNote = typeof personalNotes.$inferSelect;
+export type IntentionPrompt = typeof intentionPrompts.$inferSelect;
 
 export type InsertFamily = z.infer<typeof insertFamilySchema>;
 export type InsertGroup = InsertFamily;

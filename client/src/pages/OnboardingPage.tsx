@@ -34,7 +34,7 @@ import {
   Camera,
 } from "lucide-react";
 
-const TOTAL_STEPS = 10;
+const TOTAL_STEPS = 11;
 
 function extractInviteCode(raw: string): string {
   try {
@@ -171,6 +171,7 @@ export default function OnboardingPage() {
   const [notifTime, setNotifTime] = useState("19:00");
   const [currencySearch, setCurrencySearch] = useState("");
   const [assignedUserNumber, setAssignedUserNumber] = useState<number | null>(null);
+  const [intention, setIntention] = useState<string>("");
 
   useEffect(() => {
     if (isLoading) return;
@@ -380,6 +381,20 @@ export default function OnboardingPage() {
     goNext();
   };
 
+  const handleStep10Continue = async () => {
+    if (intention.trim()) {
+      await updateProfileMutation.mutateAsync({ onboardingIntention: intention.trim() });
+      await fetch("/api/intention-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "completed" }),
+        credentials: "include",
+      });
+    }
+    captureEvent("onboarding_intention_set", { has_intention: !!intention.trim() });
+    goNext();
+  };
+
   const handleFinish = (destination: "/app" | "/app/goals") => {
     captureEvent("onboarding_completed", { destination: destination === "/app" ? "expense_log" : "goals" });
     setLocation(destination);
@@ -501,7 +516,17 @@ export default function OnboardingPage() {
               />
             )}
             {step === 10 && (
-              <Step10Celebration
+              <Step10Intention
+                intention={intention}
+                setIntention={setIntention}
+                groupMode={groupMode}
+                onContinue={handleStep10Continue}
+                onBack={goPrev}
+                isPending={updateProfileMutation.isPending}
+              />
+            )}
+            {step === 11 && (
+              <Step11Celebration
                 userName={userName}
                 userNumber={assignedUserNumber}
                 onLogExpense={() => handleFinish("/app")}
@@ -1320,7 +1345,72 @@ function Step9Notifications({
   );
 }
 
-function Step10Celebration({
+function Step10Intention({
+  intention,
+  setIntention,
+  groupMode,
+  onContinue,
+  onBack,
+  isPending,
+}: {
+  intention: string;
+  setIntention: (v: string) => void;
+  groupMode: "create" | "join" | "solo";
+  onContinue: () => void;
+  onBack: () => void;
+  isPending: boolean;
+}) {
+  const isGroup = groupMode === "create" || groupMode === "join";
+  const title = isGroup
+    ? "One last thing — your reason"
+    : "One last thing — your reason";
+  const subtitle = isGroup
+    ? groupMode === "create"
+      ? "What's your reason for tracking finances together? The other members will be asked the same when they join."
+      : "What's your reason for tracking finances together with this group?"
+    : "In 3 months, what would have to be true about your finances for you to feel like this was worth it?";
+
+  return (
+    <div>
+      <div className="mb-5">
+        <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
+          <Sparkles className="w-6 h-6 text-primary" />
+        </div>
+        <h2 className="font-display font-bold text-2xl text-foreground mb-2">{title}</h2>
+        <p className="text-sm text-muted-foreground">{subtitle}</p>
+      </div>
+
+      <div className="bg-primary/5 border border-primary/15 rounded-2xl p-4 mb-5">
+        <p className="text-xs text-primary font-medium mb-1">Why this matters</p>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Your answer becomes your personal benchmark. Three months from now, Sage will look back at what you wrote here and show you exactly how far you've come — not just in numbers, but in the habits that matter to you.
+        </p>
+      </div>
+
+      <div className="mb-2">
+        <textarea
+          value={intention}
+          onChange={(e) => setIntention(e.target.value)}
+          placeholder={isGroup ? "e.g. I want us to be more transparent about who pays what…" : "e.g. I want to stop feeling like money just disappears every month…"}
+          maxLength={500}
+          rows={4}
+          className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none placeholder:text-muted-foreground/60"
+          data-testid="input-onboarding-intention"
+        />
+        <p className="text-right text-xs text-muted-foreground mt-1">{intention.length}/500</p>
+      </div>
+
+      <NavButtons
+        onBack={onBack}
+        onContinue={onContinue}
+        continueLabel={intention.trim() ? "Save & continue" : "Skip for now"}
+        isPending={isPending}
+      />
+    </div>
+  );
+}
+
+function Step11Celebration({
   userName,
   userNumber,
   onLogExpense,

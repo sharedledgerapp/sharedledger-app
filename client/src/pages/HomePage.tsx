@@ -108,6 +108,8 @@ export default function HomePage() {
   });
   const currencySymbol = getCurrencySymbol(user?.currency);
   const [showBudgetPrompt, setShowBudgetPrompt] = useState(false);
+  const [showIntentionPrompt, setShowIntentionPrompt] = useState(false);
+  const [intentionDraft, setIntentionDraft] = useState("");
 
   const { data: spendingSummary } = useQuery<{
     currentMonthTotal: string;
@@ -166,6 +168,40 @@ export default function HomePage() {
       }
     }
   }, [budgetSummary, budgetSetup]);
+
+  const { data: intentionPrompt } = useQuery<any>({
+    queryKey: ["/api/intention-prompt"],
+    enabled: !!user,
+  });
+
+  const intentionMutation = useMutation({
+    mutationFn: async ({ status, intention }: { status: string; intention?: string }) => {
+      if (intention) {
+        await apiRequest("PATCH", "/api/user/profile", { onboardingIntention: intention });
+      }
+      const res = await apiRequest("POST", "/api/intention-prompt", { status });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/intention-prompt"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      setShowIntentionPrompt(false);
+    },
+  });
+
+  const userHasIntention = !!(user as any)?.onboardingIntention;
+
+  useEffect(() => {
+    if (!user || userHasIntention) return;
+    if (intentionPrompt === undefined) return;
+    const shouldPrompt = !intentionPrompt ||
+      (intentionPrompt.status === "snoozed" && intentionPrompt.snoozeUntil && new Date(intentionPrompt.snoozeUntil) <= new Date()) ||
+      intentionPrompt.status === "pending";
+    if (shouldPrompt) {
+      const timer = setTimeout(() => setShowIntentionPrompt(true), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [user, userHasIntention, intentionPrompt]);
 
   if (expensesLoading || goalsLoading) {
     return <DashboardSkeleton />;
@@ -683,6 +719,60 @@ export default function HomePage() {
               >
                 <Clock className="w-4 h-4 mr-2" />
                 {t("remindMonth")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showIntentionPrompt} onOpenChange={setShowIntentionPrompt}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              One question before you go
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-primary/5 border border-primary/15 rounded-xl p-3">
+              <p className="text-xs text-primary font-medium mb-1">Why this matters</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Your answer becomes a personal benchmark. Three months from now, Sage will show you exactly how far you've come — not just in numbers, but in the habits that matter to you.
+              </p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground mb-2">
+                In 3 months, what would have to be true about your finances for you to feel like this app was worth it?
+              </p>
+              <textarea
+                value={intentionDraft}
+                onChange={(e) => setIntentionDraft(e.target.value)}
+                placeholder="e.g. I want to stop feeling like money just disappears every month…"
+                maxLength={500}
+                rows={3}
+                className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none placeholder:text-muted-foreground/60"
+                data-testid="input-intention-draft"
+              />
+              <p className="text-right text-xs text-muted-foreground mt-0.5">{intentionDraft.length}/500</p>
+            </div>
+            <div className="space-y-2">
+              <Button
+                className="w-full"
+                onClick={() => intentionMutation.mutate({ status: "completed", intention: intentionDraft.trim() || undefined })}
+                disabled={intentionMutation.isPending}
+                data-testid="button-intention-save"
+              >
+                {intentionDraft.trim() ? "Save my intention" : "Skip for now"}
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => intentionMutation.mutate({ status: "snoozed" })}
+                disabled={intentionMutation.isPending}
+                data-testid="button-intention-snooze"
+              >
+                <Clock className="w-4 h-4 mr-2" />
+                Remind me in 3 days
               </Button>
             </div>
           </div>
