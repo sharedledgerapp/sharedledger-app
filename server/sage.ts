@@ -275,7 +275,12 @@ ${activeNotes.join('\n')}`;
     }
   }
 
-  // ── Financial profile & onboarding intention ────────────────────────────────
+  // ── Financial profile, life stage & onboarding intention ───────────────────
+  const lifeStageArr: string[] = (user as any).lifeStage || [];
+  const lifeStageContext = lifeStageArr.length > 0
+    ? `\nUSER'S LIFE STAGE: ${lifeStageArr.join(", ")} — factor this into any advice about budgeting, saving, income expectations, and priorities.`
+    : "";
+
   const profileContext = user.financialProfile?.trim()
     ? `\nUSER'S FINANCIAL PROFILE (written by the user to help you understand them):\n${user.financialProfile.trim()}`
     : "";
@@ -303,6 +308,7 @@ ${activeNotes.join('\n')}`;
 USER FINANCIAL CONTEXT (currency: ${currency}):
 Name: ${user.name}
 Current date: ${format(now, 'MMMM d, yyyy')} (day ${now.getDate()} of ${endOfMonth(now).getDate()})
+${lifeStageContext}
 ${profileContext}
 ${intentionContext}
 ${dataAccessNote}

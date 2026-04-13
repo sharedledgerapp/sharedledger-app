@@ -51,6 +51,8 @@ export const users = pgTable("users", {
   sageBudgetGoalsPermission: boolean("sage_budget_goals_permission").default(true).notNull(),
   financialProfile: text("financial_profile"),
   onboardingIntention: text("onboarding_intention"),
+  lifeStage: text("life_stage").array(),
+  lifeStageSetAt: timestamp("life_stage_set_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

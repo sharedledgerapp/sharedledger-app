@@ -398,9 +398,14 @@ export async function registerRoutes(
       sageBudgetGoalsPermission: z.boolean().optional(),
       financialProfile: z.string().max(2000).optional().nullable(),
       onboardingIntention: z.string().max(500).optional().nullable(),
+      lifeStage: z.array(z.string().max(50)).max(6).optional().nullable(),
     });
     
-    const updates = updateSchema.parse(req.body);
+    const parsed = updateSchema.parse(req.body);
+    const updates: any = { ...parsed };
+    if ("lifeStage" in parsed) {
+      updates.lifeStageSetAt = new Date();
+    }
     const updated = await storage.updateUser(user.id, updates);
     res.json(updated);
   });

@@ -34,6 +34,7 @@ import {
   ChevronRight,
   Pencil,
   BookMarked,
+  Loader2,
 } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
 
@@ -205,6 +206,8 @@ function SageTab({
   const [isGenerating, setIsGenerating] = useState(false);
   const [feedbackMap, setFeedbackMap] = useState<Record<number, number>>({});
   const [rememberMap, setRememberMap] = useState<Record<number, "pending" | "saved" | "skipped">>({});
+  const [chatLifeStageDraft, setChatLifeStageDraft] = useState<string[]>([]);
+  const [chatLifeStageSaved, setChatLifeStageSaved] = useState(false);
   const [nudgeDismissed, setNudgeDismissed] = useState(() => {
     try { return sessionStorage.getItem("sage_nudge_dismissed") === "true"; } catch { return false; }
   });
@@ -289,6 +292,20 @@ function SageTab({
       setRememberMap(prev => ({ ...prev, [id]: "skipped" }));
     },
   });
+
+  const saveLifeStageMutation = useMutation({
+    mutationFn: async (stages: string[]) => {
+      const res = await apiRequest("PATCH", "/api/user/profile", { lifeStage: stages });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      setChatLifeStageSaved(true);
+      captureEvent("sage_life_stage_set", { stages: chatLifeStageDraft });
+    },
+  });
+
+  const CHAT_LIFE_STAGE_OPTIONS = ["Student", "Employed", "Part-time worker", "Freelancer", "Parent", "Single parent", "Retired", "Between jobs"];
 
   const nudgeFeedbackMutation = useMutation({
     mutationFn: async (message: string) => {
@@ -502,6 +519,50 @@ function SageTab({
                       </Button>
                     </Card>
                   ))}
+                </div>
+              )}
+
+              {/* Life stage prompt — first time only, no life stage set */}
+              {!chatLifeStageSaved && !(user as any)?.lifeStage?.length && !conversations?.length && (
+                <div className="rounded-xl border border-border/60 bg-secondary/30 p-4 space-y-3">
+                  <div>
+                    <p className="text-sm font-medium">Help Sage understand your situation</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Pick what applies to you — Sage will tailor its advice accordingly. You can always update this in Settings.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {CHAT_LIFE_STAGE_OPTIONS.map((option) => {
+                      const selected = chatLifeStageDraft.includes(option);
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => setChatLifeStageDraft(prev => selected ? prev.filter(s => s !== option) : [...prev, option])}
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${selected ? "bg-primary text-primary-foreground border-primary" : "bg-background text-secondary-foreground border-border/50 hover:border-primary/40"}`}
+                          data-testid={`button-chat-life-stage-${option.toLowerCase().replace(/\s+/g, "-")}`}
+                        >
+                          {option}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setChatLifeStageSaved(true)}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1"
+                      data-testid="button-skip-life-stage"
+                    >
+                      Skip
+                    </button>
+                    <Button
+                      size="sm"
+                      onClick={() => saveLifeStageMutation.mutate(chatLifeStageDraft)}
+                      disabled={chatLifeStageDraft.length === 0 || saveLifeStageMutation.isPending}
+                      data-testid="button-save-chat-life-stage"
+                    >
+                      {saveLifeStageMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Done"}
+                    </Button>
+                  </div>
                 </div>
               )}
 
