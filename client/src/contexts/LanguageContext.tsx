@@ -76,6 +76,9 @@ type TranslationKey =
   | "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat"
   | "searchExpenses" | "noSearchResults"
   | "tapBarHint" | "nothingSpentHere" | "budget"
+  | "financialHistory" | "sageReviews" | "monthlyReview" | "midMonthCheck"
+  | "noReviewsYet" | "noReviewsYetDesc" | "readMore" | "readLess"
+  | "askSageAboutThis" | "wasThisHelpful" | "reviewHelpful" | "reviewNotHelpful"
   | "landingHeroTitle1" | "landingHeroTitle2" | "landingHeroSubtitle" | "landingHeroNote"
   | "landingOpenApp" | "landingInstallApp"
   | "landingTrustTitle" | "landingTrustBody"
@@ -427,6 +430,18 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     tapBarHint: "Tap a bar to see its expenses",
     nothingSpentHere: "Nothing spent here",
     budget: "Budget",
+    financialHistory: "Financial History",
+    sageReviews: "Your Sage reviews",
+    monthlyReview: "Monthly Review",
+    midMonthCheck: "Mid-Month Check",
+    noReviewsYet: "No reviews yet",
+    noReviewsYetDesc: "Your first Sage review will appear here after your first full month.",
+    readMore: "Read more",
+    readLess: "Read less",
+    askSageAboutThis: "Ask Sage",
+    wasThisHelpful: "Was this helpful?",
+    reviewHelpful: "Yes",
+    reviewNotHelpful: "No",
     landingBeta: "Beta · Free while we're building",
     landingHeroTitle1: "Shared finances,",
     landingHeroTitle2: "finally simple.",
@@ -853,6 +868,18 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     tapBarHint: "Appuyez sur une barre pour voir ses dépenses",
     nothingSpentHere: "Rien dépensé ici",
     budget: "Budget",
+    financialHistory: "Historique financier",
+    sageReviews: "Vos bilans Sage",
+    monthlyReview: "Bilan mensuel",
+    midMonthCheck: "Point mi-mois",
+    noReviewsYet: "Aucun bilan pour l'instant",
+    noReviewsYetDesc: "Votre premier bilan Sage apparaîtra ici après votre premier mois complet.",
+    readMore: "Lire plus",
+    readLess: "Lire moins",
+    askSageAboutThis: "Demander à Sage",
+    wasThisHelpful: "Était-ce utile ?",
+    reviewHelpful: "Oui",
+    reviewNotHelpful: "Non",
     landingBeta: "Bêta · Gratuit pendant le développement",
     landingHeroTitle1: "Finances partagées,",
     landingHeroTitle2: "enfin simples.",
@@ -1279,6 +1306,18 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     tapBarHint: "Tik op een balk om de uitgaven te zien",
     nothingSpentHere: "Hier niets uitgegeven",
     budget: "Budget",
+    financialHistory: "Financiële geschiedenis",
+    sageReviews: "Je Sage-overzichten",
+    monthlyReview: "Maandoverzicht",
+    midMonthCheck: "Tussentijdse check",
+    noReviewsYet: "Nog geen overzichten",
+    noReviewsYetDesc: "Je eerste Sage-overzicht verschijnt hier na je eerste volledige maand.",
+    readMore: "Meer lezen",
+    readLess: "Minder lezen",
+    askSageAboutThis: "Vraag Sage",
+    wasThisHelpful: "Was dit nuttig?",
+    reviewHelpful: "Ja",
+    reviewNotHelpful: "Nee",
     landingBeta: "Beta · Gratis tijdens de ontwikkeling",
     landingHeroTitle1: "Gedeelde financiën,",
     landingHeroTitle2: "eindelijk eenvoudig.",

@@ -3,16 +3,18 @@ import { useExpenses, useDeleteExpense } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
 import { captureEvent } from "@/lib/analytics";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
-import { ChevronLeft, ChevronRight, Calendar, TrendingDown, ArrowLeft, Users, Wallet, BarChart3, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, X, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, TrendingDown, ArrowLeft, Users, Wallet, BarChart3, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, X, Trash2, Sparkles, ThumbsUp, ThumbsDown, MessageSquare } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths, addMonths, subWeeks, addWeeks, isWithinInterval, parseISO } from "date-fns";
 import { getCurrencySymbol, formatAmount, toFixedAmount } from "@/lib/currency";
 import { cn } from "@/lib/utils";
-import type { Expense } from "@shared/schema";
+import { useLocation } from "wouter";
+import type { Expense, AiAnalysis } from "@shared/schema";
 
 const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#a78bfa", "#fb7185", "#4ade80"];
 
@@ -23,15 +25,66 @@ export default function ReportsPage() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const deleteMutation = useDeleteExpense();
+  const [, setLocation] = useLocation();
   const { data: friendGroups } = useQuery<Array<{ id: number; name: string; currency: string }>>({
     queryKey: ["/api/friend-groups"],
   });
-  
+
+  const { data: analyses } = useQuery<AiAnalysis[]>({
+    queryKey: ["/api/sage/analyses"],
+  });
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [periodType, setPeriodType] = useState<"month" | "week">("month");
   const [viewMode, setViewMode] = useState<ViewMode>("overview");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedBarIndex, setSelectedBarIndex] = useState<number | null>(null);
+  const [expandedAnalysisIds, setExpandedAnalysisIds] = useState<Set<number>>(new Set());
+  const [localFeedback, setLocalFeedback] = useState<Record<number, number>>({});
+
+  const feedbackMutation = useMutation({
+    mutationFn: ({ id, feedback }: { id: number; feedback: number }) =>
+      apiRequest("PATCH", `/api/sage/analyses/${id}/feedback`, { feedback }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sage/analyses"] });
+    },
+  });
+
+  const threeMonthsAgo = subMonths(new Date(), 3);
+  const recentAnalyses = useMemo(() => {
+    if (!analyses) return [];
+    return analyses
+      .filter(a => new Date(a.createdAt) >= threeMonthsAgo)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [analyses]);
+
+  const formatAnalysisPeriod = (periodKey: string, type: string): string => {
+    const isMid = type === "mid_month_check";
+    const cleanKey = periodKey.replace("-mid", "");
+    const parts = cleanKey.split("-");
+    if (parts.length >= 2) {
+      const year = parseInt(parts[0]);
+      const month = parseInt(parts[1]) - 1;
+      const date = new Date(year, month, 1);
+      const monthName = format(date, "MMMM yyyy");
+      return isMid ? `${monthName}` : monthName;
+    }
+    return periodKey;
+  };
+
+  const toggleExpanded = (id: number) => {
+    setExpandedAnalysisIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleFeedback = (id: number, feedback: number) => {
+    setLocalFeedback(prev => ({ ...prev, [id]: feedback }));
+    feedbackMutation.mutate({ id, feedback });
+  };
   
   const currencySymbol = getCurrencySymbol(user?.currency);
 
@@ -522,6 +575,113 @@ export default function ReportsPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Financial History Section */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 px-1">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <h2 className="font-semibold text-base">{t("financialHistory")}</h2>
+              <span className="text-xs text-muted-foreground ml-1">{t("sageReviews")}</span>
+            </div>
+
+            {recentAnalyses.length === 0 ? (
+              <Card className="bg-muted/30">
+                <CardContent className="p-6 text-center">
+                  <Sparkles className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+                  <p className="font-medium text-sm text-muted-foreground">{t("noReviewsYet")}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t("noReviewsYetDesc")}</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {recentAnalyses.map(analysis => {
+                  const isExpanded = expandedAnalysisIds.has(analysis.id);
+                  const PREVIEW_LENGTH = 220;
+                  const isLong = analysis.content.length > PREVIEW_LENGTH;
+                  const displayContent = isExpanded || !isLong
+                    ? analysis.content
+                    : analysis.content.slice(0, PREVIEW_LENGTH).trimEnd() + "…";
+                  const currentFeedback = localFeedback[analysis.id] ?? analysis.feedback;
+                  const periodLabel = formatAnalysisPeriod(analysis.periodKey, analysis.type);
+                  const isMid = analysis.type === "mid_month_check";
+
+                  return (
+                    <Card key={analysis.id} className="overflow-hidden" data-testid={`card-analysis-${analysis.id}`}>
+                      <CardContent className="p-4 space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge
+                                variant={isMid ? "outline" : "secondary"}
+                                className="text-xs"
+                                data-testid={`badge-analysis-type-${analysis.id}`}
+                              >
+                                {isMid ? t("midMonthCheck") : t("monthlyReview")}
+                              </Badge>
+                              <span className="text-sm font-semibold" data-testid={`text-analysis-period-${analysis.id}`}>
+                                {periodLabel}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(analysis.createdAt), "MMM d, yyyy")}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs text-primary h-7 px-2 shrink-0"
+                            onClick={() => setLocation("/app/messages")}
+                            data-testid={`button-ask-sage-${analysis.id}`}
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 mr-1" />
+                            {t("askSageAboutThis")}
+                          </Button>
+                        </div>
+
+                        <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap" data-testid={`text-analysis-content-${analysis.id}`}>
+                          {displayContent}
+                        </div>
+
+                        {isLong && (
+                          <button
+                            onClick={() => toggleExpanded(analysis.id)}
+                            className="text-xs text-primary font-medium"
+                            data-testid={`button-expand-analysis-${analysis.id}`}
+                          >
+                            {isExpanded ? t("readLess") : t("readMore")}
+                          </button>
+                        )}
+
+                        <div className="flex items-center gap-3 pt-1 border-t border-border/50">
+                          <span className="text-xs text-muted-foreground">{t("wasThisHelpful")}</span>
+                          <div className="flex items-center gap-1 ml-auto">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={cn("h-7 w-7", currentFeedback === 1 && "text-green-500")}
+                              onClick={() => handleFeedback(analysis.id, 1)}
+                              data-testid={`button-feedback-up-${analysis.id}`}
+                            >
+                              <ThumbsUp className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={cn("h-7 w-7", currentFeedback === -1 && "text-destructive")}
+                              onClick={() => handleFeedback(analysis.id, -1)}
+                              data-testid={`button-feedback-down-${analysis.id}`}
+                            >
+                              <ThumbsDown className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </>
       ) : (
         <>
