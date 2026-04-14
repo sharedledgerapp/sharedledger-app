@@ -175,8 +175,8 @@ async function checkWeeklyReminders() {
       if (await wasNotifiedThisWeek(user.id, "weekly")) continue;
 
       const sent = await sendPushToUser(user.id, {
-        title: "Weekly Spending Review",
-        body: "Your weekly summary is ready. Check your spending breakdown in SharedLedger!",
+        title: "Weekly Financial Review",
+        body: "Your weekly summary is ready — check your spending and income breakdown in SharedLedger!",
         tag: "weekly-reminder",
         url: "/app/reports",
       });
@@ -631,6 +631,267 @@ async function checkNoteReminders() {
   }
 }
 
+async function checkIncomeStartOfMonthPrompt() {
+  const now = new Date();
+  const day = now.getDate();
+  if (day !== 1 && day !== 2) return;
+  if (now.getHours() < 10 || now.getHours() >= 11) return;
+
+  const yearMonth = format(now, 'yyyy-MM');
+  const monthStart = startOfMonth(now);
+
+  const allUsers = await db.select().from(users).where(and(eq(users.monthlyReminderEnabled, true), eq(users.onboardingCompleted, true)));
+
+  for (const user of allUsers) {
+    try {
+      const notifKey = `income_start_of_month_${yearMonth}`;
+      if (await wasNotifiedSince(user.id, notifKey, monthStart)) continue;
+
+      const sent = await sendPushToUser(user.id, {
+        title: "New month — log your income",
+        body: "A new month has started! Once your paycheck arrives, don't forget to log it in SharedLedger.",
+        tag: `income-start-${yearMonth}`,
+        url: "/app/expenses?tab=in",
+      });
+      if (sent) await markNotified(user.id, notifKey);
+    } catch (err) {
+      console.error(`[Push] checkIncomeStartOfMonthPrompt failed for user ${user.id}:`, err);
+    }
+  }
+}
+
+async function checkNoIncomeLoggedNudge() {
+  const now = new Date();
+  if (now.getDate() !== 10) return;
+  if (now.getHours() < 10 || now.getHours() >= 11) return;
+
+  const yearMonth = format(now, 'yyyy-MM');
+  const monthStart = startOfMonth(now);
+  const monthEnd = endOfMonth(now);
+
+  const allUsers = await db.select().from(users).where(and(eq(users.monthlyReminderEnabled, true), eq(users.onboardingCompleted, true)));
+
+  for (const user of allUsers) {
+    try {
+      const notifKey = `income_no_logged_nudge_${yearMonth}`;
+      if (await wasNotifiedSince(user.id, notifKey, monthStart)) continue;
+
+      const [incomeRow] = await db.select({ id: incomeEntries.id })
+        .from(incomeEntries)
+        .where(and(
+          eq(incomeEntries.userId, user.id),
+          gte(incomeEntries.date, monthStart),
+          lte(incomeEntries.date, monthEnd)
+        ))
+        .limit(1);
+
+      if (incomeRow) continue;
+
+      const sent = await sendPushToUser(user.id, {
+        title: "Have you logged your income?",
+        body: "You haven't recorded any income yet this month. Don't forget to log what you've earned!",
+        tag: `income-nudge-${yearMonth}`,
+        url: "/app/expenses?tab=in",
+      });
+      if (sent) await markNotified(user.id, notifKey);
+    } catch (err) {
+      console.error(`[Push] checkNoIncomeLoggedNudge failed for user ${user.id}:`, err);
+    }
+  }
+}
+
+async function checkPaydayFollowUpReminder() {
+  const now = new Date();
+  if (now.getHours() < 9 || now.getHours() >= 10) return;
+
+  const todayDay = now.getDate();
+  const todayMonth = now.getMonth();
+  const todayYear = now.getFullYear();
+  const today = new Date(todayYear, todayMonth, todayDay);
+
+  const onboardedUserIds = new Set(
+    (await db.select({ id: users.id }).from(users).where(eq(users.onboardingCompleted, true))).map(u => u.id)
+  );
+
+  const allIncome = await db.select().from(incomeEntries).where(and(
+    eq(incomeEntries.isRecurring, true),
+    eq(incomeEntries.reminderEnabled, true),
+  ));
+
+  for (const entry of allIncome) {
+    try {
+      if (!onboardedUserIds.has(entry.userId)) continue;
+      if (!entry.recurringInterval) continue;
+
+      // Advance from entry.date to find the next future occurrence
+      const nextDate = new Date(entry.date);
+      let iterations = 0;
+      while (nextDate <= today && iterations < 500) {
+        switch (entry.recurringInterval) {
+          case "weekly": nextDate.setDate(nextDate.getDate() + 7); break;
+          case "monthly": nextDate.setMonth(nextDate.getMonth() + 1); break;
+          case "tri-monthly": nextDate.setMonth(nextDate.getMonth() + 3); break;
+        }
+        iterations++;
+      }
+
+      // Step back one interval to get the most recent past occurrence
+      const prevDate = new Date(nextDate);
+      switch (entry.recurringInterval) {
+        case "weekly": prevDate.setDate(prevDate.getDate() - 7); break;
+        case "monthly": prevDate.setMonth(prevDate.getMonth() - 1); break;
+        case "tri-monthly": prevDate.setMonth(prevDate.getMonth() - 3); break;
+      }
+
+      // Only fire on day +1 or +2 after the expected payday
+      const daysSincePrev = Math.round((today.getTime() - prevDate.getTime()) / (24 * 60 * 60 * 1000));
+      if (daysSincePrev !== 1 && daysSincePrev !== 2) continue;
+
+      const prevDateKey = prevDate.toISOString().slice(0, 10);
+      const notifKey = `income_payday_followup_${entry.id}_${prevDateKey}`;
+      if (await wasNotifiedSince(entry.userId, notifKey, prevDate)) continue;
+
+      // Check if user logged any income from this source around the expected date
+      const windowStart = new Date(prevDate);
+      windowStart.setDate(windowStart.getDate() - 1);
+      const windowEnd = new Date(today);
+      windowEnd.setDate(windowEnd.getDate() + 1);
+
+      const logsInWindow = await db.select({ id: incomeEntries.id })
+        .from(incomeEntries)
+        .where(and(
+          eq(incomeEntries.userId, entry.userId),
+          eq(incomeEntries.source, entry.source),
+          gte(incomeEntries.date, windowStart),
+          lte(incomeEntries.date, windowEnd),
+        ));
+
+      const hasLogged = logsInWindow.some(r => r.id !== entry.id);
+      if (hasLogged) continue;
+
+      const sent = await sendPushToUser(entry.userId, {
+        title: "Did you receive your income?",
+        body: `Your expected ${entry.source} income was due recently. Have you logged it yet?`,
+        tag: `income-payday-followup-${entry.id}`,
+        url: "/app/expenses?tab=in",
+      });
+      if (sent) await markNotified(entry.userId, notifKey);
+    } catch (err) {
+      console.error(`[Push] checkPaydayFollowUpReminder failed for entry ${entry.id}:`, err);
+    }
+  }
+}
+
+async function checkSpendingExceedsIncome() {
+  const now = new Date();
+  const yearMonth = format(now, 'yyyy-MM');
+  const monthStart = startOfMonth(now);
+  const monthEnd = endOfMonth(now);
+
+  const allUsers = await db.select().from(users).where(and(eq(users.monthlyReminderEnabled, true), eq(users.onboardingCompleted, true)));
+
+  for (const user of allUsers) {
+    try {
+      const notifKey = `spending_exceeds_income_${yearMonth}`;
+      if (await wasNotifiedSince(user.id, notifKey, monthStart)) continue;
+
+      const [incomeRow] = await db
+        .select({ total: sql<string>`COALESCE(SUM(amount), '0')` })
+        .from(incomeEntries)
+        .where(and(
+          eq(incomeEntries.userId, user.id),
+          gte(incomeEntries.date, monthStart),
+          lte(incomeEntries.date, monthEnd)
+        ));
+      const totalIncome = parseFloat(incomeRow?.total || "0");
+      if (totalIncome <= 0) continue;
+
+      const [expenseRow] = await db
+        .select({ total: sql<string>`COALESCE(SUM(amount), '0')` })
+        .from(expenses)
+        .where(and(
+          eq(expenses.userId, user.id),
+          gte(expenses.date, monthStart),
+          lte(expenses.date, monthEnd)
+        ));
+      const totalExpenses = parseFloat(expenseRow?.total || "0");
+
+      if (totalExpenses <= totalIncome) continue;
+
+      const sent = await sendPushToUser(user.id, {
+        title: "Spending is outpacing income",
+        body: "Your tracked expenses this month have exceeded your logged income. It might be time to review your spending.",
+        tag: `spending-exceeds-income-${yearMonth}`,
+        url: "/app/expenses?tab=in",
+      });
+      if (sent) await markNotified(user.id, notifKey);
+    } catch (err) {
+      console.error(`[Push] checkSpendingExceedsIncome failed for user ${user.id}:`, err);
+    }
+  }
+}
+
+async function checkEndOfMonthIncomeRecap() {
+  const now = new Date();
+  const day = now.getDate();
+  if (day < 28) return;
+  if (now.getHours() < 10 || now.getHours() >= 11) return;
+
+  const yearMonth = format(now, 'yyyy-MM');
+  const monthStart = startOfMonth(now);
+  const monthEnd = endOfMonth(now);
+
+  const allUsers = await db.select().from(users).where(and(eq(users.monthlyReminderEnabled, true), eq(users.onboardingCompleted, true)));
+
+  for (const user of allUsers) {
+    try {
+      const notifKey = `income_end_of_month_recap_${yearMonth}`;
+      if (await wasNotifiedSince(user.id, notifKey, monthStart)) continue;
+
+      const [incomeRow] = await db
+        .select({ total: sql<string>`COALESCE(SUM(amount), '0')` })
+        .from(incomeEntries)
+        .where(and(
+          eq(incomeEntries.userId, user.id),
+          gte(incomeEntries.date, monthStart),
+          lte(incomeEntries.date, monthEnd)
+        ));
+      const totalIncome = parseFloat(incomeRow?.total || "0");
+
+      const [expenseRow] = await db
+        .select({ total: sql<string>`COALESCE(SUM(amount), '0')` })
+        .from(expenses)
+        .where(and(
+          eq(expenses.userId, user.id),
+          gte(expenses.date, monthStart),
+          lte(expenses.date, monthEnd)
+        ));
+      const totalExpenses = parseFloat(expenseRow?.total || "0");
+
+      const currency = user.currency || "EUR";
+      let body: string;
+      if (totalIncome <= 0) {
+        body = `You spent ${totalExpenses.toFixed(2)} ${currency} this month. Log your income to see the full picture next month!`;
+      } else {
+        const diff = totalIncome - totalExpenses;
+        body = diff >= 0
+          ? `You earned ${totalIncome.toFixed(2)} ${currency} and spent ${totalExpenses.toFixed(2)} ${currency} — a ${diff.toFixed(2)} ${currency} surplus this month!`
+          : `You earned ${totalIncome.toFixed(2)} ${currency} but spent ${totalExpenses.toFixed(2)} ${currency} — ${Math.abs(diff).toFixed(2)} ${currency} over this month.`;
+      }
+
+      const sent = await sendPushToUser(user.id, {
+        title: "Your month in review",
+        body,
+        tag: `income-recap-${yearMonth}`,
+        url: "/app/expenses?tab=in",
+      });
+      if (sent) await markNotified(user.id, notifKey);
+    } catch (err) {
+      console.error(`[Push] checkEndOfMonthIncomeRecap failed for user ${user.id}:`, err);
+    }
+  }
+}
+
 let schedulerInterval: ReturnType<typeof setInterval> | null = null;
 let schedulerStarted = false;
 
@@ -663,6 +924,11 @@ export function startPushScheduler() {
       { name: "sageAnalyses", fn: checkSageAnalyses },
       { name: "groupIdleNudge", fn: checkGroupIdleNudge },
       { name: "noteReminders", fn: checkNoteReminders },
+      { name: "incomeStartOfMonthPrompt", fn: checkIncomeStartOfMonthPrompt },
+      { name: "noIncomeLoggedNudge", fn: checkNoIncomeLoggedNudge },
+      { name: "paydayFollowUpReminder", fn: checkPaydayFollowUpReminder },
+      { name: "spendingExceedsIncome", fn: checkSpendingExceedsIncome },
+      { name: "endOfMonthIncomeRecap", fn: checkEndOfMonthIncomeRecap },
     ];
     for (const { name, fn } of checks) {
       try {
