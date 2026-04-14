@@ -39,8 +39,7 @@ const T = {
       slLabel: "SharedLedger",
       slDesc: "Shows the full household picture, together.",
       body: "SharedLedger gives you and your household a shared financial snapshot: who spent what, how you're tracking together, one clear view for everyone.",
-      tags: ["Couples", "Families", "Roommates", "Solo too"],
-      tagline: "You're finally on the same page.",
+      soloNote: "Works solo from day one. Add your household whenever you're ready.",
     },
 
     s3: {
@@ -61,10 +60,8 @@ const T = {
         "Log everyday expenses or scan a receipt to fill in the details",
         "Track income alongside spending for a complete monthly picture",
         "Visual spending breakdowns by category, week, or month",
+        "Set budgets with colour-coded alerts and track savings goals",
         "Switch between your personal view and your household's shared dashboard",
-        "Savings goals with progress tracking and deadlines",
-        "Recurring bills and subscriptions tracked automatically",
-        "Budget alerts when you're approaching your limits",
       ],
       sageLine: "Plus Sage AI, your built-in financial advisor. More on that next.",
     },
@@ -176,8 +173,7 @@ const T = {
       slLabel: "SharedLedger",
       slDesc: "Montre l'image complète du foyer, ensemble.",
       body: "SharedLedger vous offre, à vous et votre foyer, un aperçu financier partagé : qui a dépensé quoi, comment vous progressez ensemble, une vue claire pour tous.",
-      tags: ["Couples", "Familles", "Colocataires", "Solo aussi"],
-      tagline: "Vous êtes enfin sur la même longueur d'onde.",
+      soloNote: "Fonctionne en solo dès le premier jour. Invitez votre foyer quand vous êtes prêt.",
     },
 
     s3: {
@@ -198,10 +194,8 @@ const T = {
         "Notez vos dépenses ou scannez un reçu pour remplir les détails automatiquement",
         "Suivez vos revenus et dépenses pour une vue mensuelle complète",
         "Répartition visuelle des dépenses par catégorie, semaine ou mois",
+        "Définissez des budgets avec alertes et suivez vos objectifs d'épargne",
         "Passez de votre vue personnelle au tableau de bord partagé de votre ménage",
-        "Objectifs d'épargne avec suivi de progression et échéances",
-        "Factures et abonnements récurrents suivis automatiquement",
-        "Alertes budget quand vous approchez de vos limites",
       ],
       sageLine: "Plus Sage IA, votre conseiller financier intégré. Détails à la prochaine diapo.",
     },
@@ -313,8 +307,7 @@ const T = {
       slLabel: "SharedLedger",
       slDesc: "Toont het volledige beeld van je huishouden.",
       body: "SharedLedger geeft jou en je huishouden een gedeeld financieel overzicht: wie wat heeft uitgegeven, hoe jullie er samen voor staan, één helder beeld voor iedereen.",
-      tags: ["Stellen", "Gezinnen", "Huisgenoten", "Solo ook"],
-      tagline: "Jullie staan eindelijk op dezelfde pagina.",
+      soloNote: "Werkt solo vanaf dag één. Voeg je huishouden toe wanneer je er klaar voor bent.",
     },
 
     s3: {
@@ -335,10 +328,8 @@ const T = {
         "Log dagelijkse uitgaven of scan een bon voor automatisch invullen",
         "Volg inkomsten naast uitgaven voor een volledig maandoverzicht",
         "Visuele uitgavenverdelingen per categorie, week of maand",
+        "Stel budgetten in met kleurgecodeerde meldingen en volg spaardoelen",
         "Schakel tussen je persoonlijke weergave en het gedeelde dashboard van je huishouden",
-        "Spaardoelen met voortgangsbewaking en deadlines",
-        "Terugkerende rekeningen en abonnementen automatisch bijgehouden",
-        "Budgetwaarschuwingen wanneer je je limiet nadert",
       ],
       sageLine: "Plus Sage AI, je ingebouwde financieel adviseur. Meer daarover in de volgende dia.",
     },
@@ -425,6 +416,37 @@ const T = {
       btnOpen: "Al geïnstalleerd? Open de app",
       btnMore: "Ga verder om meer te leren over SharedLedger",
     },
+  },
+} satisfies Record<Lang, unknown>;
+
+/* ─── Practical (merged no-bank + PWA) slide content ─── */
+const PRACTICAL = {
+  en: {
+    title: "A few things worth knowing",
+    noBank: "No bank connection",
+    noBankDesc: "You enter your own transactions. Your banking credentials never leave your device. Receipt scanning makes quick logging easy on the go.",
+    noBankComing: "Optional bank linking is planned for later. It will always be your choice.",
+    pwa: "Not in the App Store — yet",
+    pwaDesc: "SharedLedger is a web app that installs straight from your browser. No App Store account needed, and you always have the latest version the moment we push it.",
+    pwaNote: "We'll submit to the App Store once we graduate from beta.",
+  },
+  fr: {
+    title: "Quelques choses à savoir",
+    noBank: "Pas de connexion bancaire",
+    noBankDesc: "Vous saisissez vos propres transactions. Vos identifiants bancaires ne quittent jamais votre appareil. Le scan de reçus facilite la saisie en déplacement.",
+    noBankComing: "La connexion bancaire optionnelle est prévue pour plus tard. Ce sera toujours votre choix.",
+    pwa: "Pas encore dans l'App Store",
+    pwaDesc: "SharedLedger est une web app qui s'installe directement depuis votre navigateur. Pas besoin de compte App Store, et vous avez toujours la dernière version dès qu'on la publie.",
+    pwaNote: "Nous soumettrons à l'App Store à la sortie de la bêta.",
+  },
+  nl: {
+    title: "Een paar dingen om te weten",
+    noBank: "Geen bankkoppeling",
+    noBankDesc: "Je voert je eigen transacties in. Je bankgegevens verlaten je apparaat nooit. Bonnetjes scannen maakt snelle invoer onderweg mogelijk.",
+    noBankComing: "Optionele bankkoppeling is later gepland. Het blijft altijd jouw keuze.",
+    pwa: "Nog niet in de App Store",
+    pwaDesc: "SharedLedger is een web-app die direct vanuit je browser installeert. Geen App Store-account nodig, en je hebt altijd de nieuwste versie zodra we die uitrollen.",
+    pwaNote: "We dienen in bij de App Store zodra we de bètafase verlaten.",
   },
 } satisfies Record<Lang, unknown>;
 
@@ -609,24 +631,10 @@ function Slide2({ lang }: { lang: Lang }) {
         </p>
       </FadeUp>
 
-      {/* Tags */}
+      {/* Solo note — covers the "no group needed" message */}
       <FadeUp delay={480}>
-        <div className="flex flex-wrap gap-2 justify-center">
-          {s.tags.map((tag) => (
-            <span
-              key={tag}
-              className="text-xs font-medium px-3 py-1.5 bg-card rounded-full border border-border/60 text-foreground"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-      </FadeUp>
-
-      {/* Tagline */}
-      <FadeUp delay={580}>
         <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-2xl border border-primary/20 p-4 text-center">
-          <p className="text-sm font-semibold text-foreground">{s.tagline}</p>
+          <p className="text-sm font-semibold text-foreground">{s.soloNote}</p>
         </div>
       </FadeUp>
     </SlideWrap>
@@ -759,6 +767,46 @@ function Slide5({ lang }: { lang: Lang }) {
   );
 }
 
+/* ══════════════════════════════════════ SLIDE PRACTICAL (merged 6+7) ════════════════ */
+function SlidePractical({ lang }: { lang: Lang }) {
+  const p = (PRACTICAL as Record<Lang, typeof PRACTICAL["en"]>)[lang];
+  return (
+    <SlideWrap>
+      <FadeUp delay={0} className="text-center">
+        <h2 className="font-display font-bold text-3xl text-foreground leading-tight">{p.title}</h2>
+      </FadeUp>
+
+      {/* No bank connection */}
+      <FadeUp delay={120}>
+        <div className="bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200/60 dark:border-amber-800/40 p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-5 h-5 text-white" />
+            </div>
+            <p className="font-semibold text-sm text-foreground">{p.noBank}</p>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">{p.noBankDesc}</p>
+          <p className="text-xs text-amber-700 dark:text-amber-400 mt-2.5 font-medium">{p.noBankComing}</p>
+        </div>
+      </FadeUp>
+
+      {/* PWA / not in app store */}
+      <FadeUp delay={260}>
+        <div className="bg-card rounded-2xl border border-border/60 p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-primary to-accent flex items-center justify-center shrink-0">
+              <Smartphone className="w-5 h-5 text-white" />
+            </div>
+            <p className="font-semibold text-sm text-foreground">{p.pwa}</p>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">{p.pwaDesc}</p>
+          <p className="text-xs text-muted-foreground mt-2.5 italic">{p.pwaNote}</p>
+        </div>
+      </FadeUp>
+    </SlideWrap>
+  );
+}
+
 /* ══════════════════════════════════════ SLIDE 6 ══════════════════════════════════════ */
 function Slide6({ lang }: { lang: Lang }) {
   const s = T[lang].s6;
@@ -852,7 +900,7 @@ function Slide7({ lang }: { lang: Lang }) {
 }
 
 /* ══════════════════════════════════════ SLIDE 8 ══════════════════════════════════════ */
-function Slide8({ lang, installOS, setInstallOS, isPWA, isChromeIOS, isInApp, copyInstallLink }: {
+function Slide8({ lang, installOS, setInstallOS, isPWA, isChromeIOS, isInApp, copyInstallLink, onDone, onInstall }: {
   lang: Lang;
   installOS: "ios" | "android" | null;
   setInstallOS: (v: "ios" | "android") => void;
@@ -860,8 +908,11 @@ function Slide8({ lang, installOS, setInstallOS, isPWA, isChromeIOS, isInApp, co
   isChromeIOS: boolean;
   isInApp: boolean;
   copyInstallLink: () => void;
+  onDone?: () => void;
+  onInstall?: () => void;
 }) {
   const s = T[lang].s8;
+  const s9 = T[lang].s9;
   const steps = installOS === "ios" ? s.iosSteps : installOS === "android" ? s.androidSteps : [];
 
   return (
@@ -938,6 +989,31 @@ function Slide8({ lang, installOS, setInstallOS, isPWA, isChromeIOS, isInApp, co
       ) : (
         <FadeUp delay={220}>
           <div className="text-center py-4 text-muted-foreground text-sm">{s.selectDevice}</div>
+        </FadeUp>
+      )}
+
+      {/* CTA buttons — shown when this is the final slide */}
+      {(onDone || onInstall) && (
+        <FadeUp delay={400}>
+          <div className="flex flex-col gap-3 pt-1">
+            <Button
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-primary to-accent hover:opacity-90 text-white shadow-md shadow-primary/20 font-semibold"
+              onClick={onInstall}
+              data-testid="button-intro-install"
+            >
+              <Download className="w-4 h-4 mr-2" /> {s9.btnInstall}
+            </Button>
+            <Link href="/app">
+              <Button
+                variant="outline"
+                className="w-full h-12 rounded-xl border-primary/30 text-primary hover:bg-primary/5 font-semibold"
+                onClick={onDone}
+                data-testid="button-intro-open-app"
+              >
+                {s9.btnOpen} <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </Link>
+          </div>
         </FadeUp>
       )}
     </SlideWrap>
@@ -1017,18 +1093,15 @@ function Slide9({ lang, onDone, onInstall }: { lang: Lang; onDone: () => void; o
 }
 
 /* ══════════════════════════════════════ MAIN ══════════════════════════════════════ */
-const TOTAL_SLIDES = 9;
+const TOTAL_SLIDES = 6;
 
 const SLIDE_NAMES = [
   "welcome",
-  "pain_points",
-  "who_its_for",
+  "household_snapshot",
   "features",
   "sage_intro",
-  "manual_entry",
-  "why_pwa",
+  "practical_info",
   "install_guide",
-  "get_started",
 ];
 
 interface Props {
@@ -1168,12 +1241,10 @@ export function LandingIntroSlides({ onDone }: Props) {
       >
         {slide === 0 && <Slide1 lang={lang} />}
         {slide === 1 && <Slide2 lang={lang} />}
-        {slide === 2 && <Slide3 lang={lang} />}
-        {slide === 3 && <Slide4 lang={lang} />}
-        {slide === 4 && <Slide5 lang={lang} />}
-        {slide === 5 && <Slide6 lang={lang} />}
-        {slide === 6 && <Slide7 lang={lang} />}
-        {slide === 7 && (
+        {slide === 2 && <Slide4 lang={lang} />}
+        {slide === 3 && <Slide5 lang={lang} />}
+        {slide === 4 && <SlidePractical lang={lang} />}
+        {slide === 5 && (
           <Slide8
             lang={lang}
             installOS={installOS}
@@ -1182,10 +1253,9 @@ export function LandingIntroSlides({ onDone }: Props) {
             isChromeIOS={isChromeIOS}
             isInApp={isInApp}
             copyInstallLink={copyInstallLink}
+            onDone={() => done()}
+            onInstall={() => done("install")}
           />
-        )}
-        {slide === 8 && (
-          <Slide9 lang={lang} onDone={() => done()} onInstall={() => done("install")} />
         )}
       </div>
 
@@ -1225,7 +1295,7 @@ export function LandingIntroSlides({ onDone }: Props) {
               onClick={next}
               data-testid="button-intro-next"
             >
-              {slide === 7 ? navT.installedIt : navT.next}
+              {navT.next}
               <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
