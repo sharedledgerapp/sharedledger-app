@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/use-auth";
@@ -2270,10 +2271,13 @@ export default function MessagesPage() {
   const [pendingPageContextTopic, setPendingPageContextTopic] = useState<string | null>(null);
 
   const isSolo = !((user as any)?.familyId);
+  const search = useSearch();
 
-  // Read URL params for context-awareness (e.g. opened from Budget page or push notification)
+  // Read URL params for context-awareness (e.g. opened from Budget page or push notification).
+  // Runs on mount and whenever search changes so NAVIGATE messages from the service worker
+  // work correctly when this page is already open.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(search);
     const tab = params.get("tab");
     const sageContext = params.get("sageContext");
     const topic = params.get("topic");
@@ -2294,7 +2298,7 @@ export default function MessagesPage() {
       url.searchParams.delete("q");
       window.history.replaceState({}, "", url.toString());
     }
-  }, []);
+  }, [search]);
 
   const handleAskSageFromNote = (prompt: string) => {
     setPendingSagePrompt(prompt);

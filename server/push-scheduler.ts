@@ -67,6 +67,15 @@ export async function markNotified(userId: number, type: string): Promise<void> 
   });
 }
 
+// Supported deep link URLs for push notifications:
+//   /app/expenses                  - Opens Expenses page (everyday view)
+//   /app/expenses?tab=in           - Opens Expenses page on the income tab
+//   /app/expenses?view=recurring   - Opens Expenses page on the recurring view
+//   /app/expenses?openCreate=true  - Opens the create-expense dialog (add ?tab=in for income)
+//   /app/budget                    - Opens Budget page
+//   /app/reports                   - Opens Reports page
+//   /app/messages                  - Opens Messages/chat page
+//   /app/messages?tab=notes        - Opens Messages page on the Notes tab
 export async function sendPushToUser(userId: number, payload: { title: string; body: string; tag?: string; url?: string }): Promise<boolean> {
   const subs = await storage.getPushSubscriptionsForUser(userId);
   let delivered = false;
@@ -493,7 +502,7 @@ async function checkRecurringReminders() {
         title: "Expected income reminder",
         body: `Your ${entry.source} income is expected ${daysStr}. Log it when you receive it!`,
         tag: `income-reminder-${entry.id}`,
-        url: "/app/expenses?tab=in",
+        url: "/app/expenses?view=recurring",
       });
       if (sent) await markNotified(entry.userId, notifKey);
     } catch (err) {

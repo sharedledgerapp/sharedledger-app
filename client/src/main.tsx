@@ -5,6 +5,19 @@ import "./index.css";
 createRoot(document.getElementById("root")!).render(<App />);
 
 if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'NAVIGATE') {
+      try {
+        const targetUrl = new URL(event.data.url);
+        const newPath = targetUrl.pathname + targetUrl.search + targetUrl.hash;
+        window.history.pushState(null, '', newPath);
+        window.dispatchEvent(new PopStateEvent('popstate', { state: null }));
+      } catch (err) {
+        console.error('[PWA] Failed to handle NAVIGATE message:', err);
+      }
+    }
+  });
+
   window.addEventListener('load', async () => {
     try {
       const registration = await navigator.serviceWorker.register('/sw.js', {

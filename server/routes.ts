@@ -19,6 +19,7 @@ import multer from "multer";
 import passport from "passport";
 import { db } from "./db";
 import { GoogleGenAI } from "@google/genai";
+// Supported push notification deep link URLs are documented above sendPushToUser in push-scheduler.ts.
 import { startPushScheduler, sendPushToUser, markNotified, wasNotifiedSince } from "./push-scheduler";
 import { generateSageReply, generateAnalysis, checkSageDailyLimit, sageAi } from "./sage";
 import { sendFeedbackEmail, sendWelcomeEmail, sendPasswordResetEmail, sendWhatsNewEmail, sendSageUpdateEmail } from "./email";

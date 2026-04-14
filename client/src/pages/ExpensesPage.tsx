@@ -22,7 +22,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useDeleteExpense } from "@/hooks/use-data";
 import { getCurrencySymbol, CURRENCIES, toFixedAmount } from "@/lib/currency";
 import { DEFAULT_CATEGORIES, DEFAULT_RECURRING_CATEGORIES } from "@/pages/SettingsPage";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
@@ -95,6 +95,7 @@ export default function ExpensesPage() {
   const qc = useQueryClient();
   const deleteMutation = useDeleteExpense();
   const [, navigate] = useLocation();
+  const search = useSearch();
   const { celebrate } = useCelebration();
   
   const currencySymbol = getCurrencySymbol(user?.currency);
@@ -109,11 +110,20 @@ export default function ExpensesPage() {
 
   const initialTab = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "in" ? "in" : "out";
   const [moneyTab, setMoneyTab] = useState<"out" | "in">(initialTab);
-  const [view, setView] = useState<"everyday" | "recurring">("everyday");
+  const initialView = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "recurring" ? "recurring" : "everyday";
+  const [view, setView] = useState<"everyday" | "recurring">(initialView);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
+
+    if (params.get("view") === "recurring") {
+      params.delete("view");
+      const newSearch = params.toString();
+      const newUrl = window.location.pathname + (newSearch ? `?${newSearch}` : "");
+      window.history.replaceState(null, "", newUrl);
+    }
+
     if (params.get("openCreate") === "true") {
       const tab = params.get("tab");
       if (tab === "in") {
@@ -130,6 +140,46 @@ export default function ExpensesPage() {
       window.history.replaceState(null, "", newUrl);
     }
   }, []);
+
+  // React to NAVIGATE messages from service worker when this page is already mounted
+  const deepLinkMounted = useRef(false);
+  useEffect(() => {
+    if (!deepLinkMounted.current) {
+      deepLinkMounted.current = true;
+      return;
+    }
+    const params = new URLSearchParams(search);
+    const viewParam = params.get("view");
+    const tabParam = params.get("tab");
+
+    if (viewParam === "recurring") {
+      setView("recurring");
+      params.delete("view");
+      const newSearch = params.toString();
+      window.history.replaceState(null, "", window.location.pathname + (newSearch ? `?${newSearch}` : ""));
+    }
+
+    if (tabParam === "in") {
+      setMoneyTab("in");
+    } else if (tabParam === "out") {
+      setMoneyTab("out");
+    }
+
+    if (params.get("openCreate") === "true") {
+      const tab = params.get("tab");
+      if (tab === "in") {
+        setMoneyTab("in");
+        setShowIncomeDialog(true);
+      } else {
+        setMoneyTab("out");
+        setIsCreateOpen(true);
+      }
+      params.delete("openCreate");
+      params.delete("tab");
+      const newSearch = params.toString();
+      window.history.replaceState(null, "", window.location.pathname + (newSearch ? `?${newSearch}` : ""));
+    }
+  }, [search]);
 
   // Income state
   const { data: incomeEntries, isLoading: incomeLoading } = useQuery<IncomeEntry[]>({
