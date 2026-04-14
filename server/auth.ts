@@ -40,15 +40,27 @@ async function findOrCreateOAuthUser(
     : storage.getUserByAppleId.bind(storage);
 
   let user = await lookupFn(providerId);
-  if (user) return user;
+  if (user) {
+    if (email && !user.email) {
+      const [updated] = await db
+        .update(users)
+        .set({ email })
+        .where(eq(users.id, user.id))
+        .returning();
+      return updated;
+    }
+    return user;
+  }
 
   if (email) {
     user = await storage.getUserByUsername(email);
     if (user) {
       const providerField = provider === "google" ? "googleId" : "appleId";
+      const updateFields: Record<string, unknown> = { [providerField]: providerId };
+      if (!user.email) updateFields.email = email;
       const [updated] = await db
         .update(users)
-        .set({ [providerField]: providerId })
+        .set(updateFields)
         .where(eq(users.id, user.id))
         .returning();
       return updated;
@@ -65,6 +77,7 @@ async function findOrCreateOAuthUser(
     password: null,
     name: displayName,
     role: "member",
+    email: email ?? null,
     profileImageUrl,
     ...providerFields,
   });
