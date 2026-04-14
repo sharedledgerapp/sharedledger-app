@@ -1660,6 +1660,7 @@ function CreateExpenseDialog({
   const [splitType, setSplitType] = useState<"none" | "equal" | "exact" | "percentage">("none");
   const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
   const [customSplits, setCustomSplits] = useState<Record<number, string>>({});
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [file, setFile] = useState<File | null>(null);
   const [showReceiptConfirm, setShowReceiptConfirm] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedReceiptData | null>(null);
@@ -1807,6 +1808,7 @@ function CreateExpenseDialog({
       setSplitType(editingExpense.splitType || "none");
       setSelectedMembers([]);
       setCustomSplits({});
+      setDate(editingExpense.date ? new Date(editingExpense.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]);
     } else {
       setAmount("0");
       setCategory(CATEGORIES[0]);
@@ -1816,6 +1818,7 @@ function CreateExpenseDialog({
       setSplitType("none");
       setSelectedMembers([]);
       setCustomSplits({});
+      setDate(new Date().toISOString().split("T")[0]);
     }
   }, [editingExpense, open]);
 
@@ -1863,7 +1866,7 @@ function CreateExpenseDialog({
       splitType: effectivePaymentSource === "family" ? splitType : "none",
       paidByUserId: user.id,
       receiptUrl,
-      date: editingExpense ? editingExpense.date : new Date().toISOString(),
+      date: new Date(date).toISOString(),
       ...(splits ? { splits } : {}),
     };
 
@@ -2019,6 +2022,18 @@ function CreateExpenseDialog({
               onChange={(e) => setNote(e.target.value)}
               className="rounded-xl"
             />
+
+            <div>
+              <Label className="text-sm font-semibold">Date</Label>
+              <Input
+                type="date"
+                value={date}
+                max={new Date().toISOString().split("T")[0]}
+                onChange={(e) => setDate(e.target.value)}
+                className="rounded-xl mt-1"
+                data-testid="input-expense-date"
+              />
+            </div>
 
             <div className="space-y-3">
               <Label className="text-sm font-semibold">{t("paidWith")}</Label>
