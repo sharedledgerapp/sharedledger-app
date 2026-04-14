@@ -256,9 +256,13 @@ Shared goals: ${sharedGoals.length > 0 ? sharedGoals.map(g => `"${g.title}" ${Nu
 
   // ── Past analyses ──────────────────────────────────────────────────────────
   const pastAnalyses = await storage.getAiAnalyses(userId);
-  const historyContext = pastAnalyses.slice(0, 3).map(a =>
-    `[${a.type === 'monthly_review' ? 'Monthly review' : 'Mid-month check'} ${a.periodKey}]: ${a.content.slice(0, 400)}...`
-  ).join('\n\n');
+  const historyContext = pastAnalyses.slice(0, 3).map(a => {
+    const typeLabel = a.type === 'monthly_review' ? 'Monthly review' : 'Mid-month check';
+    const feedbackLabel = a.feedback === 1 ? '👍 user found this helpful' : a.feedback === -1 ? '👎 user found this unhelpful' : null;
+    const commentLine = (a as any).feedbackComment ? `User comment on this analysis: "${(a as any).feedbackComment}"` : null;
+    const meta = [feedbackLabel, commentLine].filter(Boolean).join(' — ');
+    return `[${typeLabel} ${a.periodKey}${meta ? ` | ${meta}` : ''}]: ${a.content.slice(0, 400)}...`;
+  }).join('\n\n');
 
   // ── Personal notes (if user granted permission) ────────────────────────────
   let personalNotesContext = "";

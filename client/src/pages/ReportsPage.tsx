@@ -87,12 +87,24 @@ export default function ReportsPage() {
   const [selectedBarIndex, setSelectedBarIndex] = useState<number | null>(null);
   const [expandedAnalysisIds, setExpandedAnalysisIds] = useState<Set<number>>(new Set());
   const [localFeedback, setLocalFeedback] = useState<Record<number, number>>({});
+  const [feedbackCommentOpen, setFeedbackCommentOpen] = useState<Set<number>>(new Set());
+  const [feedbackCommentText, setFeedbackCommentText] = useState<Record<number, string>>({});
+  const [feedbackCommentSaved, setFeedbackCommentSaved] = useState<Set<number>>(new Set());
 
   const feedbackMutation = useMutation({
     mutationFn: ({ id, feedback }: { id: number; feedback: number }) =>
       apiRequest("PATCH", `/api/sage/analyses/${id}/feedback`, { feedback }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sage/analyses"] });
+    },
+  });
+
+  const feedbackCommentMutation = useMutation({
+    mutationFn: ({ id, comment }: { id: number; comment: string }) =>
+      apiRequest("PATCH", `/api/sage/analyses/${id}/feedback-comment`, { comment }),
+    onSuccess: (_data, { id }) => {
+      setFeedbackCommentSaved(prev => new Set(prev).add(id));
+      setFeedbackCommentOpen(prev => { const n = new Set(prev); n.delete(id); return n; });
     },
   });
 
@@ -128,8 +140,12 @@ export default function ReportsPage() {
   };
 
   const handleFeedback = (id: number, feedback: number) => {
+    const already = localFeedback[id];
     setLocalFeedback(prev => ({ ...prev, [id]: feedback }));
     feedbackMutation.mutate({ id, feedback });
+    if (!already && !feedbackCommentSaved.has(id)) {
+      setFeedbackCommentOpen(prev => new Set(prev).add(id));
+    }
   };
   
   const currencySymbol = getCurrencySymbol(user?.currency);
@@ -698,28 +714,76 @@ export default function ReportsPage() {
                           </button>
                         )}
 
-                        <div className="flex items-center gap-3 pt-1 border-t border-border/50">
-                          <span className="text-xs text-muted-foreground">{t("wasThisHelpful")}</span>
-                          <div className="flex items-center gap-1 ml-auto">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={cn("h-7 w-7", currentFeedback === 1 && "text-green-500")}
-                              onClick={() => handleFeedback(analysis.id, 1)}
-                              data-testid={`button-feedback-up-${analysis.id}`}
-                            >
-                              <ThumbsUp className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={cn("h-7 w-7", currentFeedback === -1 && "text-destructive")}
-                              onClick={() => handleFeedback(analysis.id, -1)}
-                              data-testid={`button-feedback-down-${analysis.id}`}
-                            >
-                              <ThumbsDown className="w-3.5 h-3.5" />
-                            </Button>
+                        <div className="pt-1 border-t border-border/50 space-y-2">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-muted-foreground">
+                              {currentFeedback ? "Thanks for your feedback" : t("wasThisHelpful")}
+                            </span>
+                            <div className="flex items-center gap-1 ml-auto">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className={cn("h-7 w-7", currentFeedback === 1 && "text-green-500")}
+                                onClick={() => handleFeedback(analysis.id, 1)}
+                                data-testid={`button-feedback-up-${analysis.id}`}
+                              >
+                                <ThumbsUp className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className={cn("h-7 w-7", currentFeedback === -1 && "text-destructive")}
+                                onClick={() => handleFeedback(analysis.id, -1)}
+                                data-testid={`button-feedback-down-${analysis.id}`}
+                              >
+                                <ThumbsDown className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
                           </div>
+
+                          {feedbackCommentOpen.has(analysis.id) && (
+                            <div className="space-y-2 pt-1" data-testid={`feedback-comment-box-${analysis.id}`}>
+                              <p className="text-xs text-muted-foreground">
+                                {currentFeedback === 1
+                                  ? "What did you find most useful about this analysis?"
+                                  : "What could have been better about this analysis?"}
+                              </p>
+                              <textarea
+                                className="w-full text-xs rounded-md border border-border bg-muted/40 p-2 resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                                rows={3}
+                                placeholder={currentFeedback === 1 ? "e.g. The budget breakdown was really clear…" : "e.g. I felt the tone was too generic…"}
+                                value={feedbackCommentText[analysis.id] ?? ""}
+                                onChange={e => setFeedbackCommentText(prev => ({ ...prev, [analysis.id]: e.target.value }))}
+                                data-testid={`input-feedback-comment-${analysis.id}`}
+                              />
+                              <div className="flex items-center gap-2 justify-end">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs text-muted-foreground"
+                                  onClick={() => setFeedbackCommentOpen(prev => { const n = new Set(prev); n.delete(analysis.id); return n; })}
+                                  data-testid={`button-skip-feedback-comment-${analysis.id}`}
+                                >
+                                  Skip
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  disabled={!feedbackCommentText[analysis.id]?.trim() || feedbackCommentMutation.isPending}
+                                  onClick={() => feedbackCommentMutation.mutate({ id: analysis.id, comment: feedbackCommentText[analysis.id] })}
+                                  data-testid={`button-submit-feedback-comment-${analysis.id}`}
+                                >
+                                  Share
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+
+                          {feedbackCommentSaved.has(analysis.id) && (
+                            <p className="text-xs text-muted-foreground" data-testid={`text-feedback-saved-${analysis.id}`}>
+                              Your thoughts have been noted — Sage will use them to improve future analyses.
+                            </p>
+                          )}
                         </div>
                       </CardContent>
                     </Card>

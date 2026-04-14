@@ -625,7 +625,7 @@ async function checkNoteReminders() {
       title,
       body,
       tag,
-      url: '/app/messages',
+      url: '/app/messages?tab=notes',
     });
     if (sent) await markNotified(user.id, milestoneKey);
   }

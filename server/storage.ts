@@ -160,6 +160,7 @@ export interface IStorage {
   getAiAnalysis(userId: number, type: string, periodKey: string): Promise<AiAnalysis | undefined>;
   upsertAiAnalysis(userId: number, type: 'monthly_review' | 'mid_month_check', periodKey: string, content: string, dataSnapshot?: string): Promise<AiAnalysis>;
   updateAiAnalysisFeedback(id: number, feedback: number): Promise<void>;
+  updateAiAnalysisFeedbackComment(id: number, comment: string): Promise<void>;
   updateSageMessageFeedback(id: number, feedback: number): Promise<void>;
   updateFamilyGroupSettings(familyId: number, settings: { groupType?: string; currency?: string }): Promise<Family>;
 
@@ -1403,6 +1404,10 @@ export class DatabaseStorage implements IStorage {
 
   async updateAiAnalysisFeedback(id: number, feedback: number): Promise<void> {
     await db.update(aiAnalyses).set({ feedback }).where(eq(aiAnalyses.id, id));
+  }
+
+  async updateAiAnalysisFeedbackComment(id: number, comment: string): Promise<void> {
+    await db.update(aiAnalyses).set({ feedbackComment: comment }).where(eq(aiAnalyses.id, id));
   }
 
   // Personal Notes

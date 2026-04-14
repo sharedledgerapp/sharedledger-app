@@ -436,6 +436,7 @@ export const aiAnalyses = pgTable("ai_analyses", {
   content: text("content").notNull(),
   dataSnapshot: text("data_snapshot"),
   feedback: integer("feedback"),
+  feedbackComment: text("feedback_comment"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

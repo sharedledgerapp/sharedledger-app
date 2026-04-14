@@ -2271,20 +2271,24 @@ export default function MessagesPage() {
 
   const isSolo = !((user as any)?.familyId);
 
-  // Read URL params for context-awareness (e.g. opened from Budget page)
+  // Read URL params for context-awareness (e.g. opened from Budget page or push notification)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
     const sageContext = params.get("sageContext");
     const topic = params.get("topic");
     const q = params.get("q");
-    if (sageContext) {
+    const url = new URL(window.location.href);
+    if (tab === "notes") {
+      setActiveTab("notes");
+      url.searchParams.delete("tab");
+      window.history.replaceState({}, "", url.toString());
+    } else if (sageContext) {
       setActiveTab("messages");
       setMessagesView("sage");
       setPendingPageContext(sageContext);
       if (topic) setPendingPageContextTopic(topic);
       if (q) setPendingSagePrompt(q);
-      // Clean up URL without reloading
-      const url = new URL(window.location.href);
       url.searchParams.delete("sageContext");
       url.searchParams.delete("topic");
       url.searchParams.delete("q");

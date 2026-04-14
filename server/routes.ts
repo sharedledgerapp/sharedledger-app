@@ -2993,6 +2993,19 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
   });
 
+  app.patch("/api/sage/analyses/:id/feedback-comment", requireAuth, async (req, res) => {
+    try {
+      const { comment } = req.body;
+      if (typeof comment !== "string" || comment.trim().length === 0) {
+        return res.status(400).json({ message: "comment is required" });
+      }
+      await storage.updateAiAnalysisFeedbackComment(Number(req.params.id), comment.trim());
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ message: "Failed to save feedback comment" });
+    }
+  });
+
   app.patch("/api/sage/messages/:id/feedback", requireAuth, async (req, res) => {
     try {
       const { feedback } = req.body;
