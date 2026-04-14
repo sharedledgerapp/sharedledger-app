@@ -523,7 +523,7 @@ async function checkSageAnalyses() {
           await sendPushToUser(userId, {
             title: `Your ${format(prevMonth, 'MMMM')} review is ready`,
             body: "Sage has prepared your monthly financial review. Tap to read it.",
-            url: "/app/messages",
+            url: "/app/reports",
           });
         }
       }
@@ -541,7 +541,7 @@ async function checkSageAnalyses() {
           await sendPushToUser(userId, {
             title: "Mid-month check from Sage",
             body: "You're halfway through the month. Sage has a quick update on how you're tracking.",
-            url: "/app/messages",
+            url: "/app/reports",
           });
         }
       }

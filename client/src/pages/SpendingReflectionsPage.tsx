@@ -104,13 +104,25 @@ function AnalysisCard({ analysis }: { analysis: AiAnalysis }) {
         {expanded && (
           <div className="text-sm text-foreground leading-relaxed space-y-1">
             {analysis.content.split("\n").map((line, i) => {
-              if (line.startsWith("## ")) return <p key={i} className="font-semibold text-base mt-3">{line.slice(3)}</p>;
-              if (line.startsWith("# ")) return <p key={i} className="font-bold text-base mt-3">{line.slice(2)}</p>;
+              if (line.startsWith("### ")) return <p key={i} className="font-semibold text-sm mt-3">{line.slice(4)}</p>;
+              if (line.startsWith("## ")) return <p key={i} className="font-semibold text-base mt-4">{line.slice(3)}</p>;
+              if (line.startsWith("# ")) return <p key={i} className="font-bold text-lg mt-4">{line.slice(2)}</p>;
+              if (line.startsWith("**") && line.endsWith("**") && !line.slice(2, -2).includes("**")) {
+                return <p key={i} className="font-semibold">{line.slice(2, -2)}</p>;
+              }
               if (line.startsWith("- ") || line.startsWith("• ")) {
+                const text = line.slice(2);
+                const bParts = text.split(/(\*\*[^*]+\*\*)/g);
                 return (
                   <div key={i} className="flex gap-2 items-start">
                     <span className="text-primary mt-0.5 shrink-0">•</span>
-                    <span>{line.slice(2)}</span>
+                    <span>
+                      {bParts.map((part, j) =>
+                        part.startsWith("**") && part.endsWith("**")
+                          ? <strong key={j}>{part.slice(2, -2)}</strong>
+                          : part
+                      )}
+                    </span>
                   </div>
                 );
               }
@@ -126,7 +138,7 @@ function AnalysisCard({ analysis }: { analysis: AiAnalysis }) {
                   </p>
                 );
               }
-              if (line.trim() === "") return <div key={i} className="h-1" />;
+              if (line.trim() === "") return <div key={i} className="h-2" />;
               return <p key={i}>{line}</p>;
             })}
           </div>

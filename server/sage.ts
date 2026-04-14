@@ -424,9 +424,15 @@ export async function generateAnalysis(
   const BUDGET_BEHAVIOR_INSTRUCTION = `
 Budget behavioural patterns — IMPORTANT:
 Check the "BUDGET BEHAVIORAL PATTERNS" section in the financial data. For any category marked CONSISTENTLY OVERSPENT (overspent in 2 or more of the last 3 months):
-- Name the category and show the actual numbers (spent vs limit, for each month)
-- Ask the user directly: "Do you want to increase this budget so it reflects how you actually spend, or would you prefer some ideas to bring the spending down?"
+- Name the category and show the actual numbers (spent vs limit, for each relevant month)
 - If the budget has been adjusted multiple times (the data says "adjusted X times"), mention it: "You've tweaked this budget X times already — it might be worth committing to a number that truly fits your life, or working on the habit behind it."
+- Do NOT ask a question after each individual budget item
+
+After listing ALL consistently overspent categories (if any exist), ask the following question ONCE at the end of that section — not repeatedly per budget:
+"For these budgets — would you like to increase the limits to better reflect how you actually spend, or would you prefer some ideas to bring the spending down in any of them?"
+
+IMPORTANT for mid-month checks: Only raise this question if the current month's spending for those categories is also tracking above the budget limit right now. Do NOT ask about increasing budgets for categories where spending is currently within limits this month — that conversation belongs in the end-of-month review.
+
 For categories marked FREQUENT ADJUSTMENT (adjusted multiple times with mixed results): note that repeated changes suggest the limit may not reflect real life, and invite them to think about whether to set a more honest number or work on the behaviour.
 Keep this section warm and non-judgmental — the goal is self-awareness, not shame.`;
 

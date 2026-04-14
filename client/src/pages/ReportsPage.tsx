@@ -20,6 +20,52 @@ const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#a78bfa"
 
 type ViewMode = "overview" | "category";
 
+function AnalysisText({ content }: { content: string }) {
+  const lines = content.split("\n");
+  return (
+    <div className="space-y-1 text-sm leading-relaxed">
+      {lines.map((line, i) => {
+        if (line.startsWith("### ")) return <p key={i} className="font-semibold text-sm mt-3 text-foreground">{line.slice(4)}</p>;
+        if (line.startsWith("## ")) return <p key={i} className="font-semibold text-base mt-4 text-foreground">{line.slice(3)}</p>;
+        if (line.startsWith("# ")) return <p key={i} className="font-bold text-lg mt-4 text-foreground">{line.slice(2)}</p>;
+        if (line.startsWith("**") && line.endsWith("**") && !line.slice(2, -2).includes("**")) {
+          return <p key={i} className="font-semibold text-foreground">{line.slice(2, -2)}</p>;
+        }
+        if (line.startsWith("- ") || line.startsWith("• ")) {
+          const text = line.slice(2);
+          const boldParts = text.split(/(\*\*[^*]+\*\*)/g);
+          return (
+            <div key={i} className="flex gap-2 items-start">
+              <span className="text-primary mt-0.5 shrink-0">•</span>
+              <span>
+                {boldParts.map((part, j) =>
+                  part.startsWith("**") && part.endsWith("**")
+                    ? <strong key={j}>{part.slice(2, -2)}</strong>
+                    : part
+                )}
+              </span>
+            </div>
+          );
+        }
+        if (line.trim() === "") return <div key={i} className="h-2" />;
+        const boldParts = line.split(/(\*\*[^*]+\*\*)/g);
+        if (boldParts.length > 1) {
+          return (
+            <p key={i} className="text-foreground">
+              {boldParts.map((part, j) =>
+                part.startsWith("**") && part.endsWith("**")
+                  ? <strong key={j}>{part.slice(2, -2)}</strong>
+                  : part
+              )}
+            </p>
+          );
+        }
+        return <p key={i} className="text-foreground">{line}</p>;
+      })}
+    </div>
+  );
+}
+
 export default function ReportsPage() {
   const { data: expenses, isLoading } = useExpenses();
   const { user } = useAuth();
@@ -638,8 +684,8 @@ export default function ReportsPage() {
                           </Button>
                         </div>
 
-                        <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap" data-testid={`text-analysis-content-${analysis.id}`}>
-                          {displayContent}
+                        <div data-testid={`text-analysis-content-${analysis.id}`}>
+                          <AnalysisText content={displayContent} />
                         </div>
 
                         {isLong && (
