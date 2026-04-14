@@ -21,33 +21,26 @@ const T = {
     nav: { skip: "Skip", next: "Next", installedIt: "I've installed it" },
 
     s1: {
-      tagline: "Shared finances, simplified",
-      titleBefore: "Track money",
-      titleCircled: "together",
-      titleAfter: "or on your own",
-      subtitleBefore: "SharedLedger is a finance app for households, couples, roommates and ",
-      subtitleHighlight: "solo users",
-      subtitleAfter: ". No group needed to get started.",
-      bullets: [
-        "Track everyday expenses and recurring bills",
-        "Set budgets and savings goals",
-        "Get AI-powered insights with Sage",
-        "Invite family or housemates whenever you're ready",
+      question: "Have you ever looked at your balance and wondered where it all went?",
+      answer: "Your transactions are all there, but they don't explain how you got there.",
+      clarityLabel: "SharedLedger gives you clarity:",
+      points: [
+        "Spending broken down by category and week",
+        "Patterns you can see and act on",
+        "No spreadsheets. No forgotten updates.",
       ],
       betaNote: "Currently in beta testing, free to use and actively improved",
     },
 
     s2: {
-      title: "Sound familiar?",
-      subtitle: "These are the everyday money problems SharedLedger was built to solve",
-      pains: [
-        { emoji: "🧾", text: "Forgot what you actually spent last month" },
-        { emoji: "💸", text: "Who owes what for rent, groceries, and bills?" },
-        { emoji: "📋", text: "Spreadsheet that nobody remembers to update" },
-        { emoji: "😱", text: "End of month arrives and your balance is a surprise" },
-        { emoji: "📈", text: "No idea if you're making progress on savings" },
-      ],
-      closing: "SharedLedger gives you and your household one clear place for all of this",
+      statement: "Money is rarely just personal.",
+      bankLabel: "Your bank",
+      bankDesc: "Shows your transactions. Your side only.",
+      slLabel: "SharedLedger",
+      slDesc: "Shows the full household picture, together.",
+      body: "SharedLedger gives you and your household a shared financial snapshot: who spent what, how you're tracking together, one clear view for everyone.",
+      tags: ["Couples", "Families", "Roommates", "Solo too"],
+      tagline: "You're finally on the same page.",
     },
 
     s3: {
@@ -80,13 +73,14 @@ const T = {
       badge: "Beta feature · Powered by Gemini · Still in testing",
       title: "Meet",
       highlight: "Sage",
-      subtitle: "Your personal AI financial advisor, built into the app. Sage reads your actual spending data and helps you make sense of it.",
-      whatTitle: "What Sage does",
+      roleLabel: "Your AI accountant. Your financial advisor.",
+      subtitle: "Sage is built into SharedLedger and reads your actual spending data. It sees the patterns, understands your context, and helps you know what to do next.",
+      whatTitle: "What Sage does for you",
       bullets: [
-        "Generates a monthly spending analysis with patterns and standouts",
-        "Answers questions about your actual income and expense data",
-        "Highlights categories where you're consistently overspending",
-        "Suggests ways to stay on track with your savings goals",
+        "Acts as your personal accountant: knows your numbers, categories, and history",
+        "Spots patterns in your spending before they become problems",
+        "Delivers monthly and mid-month reviews with honest, clear observations",
+        "Answers questions about your money in plain language, any time",
       ],
       disclaimer: "Sage is still being improved. Responses are based on your data, but always double-check important financial decisions.",
     },
@@ -164,33 +158,26 @@ const T = {
     nav: { skip: "Passer", next: "Suivant", installedIt: "C'est installé" },
 
     s1: {
-      tagline: "Les finances partagées, en clair",
-      titleBefore: "Gérez vos finances",
-      titleCircled: "ensemble",
-      titleAfter: "ou en solo",
-      subtitleBefore: "SharedLedger est une appli de finances pour les ménages, couples, colocataires et ",
-      subtitleHighlight: "utilisateurs solos",
-      subtitleAfter: ". Pas besoin d'un groupe pour commencer.",
-      bullets: [
-        "Suivez vos dépenses quotidiennes et factures récurrentes",
-        "Définissez des budgets et des objectifs d'épargne",
-        "Obtenez des analyses IA personnalisées avec Sage",
-        "Invitez famille ou colocataires quand vous êtes prêt",
+      question: "Avez-vous déjà regardé votre solde en vous demandant où tout est passé ?",
+      answer: "Vos transactions sont toutes là, mais elles n'expliquent pas comment vous en êtes arrivé là.",
+      clarityLabel: "SharedLedger vous apporte la clarté :",
+      points: [
+        "Dépenses détaillées par catégorie et par semaine",
+        "Des tendances que vous pouvez voir et sur lesquelles agir",
+        "Pas de tableurs. Pas de mises à jour oubliées.",
       ],
       betaNote: "En bêta, gratuit et en amélioration continue",
     },
 
     s2: {
-      title: "Ça vous parle ?",
-      subtitle: "Ce sont les problèmes du quotidien que SharedLedger a été conçu pour résoudre",
-      pains: [
-        { emoji: "🧾", text: "Oublié ce que vous avez vraiment dépensé le mois dernier" },
-        { emoji: "💸", text: "Qui doit quoi pour le loyer, les courses et les factures ?" },
-        { emoji: "📋", text: "Tableau que personne ne pense à mettre à jour" },
-        { emoji: "😱", text: "Fin de mois et votre solde est une mauvaise surprise" },
-        { emoji: "📈", text: "Aucune idée si vous progressez sur votre épargne" },
-      ],
-      closing: "SharedLedger vous offre, à vous et votre ménage, un seul endroit clair pour tout cela",
+      statement: "L'argent est rarement qu'une affaire personnelle.",
+      bankLabel: "Votre banque",
+      bankDesc: "Montre vos transactions. Votre côté seulement.",
+      slLabel: "SharedLedger",
+      slDesc: "Montre l'image complète du foyer, ensemble.",
+      body: "SharedLedger vous offre, à vous et votre foyer, un aperçu financier partagé : qui a dépensé quoi, comment vous progressez ensemble, une vue claire pour tous.",
+      tags: ["Couples", "Familles", "Colocataires", "Solo aussi"],
+      tagline: "Vous êtes enfin sur la même longueur d'onde.",
     },
 
     s3: {
@@ -223,13 +210,14 @@ const T = {
       badge: "Fonctionnalité bêta · Propulsé par Gemini · En cours de test",
       title: "Rencontrez",
       highlight: "Sage",
-      subtitle: "Votre conseiller financier IA personnel, intégré à l'appli. Sage analyse vos vraies données de dépenses et vous aide à les comprendre.",
-      whatTitle: "Ce que fait Sage",
+      roleLabel: "Votre comptable IA. Votre conseiller financier.",
+      subtitle: "Sage est intégré à SharedLedger et lit vos données réelles de dépenses. Il voit les tendances, comprend votre contexte et vous aide à savoir ce que vous devez faire ensuite.",
+      whatTitle: "Ce que Sage fait pour vous",
       bullets: [
-        "Génère une analyse mensuelle des dépenses avec tendances et points marquants",
-        "Répond aux questions sur vos données réelles de revenus et dépenses",
-        "Identifie les catégories où vous dépensez régulièrement trop",
-        "Propose des façons de rester sur la bonne voie avec vos objectifs",
+        "Agit comme votre comptable personnel : connaît vos chiffres, catégories et historique",
+        "Repère les tendances dans vos dépenses avant qu'elles ne deviennent des problèmes",
+        "Génère des bilans mensuels et à mi-mois avec des observations honnêtes et claires",
+        "Répond à vos questions sur votre argent en langage clair, à tout moment",
       ],
       disclaimer: "Sage est encore en amélioration. Les réponses sont basées sur vos données, mais vérifiez toujours les décisions financières importantes.",
     },
@@ -307,33 +295,26 @@ const T = {
     nav: { skip: "Overslaan", next: "Volgende", installedIt: "Ik heb het geïnstalleerd" },
 
     s1: {
-      tagline: "Gedeelde financiën, eenvoudig gemaakt",
-      titleBefore: "Beheer geld",
-      titleCircled: "samen",
-      titleAfter: "of alleen",
-      subtitleBefore: "SharedLedger is een financiën-app voor huishoudens, koppels, huisgenoten en ",
-      subtitleHighlight: "solo-gebruikers",
-      subtitleAfter: ". Je hebt geen groep nodig om te starten.",
-      bullets: [
-        "Bijhouden van dagelijkse uitgaven en terugkerende rekeningen",
-        "Stel budgetten en spaardoelen in",
-        "Ontvang AI-inzichten met Sage",
-        "Nodig familie of huisgenoten uit wanneer je er klaar voor bent",
+      question: "Heb je ooit naar je saldo gekeken en je afgevraagd waar het allemaal naartoe is gegaan?",
+      answer: "Je transacties staan er allemaal, maar ze verklaren niet hoe je daar bent gekomen.",
+      clarityLabel: "SharedLedger geeft je duidelijkheid:",
+      points: [
+        "Uitgaven uitgesplitst per categorie en per week",
+        "Patronen die je kunt zien en waarop je kunt handelen",
+        "Geen spreadsheets. Geen vergeten updates.",
       ],
       betaNote: "Momenteel in bèta, gratis en actief verbeterd",
     },
 
     s2: {
-      title: "Klinkt dit bekend?",
-      subtitle: "Dit zijn de alledaagse geldzorgen die SharedLedger oplost",
-      pains: [
-        { emoji: "🧾", text: "Vergeten wat je vorige maand echt hebt uitgegeven" },
-        { emoji: "💸", text: "Wie is hoeveel schuldig voor huur, boodschappen en rekeningen?" },
-        { emoji: "📋", text: "Spreadsheet die niemand meer bijhoudt" },
-        { emoji: "😱", text: "Einde van de maand en je saldo is een verrassing" },
-        { emoji: "📈", text: "Geen idee of je vooruitgaat op je spaardoel" },
-      ],
-      closing: "SharedLedger geeft jou en je huishouden één duidelijke plek voor dit alles",
+      statement: "Geld is zelden alleen jouw zaak.",
+      bankLabel: "Je bank",
+      bankDesc: "Toont jouw transacties. Alleen jouw kant.",
+      slLabel: "SharedLedger",
+      slDesc: "Toont het volledige beeld van je huishouden.",
+      body: "SharedLedger geeft jou en je huishouden een gedeeld financieel overzicht: wie wat heeft uitgegeven, hoe jullie er samen voor staan, één helder beeld voor iedereen.",
+      tags: ["Stellen", "Gezinnen", "Huisgenoten", "Solo ook"],
+      tagline: "Jullie staan eindelijk op dezelfde pagina.",
     },
 
     s3: {
@@ -366,13 +347,14 @@ const T = {
       badge: "Bètafunctie · Aangedreven door Gemini · Nog in testen",
       title: "Maak kennis met",
       highlight: "Sage",
-      subtitle: "Je persoonlijke AI-financieel adviseur, ingebouwd in de app. Sage leest je echte uitgavengegevens en helpt je die te begrijpen.",
-      whatTitle: "Wat Sage doet",
+      roleLabel: "Je AI-accountant. Je financieel adviseur.",
+      subtitle: "Sage is ingebouwd in SharedLedger en leest je werkelijke uitgavengegevens. Het ziet de patronen, begrijpt jouw context en helpt je begrijpen wat je als volgende stap kunt doen.",
+      whatTitle: "Wat Sage voor je doet",
       bullets: [
-        "Genereert maandelijkse uitgavenanalyses met patronen en opvallende punten",
-        "Beantwoordt vragen over je werkelijke inkomsten- en uitgavengegevens",
-        "Markeert categorieën waar je consequent te veel uitgeeft",
-        "Stelt manieren voor om op koers te blijven met je spaardoelen",
+        "Fungeert als je persoonlijke accountant: kent je cijfers, categorieën en geschiedenis",
+        "Herkent patronen in je uitgaven voordat ze problemen worden",
+        "Levert maandelijkse en tussentijdse reviews met eerlijke, duidelijke observaties",
+        "Beantwoordt vragen over je geld in begrijpelijke taal, op elk moment",
       ],
       disclaimer: "Sage wordt nog verbeterd. Antwoorden zijn gebaseerd op je gegevens, maar controleer altijd belangrijke financiële beslissingen.",
     },
@@ -535,45 +517,53 @@ function Slide1({ lang }: { lang: Lang }) {
   return (
     <SlideWrap>
       <FadeUp delay={0}>
-        <div
-          className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/20 mx-auto"
-          style={{ transform: "rotate(-6deg)" }}
-        >
-          <Users className="w-8 h-8 text-white" style={{ transform: "rotate(6deg)" }} />
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/20 mx-auto">
+          <PieChart className="w-8 h-8 text-white" />
         </div>
       </FadeUp>
 
-      <div className="text-center">
-        <FadeUp delay={80}>
-          <p className="font-display font-bold text-2xl text-primary mb-1">{s.tagline}</p>
-        </FadeUp>
-        <FadeUp delay={180}>
-          <h1 className="font-display font-bold text-3xl text-foreground leading-tight">
-            {s.titleBefore} <Circled delay={500}>{s.titleCircled}</Circled>
-            <br />{s.titleAfter}
-          </h1>
-        </FadeUp>
-        <FadeUp delay={300}>
-          <p className="text-muted-foreground mt-3 leading-relaxed text-sm">
-            {s.subtitleBefore}
-            <Highlight delay={620}>{s.subtitleHighlight}</Highlight>
-            {s.subtitleAfter}
+      {/* Rhetorical question — large, italic, quote-styled */}
+      <FadeUp delay={100}>
+        <div className="relative text-center px-1">
+          <span
+            className="absolute -top-3 left-0 text-6xl text-primary/20 font-serif leading-none select-none"
+            aria-hidden="true"
+          >"</span>
+          <p className="font-display italic font-bold text-xl text-foreground leading-snug px-7 pt-1">
+            {s.question}
           </p>
-        </FadeUp>
-      </div>
-
-      <FadeUp delay={420}>
-        <div className="bg-white dark:bg-card rounded-2xl border border-border/50 shadow-sm p-5 space-y-3">
-          {s.bullets.map((item, i) => (
-            <div key={i} className="flex items-start gap-3">
-              <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-              <span className="text-sm text-foreground">{item}</span>
-            </div>
-          ))}
+          <span
+            className="absolute -bottom-5 right-0 text-6xl text-primary/20 font-serif leading-none select-none rotate-180"
+            aria-hidden="true"
+          >"</span>
         </div>
       </FadeUp>
 
-      <FadeUp delay={540}>
+      {/* Answer sentence */}
+      <FadeUp delay={260}>
+        <p className="text-center text-sm text-muted-foreground leading-relaxed px-2">
+          {s.answer}
+        </p>
+      </FadeUp>
+
+      {/* Clarity card */}
+      <FadeUp delay={400}>
+        <div className="bg-card rounded-2xl border border-border/60 shadow-sm p-5">
+          <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-3">
+            {s.clarityLabel}
+          </p>
+          <div className="space-y-2.5">
+            {s.points.map((pt, i) => (
+              <div key={i} className="flex items-center gap-3" style={{ animation: `fade-up 0.4s ease-out ${460 + i * 80}ms both` }}>
+                <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                <span className="text-sm text-foreground">{pt}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </FadeUp>
+
+      <FadeUp delay={700}>
         <p className="text-center text-xs text-muted-foreground italic">{s.betaNote}</p>
       </FadeUp>
     </SlideWrap>
@@ -585,27 +575,58 @@ function Slide2({ lang }: { lang: Lang }) {
   const s = T[lang].s2;
   return (
     <SlideWrap>
-      <FadeUp delay={0} className="text-center">
-        <h2 className="font-display font-bold text-3xl text-foreground leading-tight">{s.title}</h2>
-        <p className="text-muted-foreground mt-2 text-sm">{s.subtitle}</p>
+      <SlideIcon icon={Users} />
+
+      {/* Bold declaration */}
+      <FadeUp delay={100} className="text-center">
+        <h2 className="font-display font-bold text-3xl text-foreground leading-tight">
+          {s.statement}
+        </h2>
       </FadeUp>
 
-      <div className="space-y-2.5">
-        {s.pains.map(({ emoji, text }, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-4 bg-white dark:bg-card rounded-xl border border-border/50 px-4 py-3"
-            style={{ animation: `fade-up 0.45s ease-out ${100 + i * 90}ms both` }}
-          >
-            <span className="text-2xl shrink-0">{emoji}</span>
-            <span className="text-sm text-foreground leading-snug">{text}</span>
+      {/* Your bank vs SharedLedger comparison */}
+      <FadeUp delay={220}>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-muted/60 rounded-2xl border border-border/40 p-4 text-center">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1.5">
+              {s.bankLabel}
+            </p>
+            <p className="text-xs text-muted-foreground leading-relaxed">{s.bankDesc}</p>
           </div>
-        ))}
-      </div>
+          <div className="bg-primary/8 rounded-2xl border border-primary/20 p-4 text-center">
+            <p className="text-xs font-bold text-primary uppercase tracking-wide mb-1.5">
+              {s.slLabel}
+            </p>
+            <p className="text-xs text-foreground leading-relaxed">{s.slDesc}</p>
+          </div>
+        </div>
+      </FadeUp>
 
-      <FadeUp delay={560}>
+      {/* Body */}
+      <FadeUp delay={360}>
+        <p className="text-sm text-muted-foreground text-center leading-relaxed px-1">
+          {s.body}
+        </p>
+      </FadeUp>
+
+      {/* Tags */}
+      <FadeUp delay={480}>
+        <div className="flex flex-wrap gap-2 justify-center">
+          {s.tags.map((tag) => (
+            <span
+              key={tag}
+              className="text-xs font-medium px-3 py-1.5 bg-card rounded-full border border-border/60 text-foreground"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      </FadeUp>
+
+      {/* Tagline */}
+      <FadeUp delay={580}>
         <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-2xl border border-primary/20 p-4 text-center">
-          <p className="text-sm font-semibold text-foreground">{s.closing}</p>
+          <p className="text-sm font-semibold text-foreground">{s.tagline}</p>
         </div>
       </FadeUp>
     </SlideWrap>
@@ -704,20 +725,26 @@ function Slide5({ lang }: { lang: Lang }) {
       </FadeUp>
 
       <FadeUp delay={100} className="text-center">
-        <span className="inline-block text-xs font-semibold bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full mb-2">
+        <span className="inline-block text-xs font-semibold bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full mb-3">
           {s.badge}
         </span>
         <h2 className="font-display font-bold text-3xl text-foreground leading-tight">
           {s.title} <Highlight delay={400}>{s.highlight}</Highlight>
         </h2>
+        {/* Role label — positioned as a strong subtitle under the name */}
+        <p className="mt-2 text-sm font-semibold text-primary">{s.roleLabel}</p>
         <p className="text-muted-foreground mt-2 leading-relaxed text-sm">{s.subtitle}</p>
       </FadeUp>
 
-      <FadeUp delay={260}>
-        <div className="bg-white dark:bg-card rounded-2xl border border-border/50 p-5 space-y-3">
+      <FadeUp delay={280}>
+        <div className="bg-card rounded-2xl border border-border/50 p-5 space-y-3.5">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{s.whatTitle}</p>
           {s.bullets.map((item, i) => (
-            <div key={i} className="flex items-start gap-2.5">
+            <div
+              key={i}
+              className="flex items-start gap-2.5"
+              style={{ animation: `fade-up 0.4s ease-out ${340 + i * 80}ms both` }}
+            >
               <Sparkles className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
               <span className="text-sm text-foreground leading-snug">{item}</span>
             </div>
@@ -725,7 +752,7 @@ function Slide5({ lang }: { lang: Lang }) {
         </div>
       </FadeUp>
 
-      <FadeUp delay={480}>
+      <FadeUp delay={680}>
         <p className="text-xs text-muted-foreground text-center italic">{s.disclaimer}</p>
       </FadeUp>
     </SlideWrap>
