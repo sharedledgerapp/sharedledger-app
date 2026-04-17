@@ -42,16 +42,24 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   });
 
-  const resolvedTheme: ResolvedTheme = theme === "system" ? getSystemTheme() : theme;
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
+    theme === "system" ? getSystemTheme() : theme
+  );
 
   useEffect(() => {
-    applyTheme(resolvedTheme, theme === "system");
-  }, [resolvedTheme, theme]);
+    const resolved: ResolvedTheme = theme === "system" ? getSystemTheme() : theme;
+    setResolvedTheme(resolved);
+    applyTheme(resolved, theme === "system");
+  }, [theme]);
 
   useEffect(() => {
     if (theme !== "system") return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = (e: MediaQueryListEvent) => applyTheme(e.matches ? "dark" : "light", true);
+    const handler = (e: MediaQueryListEvent) => {
+      const resolved: ResolvedTheme = e.matches ? "dark" : "light";
+      setResolvedTheme(resolved);
+      applyTheme(resolved, true);
+    };
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, [theme]);
@@ -62,6 +70,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } catch {}
     const resolved: ResolvedTheme = newTheme === "system" ? getSystemTheme() : (newTheme as ResolvedTheme);
     applyTheme(resolved, newTheme === "system");
+    setResolvedTheme(resolved);
     setThemeState(newTheme);
   };
 
