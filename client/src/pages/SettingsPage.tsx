@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LogOut, User, Users, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat, Sparkles, ChevronDown, MessageCircle, CheckCircle, QrCode, Copy, Share2, TrendingUp, Info, Sun, Moon, Monitor } from "lucide-react";
-import { useTheme } from "@/contexts/ThemeContext";
+import { useTheme, type Theme } from "@/contexts/ThemeContext";
 import { QRCodeCanvas } from "qrcode.react";
 import { shareOrCopy, canNativeShare } from "@/lib/share";
 import { Switch } from "@/components/ui/switch";
@@ -722,7 +722,6 @@ export default function SettingsPage() {
       </Card>
 
 
-      {/* Appearance card hidden temporarily — theme toggle not working correctly; re-enable when fixed
       <Card className="border-border/50">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
@@ -733,9 +732,9 @@ export default function SettingsPage() {
         <CardContent>
           <div className="grid grid-cols-3 gap-2">
             {[
-              { value: "light", label: "Light", icon: Sun },
-              { value: "dark", label: "Dark", icon: Moon },
-              { value: "system", label: "System", icon: Monitor },
+              { value: "light" as Theme, label: "Light", icon: Sun },
+              { value: "dark" as Theme, label: "Dark", icon: Moon },
+              { value: "system" as Theme, label: "System", icon: Monitor },
             ].map(({ value, label, icon: Icon }) => (
               <button
                 key={value}
@@ -754,7 +753,6 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
-      */}
 
       <Card
         className="border-border/50 cursor-pointer hover:border-primary/40 transition-colors"
