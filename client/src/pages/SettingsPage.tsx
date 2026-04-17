@@ -722,6 +722,7 @@ export default function SettingsPage() {
       </Card>
 
 
+      {/* Appearance card hidden temporarily — theme toggle not working correctly; re-enable when fixed
       <Card className="border-border/50">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
@@ -753,6 +754,7 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+      */}
 
       <Card
         className="border-border/50 cursor-pointer hover:border-primary/40 transition-colors"
