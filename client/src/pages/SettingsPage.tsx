@@ -34,7 +34,7 @@ export const DEFAULT_INCOME_SOURCES = ["Family / Parents", "Work", "Gift or Unex
 export default function SettingsPage() {
   const { user, logoutMutation } = useAuth();
   const { language, setLanguage, t, isUpdating: isLanguageUpdating } = useLanguage();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const { startTutorial } = useTutorial();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -725,7 +725,11 @@ export default function SettingsPage() {
       <Card className="border-border/50">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Sun className="w-5 h-5 text-primary" />
+            {resolvedTheme === "dark" ? (
+              <Moon className="w-5 h-5 text-primary" />
+            ) : (
+              <Sun className="w-5 h-5 text-primary" />
+            )}
             Appearance
           </CardTitle>
         </CardHeader>
