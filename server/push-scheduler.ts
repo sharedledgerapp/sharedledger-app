@@ -185,7 +185,7 @@ async function checkWeeklyReminders() {
 
       const sent = await sendPushToUser(user.id, {
         title: "Weekly Financial Review",
-        body: "Your weekly summary is ready — check your spending and income breakdown in SharedLedger!",
+        body: "Your weekly spending breakdown is ready — check your charts in SharedLedger!",
         tag: "weekly-reminder",
         url: "/app/reports",
       });

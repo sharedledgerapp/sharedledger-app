@@ -644,6 +644,13 @@ export default function ReportsPage() {
               <Sparkles className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-base">{t("financialHistory")}</h2>
               <span className="text-xs text-muted-foreground ml-1">{t("sageReviews")}</span>
+              <button
+                onClick={() => setLocation("/app/spending-reflections")}
+                className="ml-auto text-xs text-primary font-medium hover:underline"
+                data-testid="link-view-full-history"
+              >
+                View full history
+              </button>
             </div>
 
             {recentAnalyses.length === 0 ? (
@@ -684,8 +691,8 @@ export default function ReportsPage() {
                                 {periodLabel}
                               </span>
                             </div>
-                            <p className="text-xs text-muted-foreground">
-                              {format(new Date(analysis.createdAt), "MMM d, yyyy")}
+                            <p className="text-xs text-muted-foreground font-medium">
+                              Generated on {format(new Date(analysis.createdAt), "MMM d, yyyy")}
                             </p>
                           </div>
                           <Button

@@ -87,7 +87,7 @@ export function checkAndSendNotifications(prefs: NotificationPrefs) {
     if (now.getDay() === 0 && currentHour >= 10 && currentHour < 11) {
       showNotification(
         "Weekly Spending Review",
-        "Your weekly summary is ready. Check your spending breakdown in SharedLedger!"
+        "Your weekly spending breakdown is ready — check your charts in SharedLedger!"
       );
       setLastNotification("weekly");
     }

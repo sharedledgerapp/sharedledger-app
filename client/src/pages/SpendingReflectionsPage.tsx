@@ -84,7 +84,7 @@ function AnalysisCard({ analysis }: { analysis: AiAnalysis }) {
               <span className="text-xs font-semibold text-primary">{typeLabel}</span>
             </div>
             <p className="text-sm font-medium">{periodLabel}</p>
-            <p className="text-xs text-muted-foreground">{format(new Date(analysis.createdAt), "MMM d, yyyy 'at' h:mm a")}</p>
+            <p className="text-xs text-muted-foreground font-medium">Generated on {format(new Date(analysis.createdAt), "MMM d, yyyy")}</p>
           </div>
           <Button
             size="icon"
