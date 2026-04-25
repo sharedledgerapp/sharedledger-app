@@ -1683,8 +1683,6 @@ function SharedNoteCard({
 
   const blocks = parseContent(localContent);
 
-  const isCreator = currentUserId === note.userId;
-
   const handleSaveEdit = () => {
     if (!editTitle.trim()) return;
     onUpdate(note.id, editTitle.trim(), editContent);
@@ -1783,17 +1781,15 @@ function SharedNoteCard({
         </div>
 
         <div className="flex flex-col gap-1 shrink-0">
-          {isCreator && (
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => { setEditTitle(note.title); setEditContent(note.content ?? ""); setIsEditing(true); }}
-              className="text-muted-foreground hover:text-foreground w-7 h-7"
-              data-testid={`button-edit-shared-note-${note.id}`}
-            >
-              <Pencil className="w-3.5 h-3.5" />
-            </Button>
-          )}
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => { setEditTitle(note.title); setEditContent(note.content ?? ""); setIsEditing(true); }}
+            className="text-muted-foreground hover:text-foreground w-7 h-7"
+            data-testid={`button-edit-shared-note-${note.id}`}
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </Button>
           <Button
             size="icon"
             variant="ghost"
