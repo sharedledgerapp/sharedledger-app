@@ -1674,7 +1674,7 @@ function SharedNoteCard({
 
   const handleSaveEdit = () => {
     if (!editTitle.trim()) return;
-    onUpdate(note.id, editTitle.trim(), editContent.trim());
+    onUpdate(note.id, editTitle.trim(), editContent);
     setIsEditing(false);
   };
 
