@@ -840,6 +840,145 @@ async function checkSpendingExceedsIncome() {
   }
 }
 
+async function checkGroupSharedIncomePrompt() {
+  const now = new Date();
+  const day = now.getDate();
+  if (day !== 1 && day !== 2) return;
+  if (now.getHours() < 10 || now.getHours() >= 11) return;
+
+  const yearMonth = format(now, 'yyyy-MM');
+  const monthStart = startOfMonth(now);
+  const monthEnd = endOfMonth(now);
+
+  const allUsers = await db.select().from(users).where(and(eq(users.monthlyReminderEnabled, true), eq(users.onboardingCompleted, true)));
+
+  // Pre-load all families so we can look up group type without extra queries per user
+  const allFamilies = await db.select().from(families);
+  const familyMap = new Map(allFamilies.map(f => [f.id, f]));
+
+  // Collect group income already logged this month, keyed by familyId
+  const groupIncomeThisMonth = await db
+    .select({ familyId: incomeEntries.familyId, id: incomeEntries.id })
+    .from(incomeEntries)
+    .where(and(
+      gte(incomeEntries.date, monthStart),
+      lte(incomeEntries.date, monthEnd),
+      sql`${incomeEntries.familyId} IS NOT NULL`
+    ));
+  const groupsWithIncome = new Set(groupIncomeThisMonth.map(r => r.familyId).filter(Boolean) as number[]);
+
+  for (const user of allUsers) {
+    try {
+      const notifKey = `group_shared_income_prompt_${yearMonth}`;
+      if (await wasNotifiedSince(user.id, notifKey, monthStart)) continue;
+
+      if (user.familyId) {
+        // Group user — only family/couple groups; skip roommates and friend groups
+        const family = familyMap.get(user.familyId);
+        const groupType = family?.groupType;
+        if (groupType === "roommates" || groupType === "friends") continue;
+
+        // Skip if the group already has shared income logged this month
+        if (groupsWithIncome.has(user.familyId)) continue;
+
+        const sent = await sendPushToUser(user.id, {
+          title: "New month — log your shared income",
+          body: "Does your household have income to record this month? Rent contributions, salary splits, shared transfers — log them in your Group tab so everyone sees the full picture.",
+          tag: `group-income-prompt-${yearMonth}`,
+          url: "/app/expenses?tab=in",
+        });
+        if (sent) await markNotified(user.id, notifKey);
+      } else {
+        // Solo user — lighter-touch nudge to encourage group creation or personal income logging
+        const soloNotifKey = `solo_income_group_hint_${yearMonth}`;
+        if (await wasNotifiedSince(user.id, soloNotifKey, monthStart)) continue;
+
+        const [personalIncomeRow] = await db.select({ id: incomeEntries.id })
+          .from(incomeEntries)
+          .where(and(
+            eq(incomeEntries.userId, user.id),
+            gte(incomeEntries.date, monthStart),
+            lte(incomeEntries.date, monthEnd)
+          ))
+          .limit(1);
+
+        if (personalIncomeRow) continue;
+
+        const sent = await sendPushToUser(user.id, {
+          title: "New month — log your income",
+          body: "Tracking income alongside expenses gives you the full financial picture. Log yours now — and if you share finances with someone, you can create a group to track it together.",
+          tag: `solo-income-hint-${yearMonth}`,
+          url: "/app/expenses?tab=in",
+        });
+        if (sent) await markNotified(user.id, soloNotifKey);
+      }
+    } catch (err) {
+      console.error(`[Push] checkGroupSharedIncomePrompt failed for user ${user.id}:`, err);
+    }
+  }
+}
+
+async function checkGroupSharedRecurringNudge() {
+  const now = new Date();
+  const day = now.getDate();
+  const lastDay = endOfMonth(now).getDate();
+  const isStartNudge = day === 3;
+  const isEndNudge = day === lastDay - 3 || day === lastDay - 2;
+  if (!isStartNudge && !isEndNudge) return;
+  if (now.getHours() < 10 || now.getHours() >= 11) return;
+
+  const yearMonth = format(now, 'yyyy-MM');
+  const monthStart = startOfMonth(now);
+
+  const nudgeKey = isStartNudge
+    ? `group_recurring_nudge_start_${yearMonth}`
+    : `group_recurring_nudge_end_${yearMonth}`;
+
+  const title = isStartNudge
+    ? "Track your group's recurring costs"
+    : "Planning next month together?";
+
+  const body = isStartNudge
+    ? "Did you know you can track shared recurring costs in SharedLedger? Add subscriptions, rent, utilities, or food budgets once — and they'll appear on your group dashboard every month automatically."
+    : "As the month wraps up, it's a good time to set up your shared recurring costs — subscriptions, rent, utilities — so your group dashboard shows the full picture next month.";
+
+  const groupUsers = await db.select().from(users).where(and(
+    eq(users.onboardingCompleted, true),
+    eq(users.monthlyReminderEnabled, true),
+    sql`${users.familyId} IS NOT NULL`
+  ));
+
+  // Load all group-shared recurring expenses to check which groups already have some
+  const allGroupRecurring = await db.select({ familyId: recurringExpenses.familyId })
+    .from(recurringExpenses)
+    .where(and(
+      eq(recurringExpenses.isGroupShared, true),
+      sql`${recurringExpenses.familyId} IS NOT NULL`
+    ));
+  const groupsWithRecurring = new Set(allGroupRecurring.map(r => r.familyId).filter(Boolean) as number[]);
+
+  for (const user of groupUsers) {
+    try {
+      if (!user.familyId) continue;
+
+      // Only nudge groups that have NOT yet set up any shared recurring expenses
+      if (groupsWithRecurring.has(user.familyId)) continue;
+
+      if (await wasNotifiedSince(user.id, nudgeKey, monthStart)) continue;
+
+      const sent = await sendPushToUser(user.id, {
+        title,
+        body,
+        tag: `group-recurring-nudge-${isStartNudge ? "start" : "end"}-${yearMonth}`,
+        url: "/app/expenses?view=recurring",
+      });
+      if (sent) await markNotified(user.id, nudgeKey);
+    } catch (err) {
+      console.error(`[Push] checkGroupSharedRecurringNudge failed for user ${user.id}:`, err);
+    }
+  }
+}
+
 async function checkEndOfMonthIncomeRecap() {
   const now = new Date();
   const day = now.getDate();
@@ -938,6 +1077,8 @@ export function startPushScheduler() {
       { name: "paydayFollowUpReminder", fn: checkPaydayFollowUpReminder },
       { name: "spendingExceedsIncome", fn: checkSpendingExceedsIncome },
       { name: "endOfMonthIncomeRecap", fn: checkEndOfMonthIncomeRecap },
+      { name: "groupSharedIncomePrompt", fn: checkGroupSharedIncomePrompt },
+      { name: "groupSharedRecurringNudge", fn: checkGroupSharedRecurringNudge },
     ];
     for (const { name, fn } of checks) {
       try {
