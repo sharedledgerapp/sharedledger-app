@@ -217,20 +217,85 @@ export function CouplesDashboardView({
         </div>
       </div>
 
-      <Card className="bg-gradient-to-br from-primary to-primary/80 border-none text-white shadow-xl shadow-primary/20">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-2 text-white/80 mb-1">
-            <Wallet className="w-4 h-4" />
-            <span className="text-sm font-medium">Household spending · {periodLabel}</span>
-          </div>
-          <div className="text-4xl font-display font-bold" data-testid="text-couple-total-spent">
-            {currencySymbol}{summary.totalSpent}
-          </div>
-          <div className="mt-2 text-xs text-white/70">
-            {summary.expenseCount} shared {summary.expenseCount === 1 ? "expense" : "expenses"}
-          </div>
-        </CardContent>
-      </Card>
+      {(() => {
+        const today = new Date().toDateString();
+        const todayGroupTotal = recentExpenses
+          .filter(e => new Date(e.date).toDateString() === today)
+          .reduce((sum, e) => sum + Number(e.amount), 0);
+        const groupRecurringTotal = (sharedRecurring || [])
+          .reduce((sum, r) => sum + Number(r.amount), 0);
+        const groupIncomeTotal = (familyIncomeEntries || [])
+          .reduce((sum, e) => sum + Number(e.amount), 0);
+        const hasGroupIncome = groupIncomeTotal > 0;
+        const netGroupTotal = groupIncomeTotal - totalSpent;
+        const totalStr = hasGroupIncome
+          ? `${netGroupTotal >= 0 ? "+" : "-"}${currencySymbol}${toFixedAmount(Math.abs(netGroupTotal), user?.currency)}`
+          : `${currencySymbol}${toFixedAmount(totalSpent, user?.currency)}`;
+        const sizeClass = totalStr.length > 14 ? "text-2xl" : totalStr.length > 11 ? "text-3xl" : totalStr.length > 8 ? "text-4xl" : "text-4xl";
+        return (
+          <Card className="bg-gradient-to-br from-primary to-primary/80 border-none text-white shadow-xl shadow-primary/20">
+            <CardContent className="p-6">
+              <div className="flex justify-between items-start gap-2 mb-1">
+                <div className="flex items-center gap-2 text-white/80">
+                  <Wallet className="w-4 h-4" />
+                  <span className="text-sm font-medium">Household spending · {periodLabel}</span>
+                </div>
+                {todayGroupTotal > 0 && (
+                  <div className="text-right bg-white/15 rounded-lg px-3 py-2 backdrop-blur-sm" data-testid="badge-couple-today-total">
+                    <div className="text-[10px] uppercase tracking-wider text-white/70">{t("today")}</div>
+                    <div className="text-base font-bold">{currencySymbol}{toFixedAmount(todayGroupTotal, user?.currency)}</div>
+                  </div>
+                )}
+              </div>
+              <div className={`${sizeClass} font-display font-bold leading-tight ${hasGroupIncome && netGroupTotal < 0 ? "text-red-200" : ""}`} data-testid="text-couple-total-spent">
+                {totalStr}
+                {hasGroupIncome && <span className="text-sm font-normal text-white/70 ml-2">net</span>}
+              </div>
+              <div className="mt-3 space-y-1.5 text-[11px] text-white/80">
+                {hasGroupIncome ? (
+                  <>
+                    <div className="flex items-center justify-between" data-testid="badge-couple-income-total">
+                      <span className="flex items-center gap-1">
+                        <Banknote className="w-3 h-3 shrink-0" />
+                        Money In
+                      </span>
+                      <span className="font-semibold text-green-300">+{currencySymbol}{toFixedAmount(groupIncomeTotal, user?.currency)}</span>
+                    </div>
+                    <div className="flex items-center justify-between" data-testid="badge-couple-spending-total">
+                      <span className="flex items-center gap-1">
+                        <Wallet className="w-3 h-3 shrink-0" />
+                        Money Out
+                      </span>
+                      <span className="font-semibold text-white">-{currencySymbol}{toFixedAmount(totalSpent, user?.currency)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {totalSpent > 0 && groupRecurringTotal > 0 && (
+                      <div className="flex items-center justify-between" data-testid="badge-couple-everyday-total">
+                        <span className="flex items-center gap-1">
+                          <Wallet className="w-3 h-3 shrink-0" />
+                          Everyday
+                        </span>
+                        <span className="font-semibold text-white">{currencySymbol}{toFixedAmount(Math.max(0, totalSpent - groupRecurringTotal), user?.currency)}</span>
+                      </div>
+                    )}
+                    {groupRecurringTotal > 0 && (
+                      <div className="flex items-center justify-between" data-testid="badge-couple-recurring-total">
+                        <span className="flex items-center gap-1">
+                          <Repeat className="w-3 h-3 shrink-0" />
+                          Recurring
+                        </span>
+                        <span className="font-semibold text-white">{currencySymbol}{toFixedAmount(groupRecurringTotal, user?.currency)}/mo</span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {categoryBreakdown.length > 0 && (
         <Card className="border-border/50 shadow-sm">
