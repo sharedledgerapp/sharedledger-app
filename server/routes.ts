@@ -1887,11 +1887,12 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const note = await storage.getNote(noteId);
     if (!note) return res.status(404).json({ message: "Note not found" });
     if (note.familyId !== user.familyId) return res.status(403).json({ message: "Forbidden" });
-    const { title, content, isCompleted } = req.body;
+    const { title, content, isCompleted, isPinned } = req.body;
     const updates: any = {};
     if (title !== undefined) updates.title = title;
     if (content !== undefined) updates.content = content;
     if (isCompleted !== undefined) updates.isCompleted = isCompleted;
+    if (isPinned !== undefined) updates.isPinned = isPinned;
     const updated = await storage.updateNote(noteId, updates, user.id);
     res.json(updated);
   });
@@ -1942,15 +1943,17 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const existing = await storage.getPersonalNote(noteId);
     if (!existing) return res.status(404).json({ message: "Note not found" });
     if (existing.userId !== user.id) return res.status(403).json({ message: "Forbidden" });
-    const { title, content, isCompleted } = z.object({
+    const { title, content, isCompleted, isPinned } = z.object({
       title: z.string().min(1).max(200).optional(),
       content: z.string().optional().nullable(),
       isCompleted: z.boolean().optional(),
+      isPinned: z.boolean().optional(),
     }).parse(req.body);
     const updates: any = {};
     if (title !== undefined) updates.title = title;
     if (content !== undefined) updates.content = content;
     if (isCompleted !== undefined) updates.isCompleted = isCompleted;
+    if (isPinned !== undefined) updates.isPinned = isPinned;
     const updated = await storage.updatePersonalNote(noteId, updates);
     res.json(updated);
   });

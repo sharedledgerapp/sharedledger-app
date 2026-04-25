@@ -37,6 +37,7 @@ import {
   BookMarked,
   Loader2,
   Clock,
+  Pin,
 } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
 
@@ -76,6 +77,7 @@ interface PersonalNoteItem {
   title: string;
   content: string | null;
   isCompleted: boolean;
+  isPinned: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -87,6 +89,7 @@ interface SharedNoteItem {
   title: string;
   content: string | null;
   isCompleted: boolean;
+  isPinned: boolean;
   createdAt: string;
   creatorName: string;
   updatedAt: string | null;
@@ -2088,6 +2091,22 @@ function NotesTab({
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notes"] }),
   });
 
+  const pinPersonalMutation = useMutation({
+    mutationFn: async ({ id, isPinned }: { id: number; isPinned: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/personal-notes/${id}`, { isPinned });
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/personal-notes"] }),
+  });
+
+  const pinSharedMutation = useMutation({
+    mutationFn: async ({ id, isPinned }: { id: number; isPinned: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/notes/${id}`, { isPinned });
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notes"] }),
+  });
+
   const { handleKeyDown: handlePersonalSmartKeyDown, detectedFormat: personalDetectedFormat, handleCursorChange: handlePersonalCursorChange } = useSmartTextarea(newPersonalContent, setNewPersonalContent, personalContentRef);
   const { handleKeyDown: handleSharedSmartKeyDown, detectedFormat: sharedDetectedFormat, handleCursorChange: handleSharedCursorChange } = useSmartTextarea(newSharedContent, setNewSharedContent, sharedContentRef);
 
@@ -2105,9 +2124,11 @@ function NotesTab({
     await shareToGroupMutation.mutateAsync(content);
   };
 
-  const activePersonal = personalNotesList?.filter(n => !n.isCompleted) || [];
+  const activePersonal = personalNotesList?.filter(n => !n.isCompleted && !n.isPinned) || [];
+  const pinnedPersonal = personalNotesList?.filter(n => !n.isCompleted && n.isPinned) || [];
   const completedPersonal = personalNotesList?.filter(n => n.isCompleted) || [];
-  const activeShared = sharedNotesList?.filter(n => !n.isCompleted) || [];
+  const activeShared = sharedNotesList?.filter(n => !n.isCompleted && !n.isPinned) || [];
+  const pinnedShared = sharedNotesList?.filter(n => !n.isCompleted && n.isPinned) || [];
   const completedShared = sharedNotesList?.filter(n => n.isCompleted) || [];
 
   const selectedPersonalNote = personalNotesList?.find(n => n.id === selectedPersonalId) ?? null;
@@ -2165,8 +2186,8 @@ function NotesTab({
               <span className="text-[10px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-full font-medium">Private</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              {personalLoading ? "Loading…" : activePersonal.length > 0
-                ? `${activePersonal.length} active note${activePersonal.length !== 1 ? "s" : ""}`
+              {personalLoading ? "Loading…" : (activePersonal.length + pinnedPersonal.length) > 0
+                ? `${activePersonal.length + pinnedPersonal.length} active note${(activePersonal.length + pinnedPersonal.length) !== 1 ? "s" : ""}`
                 : "Your private planning notes"}
             </p>
           </div>
@@ -2188,8 +2209,8 @@ function NotesTab({
                 <span className="text-[10px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-full font-medium">Group</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                {sharedLoading ? "Loading…" : activeShared.length > 0
-                  ? `${activeShared.length} active note${activeShared.length !== 1 ? "s" : ""}`
+                {sharedLoading ? "Loading…" : (activeShared.length + pinnedShared.length) > 0
+                  ? `${activeShared.length + pinnedShared.length} active note${(activeShared.length + pinnedShared.length) !== 1 ? "s" : ""}`
                   : "Shopping lists, to-dos and shared plans"}
               </p>
             </div>
@@ -2336,7 +2357,7 @@ function NotesTab({
             <div className="space-y-2">
               {[1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}
             </div>
-          ) : activePersonal.length === 0 && completedPersonal.length === 0 && !showAddPersonalForm ? (
+          ) : pinnedPersonal.length === 0 && activePersonal.length === 0 && completedPersonal.length === 0 && !showAddPersonalForm ? (
             <div className="flex flex-col items-center justify-center py-10 text-muted-foreground border border-dashed border-border/50 rounded-xl">
               <Lock className="w-8 h-8 mb-2 opacity-20" />
               <p className="text-sm font-medium">No personal notes yet</p>
@@ -2344,23 +2365,58 @@ function NotesTab({
             </div>
           ) : (
             <>
+              {pinnedPersonal.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide px-1">Pinned ({pinnedPersonal.length})</p>
+                  {pinnedPersonal.map(note => (
+                    <div key={note.id} className="w-full flex items-center gap-3 p-3 rounded-xl border border-primary/30 bg-primary/5 transition-colors">
+                      <button
+                        className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 shrink-0"
+                        onClick={() => openPersonalNote(note.id)}
+                        data-testid={`button-personal-note-pinned-${note.id}`}
+                      />
+                      <button className="flex-1 min-w-0 text-left" onClick={() => openPersonalNote(note.id)} data-testid={`button-personal-note-pinned-title-${note.id}`}>
+                        <p className="text-sm font-medium truncate">{note.title}</p>
+                        {note.content && (
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">{note.content.replace(/[#*`_\[\]]/g, "").slice(0, 60)}</p>
+                        )}
+                      </button>
+                      <span className="text-[11px] text-muted-foreground shrink-0">{format(new Date(note.createdAt), "MMM d")}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); pinPersonalMutation.mutate({ id: note.id, isPinned: false }); }}
+                        className="p-1 rounded-md hover:bg-secondary/50 transition-colors shrink-0"
+                        data-testid={`button-unpin-personal-note-${note.id}`}
+                        aria-label="Unpin note"
+                      >
+                        <Pin className="w-3.5 h-3.5 text-primary fill-primary" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               {activePersonal.map(note => (
-                <button
-                  key={note.id}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/50 bg-card hover:bg-secondary/30 transition-colors text-left"
-                  onClick={() => openPersonalNote(note.id)}
-                  data-testid={`button-personal-note-${note.id}`}
-                >
-                  <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />
-                  <div className="flex-1 min-w-0">
+                <div key={note.id} className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/50 bg-card hover:bg-secondary/30 transition-colors">
+                  <button
+                    className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 shrink-0"
+                    onClick={() => openPersonalNote(note.id)}
+                    data-testid={`button-personal-note-${note.id}`}
+                  />
+                  <button className="flex-1 min-w-0 text-left" onClick={() => openPersonalNote(note.id)} data-testid={`button-personal-note-title-${note.id}`}>
                     <p className="text-sm font-medium truncate">{note.title}</p>
                     {note.content && (
                       <p className="text-xs text-muted-foreground truncate mt-0.5">{note.content.replace(/[#*`_\[\]]/g, "").slice(0, 60)}</p>
                     )}
-                  </div>
+                  </button>
                   <span className="text-[11px] text-muted-foreground shrink-0">{format(new Date(note.createdAt), "MMM d")}</span>
-                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); pinPersonalMutation.mutate({ id: note.id, isPinned: true }); }}
+                    className="p-1 rounded-md hover:bg-secondary/50 transition-colors shrink-0"
+                    data-testid={`button-pin-personal-note-${note.id}`}
+                    aria-label="Pin note"
+                  >
+                    <Pin className="w-3.5 h-3.5 text-muted-foreground/50" />
+                  </button>
+                </div>
               ))}
               {completedPersonal.length > 0 && (
                 <div className="space-y-2 pt-2">
@@ -2491,7 +2547,7 @@ function NotesTab({
             <div className="space-y-2">
               {[1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}
             </div>
-          ) : activeShared.length === 0 && completedShared.length === 0 && !showAddSharedForm ? (
+          ) : pinnedShared.length === 0 && activeShared.length === 0 && completedShared.length === 0 && !showAddSharedForm ? (
             <div className="flex flex-col items-center justify-center py-10 text-muted-foreground border border-dashed border-border/50 rounded-xl">
               <Users className="w-8 h-8 mb-2 opacity-20" />
               <p className="text-sm font-medium">{t("noNotes")}</p>
@@ -2499,23 +2555,58 @@ function NotesTab({
             </div>
           ) : (
             <>
+              {pinnedShared.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide px-1">Pinned ({pinnedShared.length})</p>
+                  {pinnedShared.map(note => (
+                    <div key={note.id} className="w-full flex items-center gap-3 p-3 rounded-xl border border-primary/30 bg-primary/5 transition-colors">
+                      <button
+                        className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 shrink-0"
+                        onClick={() => openSharedNote(note.id)}
+                        data-testid={`button-shared-note-pinned-${note.id}`}
+                      />
+                      <button className="flex-1 min-w-0 text-left" onClick={() => openSharedNote(note.id)} data-testid={`button-shared-note-pinned-title-${note.id}`}>
+                        <p className="text-sm font-medium truncate">{note.title}</p>
+                        {note.content && (
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">{note.content.replace(/[#*`_\[\]]/g, "").slice(0, 60)}</p>
+                        )}
+                      </button>
+                      <span className="text-[11px] text-muted-foreground shrink-0">{format(new Date(note.createdAt), "MMM d")}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); pinSharedMutation.mutate({ id: note.id, isPinned: false }); }}
+                        className="p-1 rounded-md hover:bg-secondary/50 transition-colors shrink-0"
+                        data-testid={`button-unpin-shared-note-${note.id}`}
+                        aria-label="Unpin note"
+                      >
+                        <Pin className="w-3.5 h-3.5 text-primary fill-primary" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               {activeShared.map(note => (
-                <button
-                  key={note.id}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/50 bg-card hover:bg-secondary/30 transition-colors text-left"
-                  onClick={() => openSharedNote(note.id)}
-                  data-testid={`button-shared-note-${note.id}`}
-                >
-                  <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />
-                  <div className="flex-1 min-w-0">
+                <div key={note.id} className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/50 bg-card hover:bg-secondary/30 transition-colors">
+                  <button
+                    className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 shrink-0"
+                    onClick={() => openSharedNote(note.id)}
+                    data-testid={`button-shared-note-${note.id}`}
+                  />
+                  <button className="flex-1 min-w-0 text-left" onClick={() => openSharedNote(note.id)} data-testid={`button-shared-note-title-${note.id}`}>
                     <p className="text-sm font-medium truncate">{note.title}</p>
                     {note.content && (
                       <p className="text-xs text-muted-foreground truncate mt-0.5">{note.content.replace(/[#*`_\[\]]/g, "").slice(0, 60)}</p>
                     )}
-                  </div>
+                  </button>
                   <span className="text-[11px] text-muted-foreground shrink-0">{format(new Date(note.createdAt), "MMM d")}</span>
-                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); pinSharedMutation.mutate({ id: note.id, isPinned: true }); }}
+                    className="p-1 rounded-md hover:bg-secondary/50 transition-colors shrink-0"
+                    data-testid={`button-pin-shared-note-${note.id}`}
+                    aria-label="Pin note"
+                  >
+                    <Pin className="w-3.5 h-3.5 text-muted-foreground/50" />
+                  </button>
+                </div>
               ))}
               {completedShared.length > 0 && (
                 <div className="space-y-2 pt-2">

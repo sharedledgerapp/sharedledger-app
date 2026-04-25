@@ -92,7 +92,7 @@ export interface IStorage {
   createNote(note: InsertNote): Promise<Note>;
   getNote(id: number): Promise<Note | undefined>;
   getNotes(familyId: number): Promise<(Note & { creatorName: string; editorName: string | null })[]>;
-  updateNote(id: number, updates: Partial<Pick<Note, 'title' | 'content' | 'isCompleted'>>, updatedByUserId?: number): Promise<Note>;
+  updateNote(id: number, updates: Partial<Pick<Note, 'title' | 'content' | 'isCompleted' | 'isPinned'>>, updatedByUserId?: number): Promise<Note>;
   deleteNote(id: number): Promise<void>;
 
   // Recurring Expenses
@@ -168,7 +168,7 @@ export interface IStorage {
   getPersonalNotes(userId: number): Promise<PersonalNote[]>;
   getPersonalNote(id: number): Promise<PersonalNote | undefined>;
   createPersonalNote(data: InsertPersonalNote): Promise<PersonalNote>;
-  updatePersonalNote(id: number, updates: Partial<Pick<PersonalNote, 'title' | 'content' | 'isCompleted'>>): Promise<PersonalNote>;
+  updatePersonalNote(id: number, updates: Partial<Pick<PersonalNote, 'title' | 'content' | 'isCompleted' | 'isPinned'>>): Promise<PersonalNote>;
   deletePersonalNote(id: number): Promise<void>;
 
   sessionStore: session.Store;
@@ -752,8 +752,8 @@ export class DatabaseStorage implements IStorage {
     return results.map(r => ({ ...r.note, creatorName: r.creatorName, editorName: r.editorName ?? null }));
   }
 
-  async updateNote(id: number, updates: Partial<Pick<Note, 'title' | 'content' | 'isCompleted'>>, updatedByUserId?: number): Promise<Note> {
-    const setValues: Partial<Pick<Note, 'title' | 'content' | 'isCompleted' | 'updatedAt' | 'updatedByUserId'>> = { ...updates };
+  async updateNote(id: number, updates: Partial<Pick<Note, 'title' | 'content' | 'isCompleted' | 'isPinned'>>, updatedByUserId?: number): Promise<Note> {
+    const setValues: Partial<Pick<Note, 'title' | 'content' | 'isCompleted' | 'isPinned' | 'updatedAt' | 'updatedByUserId'>> = { ...updates };
     if (updatedByUserId !== undefined) {
       setValues.updatedAt = new Date();
       setValues.updatedByUserId = updatedByUserId;
@@ -1436,7 +1436,7 @@ export class DatabaseStorage implements IStorage {
     return note;
   }
 
-  async updatePersonalNote(id: number, updates: Partial<Pick<PersonalNote, 'title' | 'content' | 'isCompleted'>>): Promise<PersonalNote> {
+  async updatePersonalNote(id: number, updates: Partial<Pick<PersonalNote, 'title' | 'content' | 'isCompleted' | 'isPinned'>>): Promise<PersonalNote> {
     const [note] = await db.update(personalNotes)
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(personalNotes.id, id))

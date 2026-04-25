@@ -136,6 +136,7 @@ export const notes = pgTable("notes", {
   title: text("title").notNull(),
   content: text("content"),
   isCompleted: boolean("is_completed").default(false).notNull(),
+  isPinned: boolean("is_pinned").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at"),
   updatedByUserId: integer("updated_by_user_id").references(() => users.id),
@@ -448,6 +449,7 @@ export const personalNotes = pgTable("personal_notes", {
   title: text("title").notNull(),
   content: text("content"),
   isCompleted: boolean("is_completed").default(false).notNull(),
+  isPinned: boolean("is_pinned").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
