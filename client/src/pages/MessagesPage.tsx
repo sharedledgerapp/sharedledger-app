@@ -1246,7 +1246,7 @@ function NoteContentRenderer({
 type DetectedFormat = "bullet" | "ordered" | "todo" | "text";
 
 function detectLineFormat(line: string): DetectedFormat {
-  if (line.startsWith("- ")) return "bullet";
+  if (line.startsWith("- ") || line.startsWith("* ")) return "bullet";
   if (line.startsWith("[ ] ") || line.startsWith("[x] ")) return "todo";
   if (/^\d+\. /.test(line)) return "ordered";
   return "text";
