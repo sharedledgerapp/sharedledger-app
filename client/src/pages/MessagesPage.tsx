@@ -1243,16 +1243,53 @@ function NoteContentRenderer({
 
 // ─── Smart textarea ───────────────────────────────────────────────────────────
 
+type DetectedFormat = "bullet" | "ordered" | "todo" | "text";
+
+function detectLineFormat(line: string): DetectedFormat {
+  if (line.startsWith("- ")) return "bullet";
+  if (line.startsWith("[ ] ") || line.startsWith("[x] ")) return "todo";
+  if (/^\d+\. /.test(line)) return "ordered";
+  return "text";
+}
+
 function useSmartTextarea(
   value: string,
   onChange: (v: string) => void,
   textareaRef: React.RefObject<HTMLTextAreaElement | null>
 ) {
+  const [detectedFormat, setDetectedFormat] = useState<DetectedFormat>("text");
+
+  const handleCursorChange = useCallback(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const cursor = ta.selectionStart;
+    const [lineStart, lineEnd] = getLineRange(value, cursor);
+    const line = value.slice(lineStart, lineEnd);
+    setDetectedFormat(detectLineFormat(line));
+  }, [value, textareaRef]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key !== "Enter") return;
       const ta = textareaRef.current;
       if (!ta) return;
+
+      if (e.key === " ") {
+        const cursor = ta.selectionStart;
+        const [lineStart] = getLineRange(value, cursor);
+        const beforeCursor = value.slice(lineStart, cursor);
+        if (beforeCursor === "*") {
+          e.preventDefault();
+          const newValue = value.slice(0, lineStart) + "- " + value.slice(cursor);
+          onChange(newValue);
+          setTimeout(() => {
+            ta.setSelectionRange(lineStart + 2, lineStart + 2);
+            setDetectedFormat("bullet");
+          }, 0);
+          return;
+        }
+      }
+
+      if (e.key !== "Enter") return;
 
       const cursor = ta.selectionStart;
       const [lineStart, lineEnd] = getLineRange(value, cursor);
@@ -1280,7 +1317,78 @@ function useSmartTextarea(
     [value, onChange, textareaRef]
   );
 
-  return { handleKeyDown };
+  return { handleKeyDown, detectedFormat, handleCursorChange };
+}
+
+// ─── Note format badge ────────────────────────────────────────────────────────
+
+function NoteFormatBadge({ format }: { format: DetectedFormat }) {
+  if (format === "text") return null;
+  const labels: Record<Exclude<DetectedFormat, "text">, string> = {
+    bullet: "Bullet list",
+    ordered: "Numbered list",
+    todo: "To-do item",
+  };
+  return (
+    <span
+      className="inline-flex items-center text-[10px] font-medium text-primary bg-primary/10 rounded-full px-2 py-0.5 transition-opacity"
+      data-testid="badge-note-format"
+    >
+      {labels[format]}
+    </span>
+  );
+}
+
+// ─── Note preview strip ───────────────────────────────────────────────────────
+
+function NotePreviewStrip({ value }: { value: string }) {
+  const blocks = parseContent(value);
+  const hasListBlock = blocks.some(b => b.kind !== "text");
+  if (!hasListBlock) return null;
+
+  return (
+    <div className="bg-muted/40 rounded-lg p-3 space-y-0.5" data-testid="note-preview-strip">
+      <p className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wide mb-1.5">Preview</p>
+      {blocks.map((block, i) => {
+        if (block.kind === "text") {
+          if (!block.text) return <div key={i} className="h-0.5" />;
+          return <p key={i} className="text-xs text-muted-foreground">{block.text}</p>;
+        }
+        if (block.kind === "bullet") {
+          return (
+            <div key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+              <span className="text-primary mt-0.5 shrink-0 font-bold">•</span>
+              <span>{block.text || <span className="opacity-40 italic">empty item</span>}</span>
+            </div>
+          );
+        }
+        if (block.kind === "ordered") {
+          return (
+            <div key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+              <span className="text-primary shrink-0 font-semibold tabular-nums min-w-[1.25rem]">{block.num}.</span>
+              <span>{block.text || <span className="opacity-40 italic">empty item</span>}</span>
+            </div>
+          );
+        }
+        if (block.kind === "todo") {
+          return (
+            <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+              <span className={cn(
+                "mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0",
+                block.checked ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/40"
+              )}>
+                {block.checked && <Check className="w-2.5 h-2.5" />}
+              </span>
+              <span className={cn(block.checked && "line-through opacity-50")}>
+                {block.text || <span className="opacity-40 italic">empty item</span>}
+              </span>
+            </div>
+          );
+        }
+        return null;
+      })}
+    </div>
+  );
 }
 
 // ─── Personal Note Card ───────────────────────────────────────────────────────
@@ -1310,10 +1418,13 @@ function PersonalNoteCard({
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(note.title);
   const [editContent, setEditContent] = useState(note.content ?? "");
+  const editContentRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { setLocalContent(note.content); }, [note.content]);
 
   const blocks = parseContent(localContent);
+
+  const { handleKeyDown: handleEditSmartKeyDown, detectedFormat: editDetectedFormat, handleCursorChange: handleEditCursorChange } = useSmartTextarea(editContent, setEditContent, editContentRef);
 
   const handleShareToGroup = async () => {
     setShareError(false);
@@ -1350,13 +1461,24 @@ function PersonalNoteCard({
             className="text-sm font-medium"
             data-testid={`input-edit-personal-note-title-${note.id}`}
           />
-          <Textarea
-            value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            placeholder="Note content (optional)"
-            className="text-sm min-h-[80px]"
-            data-testid={`textarea-edit-personal-note-content-${note.id}`}
-          />
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <FormatToolbar textareaRef={editContentRef} value={editContent} onChange={setEditContent} />
+              <NoteFormatBadge format={editDetectedFormat} />
+            </div>
+            <Textarea
+              ref={editContentRef}
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              onKeyDown={handleEditSmartKeyDown}
+              onKeyUp={handleEditCursorChange}
+              onSelect={handleEditCursorChange}
+              placeholder="Note content (optional)"
+              className="text-sm font-mono min-h-[80px]"
+              data-testid={`textarea-edit-personal-note-content-${note.id}`}
+            />
+            <NotePreviewStrip value={editContent} />
+          </div>
           <div className="flex gap-2 justify-end">
             <Button size="sm" variant="ghost" onClick={handleCancelEdit} data-testid={`button-cancel-edit-personal-note-${note.id}`}>
               Cancel
@@ -1695,8 +1817,8 @@ function NotesTab({
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notes"] }),
   });
 
-  const { handleKeyDown: handlePersonalSmartKeyDown } = useSmartTextarea(newPersonalContent, setNewPersonalContent, personalContentRef);
-  const { handleKeyDown: handleSharedSmartKeyDown } = useSmartTextarea(newSharedContent, setNewSharedContent, sharedContentRef);
+  const { handleKeyDown: handlePersonalSmartKeyDown, detectedFormat: personalDetectedFormat, handleCursorChange: handlePersonalCursorChange } = useSmartTextarea(newPersonalContent, setNewPersonalContent, personalContentRef);
+  const { handleKeyDown: handleSharedSmartKeyDown, detectedFormat: sharedDetectedFormat, handleCursorChange: handleSharedCursorChange } = useSmartTextarea(newSharedContent, setNewSharedContent, sharedContentRef);
 
   const handleAskSage = (note: PersonalNoteItem) => {
     const prompt = note.content
@@ -1886,17 +2008,26 @@ function NotesTab({
                 placeholder="Note title…"
                 data-testid="input-personal-note-title"
               />
-              <div className="space-y-2">
-                <FormatToolbar textareaRef={personalContentRef} value={newPersonalContent} onChange={setNewPersonalContent} />
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <FormatToolbar textareaRef={personalContentRef} value={newPersonalContent} onChange={setNewPersonalContent} />
+                  <NoteFormatBadge format={personalDetectedFormat} />
+                </div>
                 <Textarea
                   ref={personalContentRef}
                   value={newPersonalContent}
                   onChange={(e) => setNewPersonalContent(e.target.value)}
                   onKeyDown={handlePersonalSmartKeyDown}
+                  onKeyUp={handlePersonalCursorChange}
+                  onSelect={handlePersonalCursorChange}
                   placeholder="Note content (optional)…"
                   className="font-mono text-sm"
                   data-testid="input-personal-note-content"
                 />
+                <NotePreviewStrip value={newPersonalContent} />
+                <p className="text-[10px] text-muted-foreground">
+                  Use the toolbar above to add bullets, numbered lists, or to-do items.
+                </p>
               </div>
               <Button
                 onClick={() => { if (newPersonalTitle.trim()) createPersonalMutation.mutate({ title: newPersonalTitle.trim(), content: newPersonalContent.trim() }); }}
@@ -2044,17 +2175,23 @@ function NotesTab({
                 placeholder={t("noteTitlePlaceholder")}
                 data-testid="input-note-title"
               />
-              <div className="space-y-2">
-                <FormatToolbar textareaRef={sharedContentRef} value={newSharedContent} onChange={setNewSharedContent} />
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <FormatToolbar textareaRef={sharedContentRef} value={newSharedContent} onChange={setNewSharedContent} />
+                  <NoteFormatBadge format={sharedDetectedFormat} />
+                </div>
                 <Textarea
                   ref={sharedContentRef}
                   value={newSharedContent}
                   onChange={(e) => setNewSharedContent(e.target.value)}
                   onKeyDown={handleSharedSmartKeyDown}
+                  onKeyUp={handleSharedCursorChange}
+                  onSelect={handleSharedCursorChange}
                   placeholder={t("noteContentPlaceholder")}
                   className="font-mono text-sm"
                   data-testid="input-note-content"
                 />
+                <NotePreviewStrip value={newSharedContent} />
                 <p className="text-[10px] text-muted-foreground">
                   Use the toolbar above to add bullets, numbered lists, or to-do items.
                 </p>
