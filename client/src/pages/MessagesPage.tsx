@@ -1379,7 +1379,20 @@ function NoteEditorWithPreview({
   hint?: string;
 }) {
   const { t } = useLanguage();
-  const [mode, setMode] = useState<"write" | "preview">("write");
+  const [mode, setMode] = useState<"write" | "preview">(() => {
+    try {
+      const stored = localStorage.getItem("note-editor-mode");
+      return stored === "preview" ? "preview" : "write";
+    } catch {
+      return "write";
+    }
+  });
+
+  const handleSetMode = (newMode: "write" | "preview") => {
+    setMode(newMode);
+    try { localStorage.setItem("note-editor-mode", newMode); } catch {}
+  };
+
   const previewBlocks = parseContent(value);
   const hasContent = value.trim().length > 0;
 
@@ -1392,7 +1405,7 @@ function NoteEditorWithPreview({
         <div className="flex rounded-md border border-border overflow-hidden shrink-0">
           <button
             type="button"
-            onClick={() => setMode("write")}
+            onClick={() => handleSetMode("write")}
             data-testid={testId ? `${testId}-tab-write` : "tab-write"}
             className={cn(
               "px-2.5 py-1 text-xs transition-colors font-medium",
@@ -1403,7 +1416,7 @@ function NoteEditorWithPreview({
           </button>
           <button
             type="button"
-            onClick={() => setMode("preview")}
+            onClick={() => handleSetMode("preview")}
             data-testid={testId ? `${testId}-tab-preview` : "tab-preview"}
             className={cn(
               "px-2.5 py-1 text-xs transition-colors font-medium",
