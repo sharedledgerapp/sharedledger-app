@@ -1359,6 +1359,95 @@ function NotePreviewStrip({ value }: { value: string }) {
   );
 }
 
+// ─── Note editor with live preview ───────────────────────────────────────────
+
+function NoteEditorWithPreview({
+  textareaRef,
+  value,
+  onChange,
+  onKeyDown,
+  placeholder,
+  testId,
+  hint,
+}: {
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  value: string;
+  onChange: (v: string) => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  placeholder?: string;
+  testId?: string;
+  hint?: string;
+}) {
+  const { t } = useLanguage();
+  const [mode, setMode] = useState<"write" | "preview">("write");
+  const previewBlocks = parseContent(value);
+  const hasContent = value.trim().length > 0;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <div className="flex-1">
+          <FormatToolbar textareaRef={textareaRef} value={value} onChange={onChange} />
+        </div>
+        <div className="flex rounded-md border border-border overflow-hidden shrink-0">
+          <button
+            type="button"
+            onClick={() => setMode("write")}
+            data-testid={testId ? `${testId}-tab-write` : "tab-write"}
+            className={cn(
+              "px-2.5 py-1 text-xs transition-colors font-medium",
+              mode === "write" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"
+            )}
+          >
+            {t("noteEditorWrite")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("preview")}
+            data-testid={testId ? `${testId}-tab-preview` : "tab-preview"}
+            className={cn(
+              "px-2.5 py-1 text-xs transition-colors font-medium",
+              mode === "preview" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"
+            )}
+          >
+            {t("noteEditorPreview")}
+          </button>
+        </div>
+      </div>
+
+      {mode === "write" ? (
+        <Textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={onKeyDown}
+          placeholder={placeholder}
+          className="font-mono text-sm"
+          data-testid={testId}
+        />
+      ) : (
+        <div
+          className="min-h-[80px] rounded-md border border-border p-3 bg-muted/30"
+          data-testid={testId ? `${testId}-preview` : "note-preview"}
+        >
+          {!hasContent ? (
+            <p className="text-sm text-muted-foreground/50 italic">{t("noteEditorEmptyPreview")}</p>
+          ) : (
+            <NoteContentRenderer
+              blocks={previewBlocks}
+              noteId={-1}
+              rawContent={value}
+              onToggleTodo={(_, newContent) => onChange(newContent)}
+            />
+          )}
+        </div>
+      )}
+
+      {hint && <p className="text-[10px] text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
 // ─── Personal Note Card ───────────────────────────────────────────────────────
 
 function PersonalNoteCard({
@@ -1389,6 +1478,8 @@ function PersonalNoteCard({
   const editContentRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { setLocalContent(note.content); }, [note.content]);
+
+  const { handleKeyDown: handleEditSmartKeyDown } = useSmartTextarea(editContent, setEditContent, editContentRef);
 
   const blocks = parseContent(localContent);
 
@@ -1429,24 +1520,14 @@ function PersonalNoteCard({
             className="text-sm font-medium"
             data-testid={`input-edit-personal-note-title-${note.id}`}
           />
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <FormatToolbar textareaRef={editContentRef} value={editContent} onChange={setEditContent} />
-              <NoteFormatBadge format={editDetectedFormat} />
-            </div>
-            <Textarea
-              ref={editContentRef}
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              onKeyDown={handleEditSmartKeyDown}
-              onKeyUp={handleEditCursorChange}
-              onSelect={handleEditCursorChange}
-              placeholder="Note content (optional)"
-              className="text-sm font-mono min-h-[80px]"
-              data-testid={`textarea-edit-personal-note-content-${note.id}`}
-            />
-            <NotePreviewStrip value={editContent} />
-          </div>
+          <NoteEditorWithPreview
+            textareaRef={editContentRef}
+            value={editContent}
+            onChange={setEditContent}
+            onKeyDown={handleEditSmartKeyDown}
+            placeholder="Note content (optional)"
+            testId={`textarea-edit-personal-note-content-${note.id}`}
+          />
           <div className="flex gap-2 justify-end">
             <Button size="sm" variant="ghost" onClick={handleCancelEdit} data-testid={`button-cancel-edit-personal-note-${note.id}`}>
               Cancel
@@ -2062,27 +2143,14 @@ function NotesTab({
                 placeholder="Note title…"
                 data-testid="input-personal-note-title"
               />
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <FormatToolbar textareaRef={personalContentRef} value={newPersonalContent} onChange={setNewPersonalContent} />
-                  <NoteFormatBadge format={personalDetectedFormat} />
-                </div>
-                <Textarea
-                  ref={personalContentRef}
-                  value={newPersonalContent}
-                  onChange={(e) => setNewPersonalContent(e.target.value)}
-                  onKeyDown={handlePersonalSmartKeyDown}
-                  onKeyUp={handlePersonalCursorChange}
-                  onSelect={handlePersonalCursorChange}
-                  placeholder="Note content (optional)…"
-                  className="font-mono text-sm"
-                  data-testid="input-personal-note-content"
-                />
-                <NotePreviewStrip value={newPersonalContent} />
-                <p className="text-[10px] text-muted-foreground">
-                  Use the toolbar above to add bullets, numbered lists, or to-do items.
-                </p>
-              </div>
+              <NoteEditorWithPreview
+                textareaRef={personalContentRef}
+                value={newPersonalContent}
+                onChange={setNewPersonalContent}
+                onKeyDown={handlePersonalSmartKeyDown}
+                placeholder="Note content (optional)…"
+                testId="input-personal-note-content"
+              />
               <Button
                 onClick={() => { if (newPersonalTitle.trim()) createPersonalMutation.mutate({ title: newPersonalTitle.trim(), content: newPersonalContent.trim() }); }}
                 disabled={!newPersonalTitle.trim() || createPersonalMutation.isPending}
@@ -2229,27 +2297,15 @@ function NotesTab({
                 placeholder={t("noteTitlePlaceholder")}
                 data-testid="input-note-title"
               />
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <FormatToolbar textareaRef={sharedContentRef} value={newSharedContent} onChange={setNewSharedContent} />
-                  <NoteFormatBadge format={sharedDetectedFormat} />
-                </div>
-                <Textarea
-                  ref={sharedContentRef}
-                  value={newSharedContent}
-                  onChange={(e) => setNewSharedContent(e.target.value)}
-                  onKeyDown={handleSharedSmartKeyDown}
-                  onKeyUp={handleSharedCursorChange}
-                  onSelect={handleSharedCursorChange}
-                  placeholder={t("noteContentPlaceholder")}
-                  className="font-mono text-sm"
-                  data-testid="input-note-content"
-                />
-                <NotePreviewStrip value={newSharedContent} />
-                <p className="text-[10px] text-muted-foreground">
-                  Use the toolbar above to add bullets, numbered lists, or to-do items.
-                </p>
-              </div>
+              <NoteEditorWithPreview
+                textareaRef={sharedContentRef}
+                value={newSharedContent}
+                onChange={setNewSharedContent}
+                onKeyDown={handleSharedSmartKeyDown}
+                placeholder={t("noteContentPlaceholder")}
+                testId="input-note-content"
+                hint="Use the toolbar above to add bullets, numbered lists, or to-do items."
+              />
               <Button
                 onClick={() => { if (newSharedTitle.trim()) createSharedMutation.mutate({ title: newSharedTitle.trim(), content: newSharedContent.trim() }); }}
                 disabled={!newSharedTitle.trim() || createSharedMutation.isPending}

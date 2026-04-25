@@ -44,6 +44,7 @@ type TranslationKey =
   | "messages" | "savedNotes" | "typeMessage" | "send" | "noMessages" | "startConversation"
   | "addNote" | "noteTitlePlaceholder" | "noteContentPlaceholder" | "noNotes" | "addFirstNote"
   | "deleteNote" | "markComplete" | "markIncomplete" | "noteDeleted" | "messageSent" | "noteSaved"
+  | "noteEditorWrite" | "noteEditorPreview" | "noteEditorEmptyPreview"
   | "shoppingList" | "by" | "noGoals"
   | "notifications" | "dailyReminder" | "dailyReminderDescription" | "reminderTime"
   | "weeklyReminder" | "weeklyReminderDescription" | "monthlyReminder" | "monthlyReminderDescription"
@@ -310,6 +311,9 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     noteDeleted: "Note deleted",
     messageSent: "Message sent",
     noteSaved: "Note saved",
+    noteEditorWrite: "Write",
+    noteEditorPreview: "Preview",
+    noteEditorEmptyPreview: "Nothing to preview yet. Switch to Write to add content.",
     shoppingList: "Shopping List",
     by: "by",
     noGoals: "No shared goals yet",
@@ -748,6 +752,9 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     noteDeleted: "Note supprimée",
     messageSent: "Message envoyé",
     noteSaved: "Note sauvegardée",
+    noteEditorWrite: "Écrire",
+    noteEditorPreview: "Aperçu",
+    noteEditorEmptyPreview: "Rien à prévisualiser. Passez en mode Écrire pour ajouter du contenu.",
     shoppingList: "Liste de courses",
     by: "par",
     noGoals: "Pas encore d'objectifs partagés",
@@ -1186,6 +1193,9 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     noteDeleted: "Notitie verwijderd",
     messageSent: "Bericht verzonden",
     noteSaved: "Notitie opgeslagen",
+    noteEditorWrite: "Schrijven",
+    noteEditorPreview: "Voorbeeld",
+    noteEditorEmptyPreview: "Nog niets te bekijken. Schakel naar Schrijven om inhoud toe te voegen.",
     shoppingList: "Boodschappenlijst",
     by: "door",
     noGoals: "Nog geen gedeelde doelen",
