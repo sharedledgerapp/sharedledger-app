@@ -1809,6 +1809,17 @@ function SharedNoteCard({
 
 type NotesView = "list" | "personal" | "personal-detail" | "shared" | "shared-detail";
 
+const LS_NOTES_VIEW = "notes-last-view";
+const LS_NOTES_PERSONAL_ID = "notes-last-personal-id";
+const LS_NOTES_SHARED_ID = "notes-last-shared-id";
+
+function readNotesLS(key: string): string | null {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+function writeNotesLS(key: string, value: string | null) {
+  try { value !== null ? localStorage.setItem(key, value) : localStorage.removeItem(key); } catch {}
+}
+
 function NotesTab({
   onAskSage,
 }: {
@@ -1821,6 +1832,7 @@ function NotesTab({
   const [notesView, setNotesView] = useState<NotesView>("list");
   const [selectedPersonalId, setSelectedPersonalId] = useState<number | null>(null);
   const [selectedSharedId, setSelectedSharedId] = useState<number | null>(null);
+  const hasRestoredRef = useRef(false);
 
   const [showAddPersonalForm, setShowAddPersonalForm] = useState(false);
   const [showGuidedQuestions, setShowGuidedQuestions] = useState(false);
@@ -1841,6 +1853,51 @@ function NotesTab({
     queryKey: ["/api/notes"],
     enabled: hasGroup,
   });
+
+  // Persist last-opened note IDs to localStorage
+  useEffect(() => {
+    writeNotesLS(LS_NOTES_VIEW, notesView);
+  }, [notesView]);
+
+  useEffect(() => {
+    writeNotesLS(LS_NOTES_PERSONAL_ID, selectedPersonalId !== null ? String(selectedPersonalId) : null);
+  }, [selectedPersonalId]);
+
+  useEffect(() => {
+    writeNotesLS(LS_NOTES_SHARED_ID, selectedSharedId !== null ? String(selectedSharedId) : null);
+  }, [selectedSharedId]);
+
+  // Restore last-opened note on mount, once data is available
+  useEffect(() => {
+    if (hasRestoredRef.current) return;
+    // Personal notes always load; wait for that at minimum
+    if (personalNotesList === undefined) return;
+    hasRestoredRef.current = true;
+
+    const savedView = readNotesLS(LS_NOTES_VIEW) as NotesView | null;
+    const savedPersonalId = readNotesLS(LS_NOTES_PERSONAL_ID);
+    const savedSharedId = readNotesLS(LS_NOTES_SHARED_ID);
+
+    if (savedView === "personal-detail" && savedPersonalId) {
+      const id = parseInt(savedPersonalId, 10);
+      if (personalNotesList.some((n) => n.id === id)) {
+        setSelectedPersonalId(id);
+        setNotesView("personal-detail");
+        return;
+      }
+      writeNotesLS(LS_NOTES_PERSONAL_ID, null);
+    }
+
+    if (savedView === "shared-detail" && savedSharedId && sharedNotesList) {
+      const id = parseInt(savedSharedId, 10);
+      if (sharedNotesList.some((n) => n.id === id)) {
+        setSelectedSharedId(id);
+        setNotesView("shared-detail");
+        return;
+      }
+      writeNotesLS(LS_NOTES_SHARED_ID, null);
+    }
+  }, [personalNotesList, sharedNotesList]);
 
   const { data: intentionPrompt } = useQuery<any>({
     queryKey: ["/api/intention-prompt"],
