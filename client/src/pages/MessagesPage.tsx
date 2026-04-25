@@ -88,6 +88,9 @@ interface SharedNoteItem {
   isCompleted: boolean;
   createdAt: string;
   creatorName: string;
+  updatedAt: string | null;
+  updatedByUserId: number | null;
+  editorName: string | null;
 }
 
 interface FamilyInfo {
@@ -1778,6 +1781,13 @@ function SharedNoteCard({
             <span className="text-[10px] text-muted-foreground">{t("by")} {note.creatorName}</span>
             <span className="text-[10px] text-muted-foreground">{format(new Date(note.createdAt), "MMM d")}</span>
           </div>
+          {note.updatedAt && note.editorName && (
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[10px] text-muted-foreground italic" data-testid={`text-edited-by-${note.id}`}>
+                {t("editedBy")} {note.editorName} · {format(new Date(note.updatedAt), "MMM d")}
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-1 shrink-0">

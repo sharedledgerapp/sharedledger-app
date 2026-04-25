@@ -1892,7 +1892,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     if (title !== undefined) updates.title = title;
     if (content !== undefined) updates.content = content;
     if (isCompleted !== undefined) updates.isCompleted = isCompleted;
-    const updated = await storage.updateNote(noteId, updates);
+    const updated = await storage.updateNote(noteId, updates, user.id);
     res.json(updated);
   });
 

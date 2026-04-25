@@ -45,7 +45,7 @@ type TranslationKey =
   | "addNote" | "noteTitlePlaceholder" | "noteContentPlaceholder" | "noNotes" | "addFirstNote"
   | "deleteNote" | "markComplete" | "markIncomplete" | "noteDeleted" | "messageSent" | "noteSaved"
   | "noteEditorWrite" | "noteEditorPreview" | "noteEditorEmptyPreview"
-  | "shoppingList" | "by" | "noGoals"
+  | "shoppingList" | "by" | "editedBy" | "noGoals"
   | "notifications" | "dailyReminder" | "dailyReminderDescription" | "reminderTime"
   | "weeklyReminder" | "weeklyReminderDescription" | "monthlyReminder" | "monthlyReminderDescription"
   | "budgetAlerts" | "budgetAlertsDescription"
@@ -316,6 +316,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     noteEditorEmptyPreview: "Nothing to preview yet. Switch to Write to add content.",
     shoppingList: "Shopping List",
     by: "by",
+    editedBy: "Edited by",
     noGoals: "No shared goals yet",
     notifications: "Notifications",
     dailyReminder: "Daily Expense Reminder",
@@ -757,6 +758,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     noteEditorEmptyPreview: "Rien à prévisualiser. Passez en mode Écrire pour ajouter du contenu.",
     shoppingList: "Liste de courses",
     by: "par",
+    editedBy: "Modifié par",
     noGoals: "Pas encore d'objectifs partagés",
     notifications: "Notifications",
     dailyReminder: "Rappel quotidien des dépenses",
@@ -1198,6 +1200,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     noteEditorEmptyPreview: "Nog niets te bekijken. Schakel naar Schrijven om inhoud toe te voegen.",
     shoppingList: "Boodschappenlijst",
     by: "door",
+    editedBy: "Bewerkt door",
     noGoals: "Nog geen gedeelde doelen",
     notifications: "Meldingen",
     dailyReminder: "Dagelijkse herinnering",

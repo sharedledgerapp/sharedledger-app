@@ -137,6 +137,8 @@ export const notes = pgTable("notes", {
   content: text("content"),
   isCompleted: boolean("is_completed").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at"),
+  updatedByUserId: integer("updated_by_user_id").references(() => users.id),
 });
 
 export const recurringExpenses = pgTable("recurring_expenses", {
@@ -479,7 +481,7 @@ export const insertGoalSchema = createInsertSchema(goals).omit({ id: true, creat
 export const insertGoalApprovalSchema = createInsertSchema(goalApprovals).omit({ id: true, createdAt: true });
 export const insertAllowanceSchema = createInsertSchema(allowances).omit({ id: true, updatedAt: true });
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
-export const insertNoteSchema = createInsertSchema(notes).omit({ id: true, createdAt: true, isCompleted: true });
+export const insertNoteSchema = createInsertSchema(notes).omit({ id: true, createdAt: true, isCompleted: true, updatedAt: true, updatedByUserId: true });
 export const insertRecurringExpenseSchema = createInsertSchema(recurringExpenses).omit({ id: true, createdAt: true });
 export const insertBudgetSchema = createInsertSchema(budgets).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertBudgetSetupPromptSchema = createInsertSchema(budgetSetupPrompts).omit({ id: true, createdAt: true });

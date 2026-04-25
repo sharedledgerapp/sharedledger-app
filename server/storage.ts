@@ -91,8 +91,8 @@ export interface IStorage {
   // Notes
   createNote(note: InsertNote): Promise<Note>;
   getNote(id: number): Promise<Note | undefined>;
-  getNotes(familyId: number): Promise<(Note & { creatorName: string })[]>;
-  updateNote(id: number, updates: Partial<Pick<Note, 'title' | 'content' | 'isCompleted'>>): Promise<Note>;
+  getNotes(familyId: number): Promise<(Note & { creatorName: string; editorName: string | null })[]>;
+  updateNote(id: number, updates: Partial<Pick<Note, 'title' | 'content' | 'isCompleted'>>, updatedByUserId?: number): Promise<Note>;
   deleteNote(id: number): Promise<void>;
 
   // Recurring Expenses
@@ -735,21 +735,30 @@ export class DatabaseStorage implements IStorage {
     return note;
   }
 
-  async getNotes(familyId: number): Promise<(Note & { creatorName: string })[]> {
+  async getNotes(familyId: number): Promise<(Note & { creatorName: string; editorName: string | null })[]> {
+    const creator = aliasedTable(users, "creator");
+    const editor = aliasedTable(users, "editor");
     const results = await db.select({
       note: notes,
-      creatorName: users.name,
+      creatorName: creator.name,
+      editorName: editor.name,
     })
     .from(notes)
-    .innerJoin(users, eq(notes.userId, users.id))
+    .innerJoin(creator, eq(notes.userId, creator.id))
+    .leftJoin(editor, eq(notes.updatedByUserId, editor.id))
     .where(eq(notes.familyId, familyId))
     .orderBy(desc(notes.createdAt));
 
-    return results.map(r => ({ ...r.note, creatorName: r.creatorName }));
+    return results.map(r => ({ ...r.note, creatorName: r.creatorName, editorName: r.editorName ?? null }));
   }
 
-  async updateNote(id: number, updates: Partial<Pick<Note, 'title' | 'content' | 'isCompleted'>>): Promise<Note> {
-    const [note] = await db.update(notes).set(updates).where(eq(notes.id, id)).returning();
+  async updateNote(id: number, updates: Partial<Pick<Note, 'title' | 'content' | 'isCompleted'>>, updatedByUserId?: number): Promise<Note> {
+    const setValues: Partial<Pick<Note, 'title' | 'content' | 'isCompleted' | 'updatedAt' | 'updatedByUserId'>> = { ...updates };
+    if (updatedByUserId !== undefined) {
+      setValues.updatedAt = new Date();
+      setValues.updatedByUserId = updatedByUserId;
+    }
+    const [note] = await db.update(notes).set(setValues).where(eq(notes.id, id)).returning();
     return note;
   }
 
