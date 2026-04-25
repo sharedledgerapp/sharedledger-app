@@ -1082,7 +1082,7 @@ function toggleTodoInContent(raw: string, lineIdx: number): string {
 }
 
 function detectLinePrefix(line: string): string {
-  if (line.startsWith("- ")) return "- ";
+  if (line.startsWith("- ") || line.startsWith("* ")) return "- ";
   if (line.startsWith("[ ] ") || line.startsWith("[x] ")) return "[ ] ";
   const m = line.match(/^(\d+)\. /);
   if (m) return `${parseInt(m[1]) + 1}. `;
@@ -1090,7 +1090,7 @@ function detectLinePrefix(line: string): string {
 }
 
 function stripLinePrefix(line: string): string {
-  if (line.startsWith("- ")) return line.slice(2);
+  if (line.startsWith("- ") || line.startsWith("* ")) return line.slice(2);
   if (line.startsWith("[ ] ") || line.startsWith("[x] ")) return line.slice(4);
   const m = line.match(/^\d+\. (.*)/);
   if (m) return m[1];
@@ -1347,46 +1347,14 @@ function NotePreviewStrip({ value }: { value: string }) {
   if (!hasListBlock) return null;
 
   return (
-    <div className="bg-muted/40 rounded-lg p-3 space-y-0.5" data-testid="note-preview-strip">
-      <p className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wide mb-1.5">Preview</p>
-      {blocks.map((block, i) => {
-        if (block.kind === "text") {
-          if (!block.text) return <div key={i} className="h-0.5" />;
-          return <p key={i} className="text-xs text-muted-foreground">{block.text}</p>;
-        }
-        if (block.kind === "bullet") {
-          return (
-            <div key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-              <span className="text-primary mt-0.5 shrink-0 font-bold">•</span>
-              <span>{block.text || <span className="opacity-40 italic">empty item</span>}</span>
-            </div>
-          );
-        }
-        if (block.kind === "ordered") {
-          return (
-            <div key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-              <span className="text-primary shrink-0 font-semibold tabular-nums min-w-[1.25rem]">{block.num}.</span>
-              <span>{block.text || <span className="opacity-40 italic">empty item</span>}</span>
-            </div>
-          );
-        }
-        if (block.kind === "todo") {
-          return (
-            <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-              <span className={cn(
-                "mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0",
-                block.checked ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/40"
-              )}>
-                {block.checked && <Check className="w-2.5 h-2.5" />}
-              </span>
-              <span className={cn(block.checked && "line-through opacity-50")}>
-                {block.text || <span className="opacity-40 italic">empty item</span>}
-              </span>
-            </div>
-          );
-        }
-        return null;
-      })}
+    <div className="bg-muted/40 rounded-lg px-3 pt-3 pb-1" data-testid="note-preview-strip">
+      <p className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wide mb-0.5">Preview</p>
+      <NoteContentRenderer
+        blocks={blocks}
+        noteId={0}
+        rawContent={value}
+        onToggleTodo={() => {}}
+      />
     </div>
   );
 }
@@ -1598,6 +1566,7 @@ function SharedNoteCard({
   currentUserId,
   onToggleNote,
   onDelete,
+  onUpdate,
   onToggleTodo,
   t,
 }: {
@@ -1605,14 +1574,78 @@ function SharedNoteCard({
   currentUserId?: number;
   onToggleNote: () => void;
   onDelete: () => void;
+  onUpdate: (noteId: number, title: string, content: string) => void;
   onToggleTodo: (noteId: number, newContent: string) => void;
   t: (key: any) => string;
 }) {
   const [localContent, setLocalContent] = useState(note.content);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(note.title);
+  const [editContent, setEditContent] = useState(note.content ?? "");
+  const editContentRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { setLocalContent(note.content); }, [note.content]);
 
+  const { handleKeyDown: handleEditSmartKeyDown, detectedFormat: editDetectedFormat, handleCursorChange: handleEditCursorChange } =
+    useSmartTextarea(editContent, setEditContent, editContentRef);
+
   const blocks = parseContent(localContent);
+
+  const isCreator = currentUserId === note.userId;
+
+  const handleSaveEdit = () => {
+    if (!editTitle.trim()) return;
+    onUpdate(note.id, editTitle.trim(), editContent.trim());
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditTitle(note.title);
+    setEditContent(note.content ?? "");
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <Card className="p-4" data-testid={`shared-note-card-${note.id}`}>
+        <div className="space-y-2">
+          <Input
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            placeholder="Note title"
+            className="text-sm font-medium"
+            data-testid={`input-edit-shared-note-title-${note.id}`}
+          />
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <FormatToolbar textareaRef={editContentRef} value={editContent} onChange={setEditContent} />
+              <NoteFormatBadge format={editDetectedFormat} />
+            </div>
+            <Textarea
+              ref={editContentRef}
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              onKeyDown={handleEditSmartKeyDown}
+              onKeyUp={handleEditCursorChange}
+              onSelect={handleEditCursorChange}
+              placeholder="Note content (optional)"
+              className="text-sm font-mono min-h-[80px]"
+              data-testid={`textarea-edit-shared-note-content-${note.id}`}
+            />
+            <NotePreviewStrip value={editContent} />
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button size="sm" variant="ghost" onClick={handleCancelEdit} data-testid={`button-cancel-edit-shared-note-${note.id}`}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleSaveEdit} disabled={!editTitle.trim()} data-testid={`button-save-edit-shared-note-${note.id}`}>
+              Save
+            </Button>
+          </div>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card
@@ -1657,15 +1690,28 @@ function SharedNoteCard({
           </div>
         </div>
 
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={onDelete}
-          className="shrink-0 text-muted-foreground hover:text-destructive"
-          data-testid={`button-delete-note-${note.id}`}
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
+        <div className="flex flex-col gap-1 shrink-0">
+          {isCreator && (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => { setEditTitle(note.title); setEditContent(note.content ?? ""); setIsEditing(true); }}
+              className="text-muted-foreground hover:text-foreground w-7 h-7"
+              data-testid={`button-edit-shared-note-${note.id}`}
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </Button>
+          )}
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onDelete}
+            className="shrink-0 text-muted-foreground hover:text-destructive w-7 h-7"
+            data-testid={`button-delete-note-${note.id}`}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
     </Card>
   );
@@ -1807,6 +1853,14 @@ function NotesTab({
   const updateSharedContentMutation = useMutation({
     mutationFn: async ({ id, content }: { id: number; content: string }) => {
       const res = await apiRequest("PATCH", `/api/notes/${id}`, { content });
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notes"] }),
+  });
+
+  const updateSharedNoteMutation = useMutation({
+    mutationFn: async ({ id, title, content }: { id: number; title: string; content: string }) => {
+      const res = await apiRequest("PATCH", `/api/notes/${id}`, { title, content });
       return res.json();
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notes"] }),
@@ -2284,6 +2338,7 @@ function NotesTab({
             currentUserId={user?.id}
             onToggleNote={() => toggleSharedMutation.mutate({ id: selectedSharedNote.id, isCompleted: !selectedSharedNote.isCompleted })}
             onDelete={() => { deleteSharedMutation.mutate(selectedSharedNote.id); setNotesView("shared"); setSelectedSharedId(null); }}
+            onUpdate={(id, title, content) => updateSharedNoteMutation.mutate({ id, title, content })}
             onToggleTodo={(id, content) => updateSharedContentMutation.mutate({ id, content })}
             t={t}
           />
