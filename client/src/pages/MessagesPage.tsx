@@ -1842,7 +1842,11 @@ function NotesTab({
   const [notesView, setNotesView] = useState<NotesView>("list");
   const [selectedPersonalId, setSelectedPersonalId] = useState<number | null>(null);
   const [selectedSharedId, setSelectedSharedId] = useState<number | null>(null);
-  const hasRestoredRef = useRef(false);
+  const savedView = useRef(readNotesLS(LS_NOTES_VIEW) as NotesView | null);
+  const savedPersonalId = useRef(readNotesLS(LS_NOTES_PERSONAL_ID));
+  const savedSharedId = useRef(readNotesLS(LS_NOTES_SHARED_ID));
+  const hasRestoredPersonalRef = useRef(false);
+  const hasRestoredSharedRef = useRef(false);
 
   const [showAddPersonalForm, setShowAddPersonalForm] = useState(false);
   const [showGuidedQuestions, setShowGuidedQuestions] = useState(false);
@@ -1877,37 +1881,38 @@ function NotesTab({
     writeNotesLS(LS_NOTES_SHARED_ID, selectedSharedId !== null ? String(selectedSharedId) : null);
   }, [selectedSharedId]);
 
-  // Restore last-opened note on mount, once data is available
+  // Restore last-opened personal note once personal data arrives
   useEffect(() => {
-    if (hasRestoredRef.current) return;
-    // Personal notes always load; wait for that at minimum
+    if (hasRestoredPersonalRef.current) return;
+    if (savedView.current !== "personal-detail") return;
     if (personalNotesList === undefined) return;
-    hasRestoredRef.current = true;
+    hasRestoredPersonalRef.current = true;
 
-    const savedView = readNotesLS(LS_NOTES_VIEW) as NotesView | null;
-    const savedPersonalId = readNotesLS(LS_NOTES_PERSONAL_ID);
-    const savedSharedId = readNotesLS(LS_NOTES_SHARED_ID);
-
-    if (savedView === "personal-detail" && savedPersonalId) {
-      const id = parseInt(savedPersonalId, 10);
-      if (personalNotesList.some((n) => n.id === id)) {
-        setSelectedPersonalId(id);
-        setNotesView("personal-detail");
-        return;
-      }
+    const id = savedPersonalId.current ? parseInt(savedPersonalId.current, 10) : null;
+    if (id !== null && personalNotesList.some((n) => n.id === id)) {
+      setSelectedPersonalId(id);
+      setNotesView("personal-detail");
+    } else {
       writeNotesLS(LS_NOTES_PERSONAL_ID, null);
     }
+  }, [personalNotesList]);
 
-    if (savedView === "shared-detail" && savedSharedId && sharedNotesList) {
-      const id = parseInt(savedSharedId, 10);
-      if (sharedNotesList.some((n) => n.id === id)) {
-        setSelectedSharedId(id);
-        setNotesView("shared-detail");
-        return;
-      }
+  // Restore last-opened shared note once shared data arrives (independent of personal restore)
+  useEffect(() => {
+    if (hasRestoredSharedRef.current) return;
+    if (savedView.current !== "shared-detail") return;
+    if (!hasGroup) return;
+    if (sharedNotesList === undefined) return;
+    hasRestoredSharedRef.current = true;
+
+    const id = savedSharedId.current ? parseInt(savedSharedId.current, 10) : null;
+    if (id !== null && sharedNotesList.some((n) => n.id === id)) {
+      setSelectedSharedId(id);
+      setNotesView("shared-detail");
+    } else {
       writeNotesLS(LS_NOTES_SHARED_ID, null);
     }
-  }, [personalNotesList, sharedNotesList]);
+  }, [sharedNotesList, hasGroup]);
 
   const { data: intentionPrompt } = useQuery<any>({
     queryKey: ["/api/intention-prompt"],
