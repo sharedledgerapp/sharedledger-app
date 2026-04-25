@@ -98,6 +98,7 @@ interface FamilyInfo {
   name: string;
   groupType: string;
   code: string;
+  isAdmin?: boolean;
 }
 
 interface MessagesPreview {
@@ -1659,6 +1660,7 @@ function PersonalNoteCard({
 function SharedNoteCard({
   note,
   currentUserId,
+  canDelete,
   onToggleNote,
   onDelete,
   onUpdate,
@@ -1667,6 +1669,7 @@ function SharedNoteCard({
 }: {
   note: SharedNoteItem;
   currentUserId?: number;
+  canDelete?: boolean;
   onToggleNote: () => void;
   onDelete: () => void;
   onUpdate: (noteId: number, title: string, content: string) => void;
@@ -1800,15 +1803,17 @@ function SharedNoteCard({
           >
             <Pencil className="w-3.5 h-3.5" />
           </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={onDelete}
-            className="shrink-0 text-muted-foreground hover:text-destructive w-7 h-7"
-            data-testid={`button-delete-note-${note.id}`}
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          {canDelete && (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onDelete}
+              className="shrink-0 text-muted-foreground hover:text-destructive w-7 h-7"
+              data-testid={`button-delete-note-${note.id}`}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </div>
     </Card>
@@ -1872,6 +1877,11 @@ function NotesTab({
 
   const { data: sharedNotesList, isLoading: sharedLoading } = useQuery<SharedNoteItem[]>({
     queryKey: ["/api/notes"],
+    enabled: hasGroup,
+  });
+
+  const { data: familyInfo } = useQuery<FamilyInfo>({
+    queryKey: ["/api/family/info"],
     enabled: hasGroup,
   });
 
@@ -2478,6 +2488,7 @@ function NotesTab({
           <SharedNoteCard
             note={selectedSharedNote}
             currentUserId={user?.id}
+            canDelete={selectedSharedNote.userId === user?.id || familyInfo?.isAdmin === true}
             onToggleNote={() => toggleSharedMutation.mutate({ id: selectedSharedNote.id, isCompleted: !selectedSharedNote.isCompleted })}
             onDelete={() => { deleteSharedMutation.mutate(selectedSharedNote.id); setNotesView("shared"); setSelectedSharedId(null); }}
             onUpdate={(id, title, content) => updateSharedNoteMutation.mutate({ id, title, content })}

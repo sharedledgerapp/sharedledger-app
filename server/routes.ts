@@ -1903,6 +1903,17 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const note = await storage.getNote(noteId);
     if (!note) return res.status(404).json({ message: "Note not found" });
     if (note.familyId !== user.familyId) return res.status(403).json({ message: "Forbidden" });
+    const isCreator = note.userId === user.id;
+    const family = await storage.getFamily(user.familyId);
+    let isAdmin = user.role === 'parent';
+    if (family?.groupType === 'friends') {
+      const members = await storage.getFriendGroupMembers(user.familyId);
+      const self = members.find((m: any) => m.id === user.id);
+      isAdmin = self?.memberRole === 'admin';
+    }
+    if (!isCreator && !isAdmin) {
+      return res.status(403).json({ message: "Only the note creator or a group admin can delete this note" });
+    }
     await storage.deleteNote(noteId);
     res.status(204).send();
   });
@@ -1961,7 +1972,13 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     if (!user.familyId) return res.status(404).json({ message: 'No group' });
     const family = await storage.getFamily(user.familyId);
     if (!family) return res.status(404).json({ message: 'Group not found' });
-    res.json({ id: family.id, name: family.name, groupType: family.groupType, code: family.code });
+    let isAdmin = user.role === 'parent';
+    if (family.groupType === 'friends') {
+      const members = await storage.getFriendGroupMembers(user.familyId);
+      const self = members.find((m: any) => m.id === user.id);
+      isAdmin = self?.memberRole === 'admin';
+    }
+    res.json({ id: family.id, name: family.name, groupType: family.groupType, code: family.code, isAdmin });
   });
 
   // === MESSAGES PREVIEW (no mark-as-read) ===
