@@ -36,6 +36,7 @@ import {
   Pencil,
   BookMarked,
   Loader2,
+  Clock,
 } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
 
@@ -1827,6 +1828,9 @@ type NotesView = "list" | "personal" | "personal-detail" | "shared" | "shared-de
 const LS_NOTES_VIEW = "notes-last-view";
 const LS_NOTES_PERSONAL_ID = "notes-last-personal-id";
 const LS_NOTES_SHARED_ID = "notes-last-shared-id";
+const LS_NOTES_RECENT = "notes-recent";
+const NOTES_RECENT_MAX = 3;
+
 function notesLSKey(base: string, userId: number | undefined) {
   return userId ? `${base}-${userId}` : base;
 }
@@ -1836,6 +1840,23 @@ function readNotesLS(key: string): string | null {
 }
 function writeNotesLS(key: string, value: string | null) {
   try { value !== null ? localStorage.setItem(key, value) : localStorage.removeItem(key); } catch {}
+}
+
+type RecentNote = { id: number; type: "personal" | "shared" };
+
+function readRecentNotes(key: string): RecentNote[] {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    return JSON.parse(raw) as RecentNote[];
+  } catch { return []; }
+}
+
+function pushRecentNote(key: string, entry: RecentNote): RecentNote[] {
+  const existing = readRecentNotes(key).filter(r => !(r.id === entry.id && r.type === entry.type));
+  const updated = [entry, ...existing].slice(0, NOTES_RECENT_MAX);
+  try { localStorage.setItem(key, JSON.stringify(updated)); } catch {}
+  return updated;
 }
 
 function NotesTab({
@@ -1850,10 +1871,24 @@ function NotesTab({
   const lsViewKey = notesLSKey(LS_NOTES_VIEW, user?.id);
   const lsPersonalKey = notesLSKey(LS_NOTES_PERSONAL_ID, user?.id);
   const lsSharedKey = notesLSKey(LS_NOTES_SHARED_ID, user?.id);
+  const lsRecentKey = notesLSKey(LS_NOTES_RECENT, user?.id);
 
   const [notesView, setNotesView] = useState<NotesView>("list");
   const [selectedPersonalId, setSelectedPersonalId] = useState<number | null>(null);
   const [selectedSharedId, setSelectedSharedId] = useState<number | null>(null);
+  const [recentNotes, setRecentNotes] = useState<RecentNote[]>(() => readRecentNotes(notesLSKey(LS_NOTES_RECENT, user?.id)));
+
+  const openPersonalNote = (id: number) => {
+    setSelectedPersonalId(id);
+    setNotesView("personal-detail");
+    setRecentNotes(pushRecentNote(lsRecentKey, { id, type: "personal" }));
+  };
+
+  const openSharedNote = (id: number) => {
+    setSelectedSharedId(id);
+    setNotesView("shared-detail");
+    setRecentNotes(pushRecentNote(lsRecentKey, { id, type: "shared" }));
+  };
   const savedView = useRef(readNotesLS(lsViewKey) as NotesView | null);
   const savedPersonalId = useRef(readNotesLS(lsPersonalKey));
   const savedSharedId = useRef(readNotesLS(lsSharedKey));
@@ -1897,6 +1932,11 @@ function NotesTab({
   useEffect(() => {
     writeNotesLS(lsSharedKey, selectedSharedId !== null ? String(selectedSharedId) : null);
   }, [selectedSharedId, lsSharedKey]);
+
+  // Reload recents from localStorage if the user-scoped key changes (e.g. user resolves after initial render)
+  useEffect(() => {
+    setRecentNotes(readRecentNotes(lsRecentKey));
+  }, [lsRecentKey]);
 
   // Restore last-opened personal note once personal data arrives
   useEffect(() => {
@@ -2075,8 +2115,42 @@ function NotesTab({
 
   // ─── NOTES FOLDER LIST ─────────────────────────────────────────────────────
   if (notesView === "list") {
+    const resolvedRecents = recentNotes.flatMap(r => {
+      if (r.type === "personal") {
+        const note = personalNotesList?.find(n => n.id === r.id);
+        return note ? [{ ...r, title: note.title }] : [];
+      } else {
+        const note = sharedNotesList?.find(n => n.id === r.id);
+        return note ? [{ ...r, title: note.title }] : [];
+      }
+    });
+
     return (
       <div className="flex-1 overflow-y-auto">
+        {resolvedRecents.length > 0 && (
+          <div className="px-4 pt-3.5 pb-2.5 border-b border-border/30">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Recent</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {resolvedRecents.map(r => (
+                <button
+                  key={`${r.type}-${r.id}`}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-secondary hover:bg-secondary/70 transition-colors text-left max-w-[48%]"
+                  onClick={() => r.type === "personal" ? openPersonalNote(r.id) : openSharedNote(r.id)}
+                  data-testid={`button-recent-note-${r.type}-${r.id}`}
+                >
+                  {r.type === "personal"
+                    ? <Lock className="w-3 h-3 text-muted-foreground shrink-0" />
+                    : <Users className="w-3 h-3 text-muted-foreground shrink-0" />
+                  }
+                  <span className="text-xs font-medium truncate">{r.title}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <button
           className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-secondary/40 transition-colors border-b border-border/30"
           onClick={() => setNotesView("personal")}
@@ -2274,7 +2348,7 @@ function NotesTab({
                 <button
                   key={note.id}
                   className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/50 bg-card hover:bg-secondary/30 transition-colors text-left"
-                  onClick={() => { setSelectedPersonalId(note.id); setNotesView("personal-detail"); }}
+                  onClick={() => openPersonalNote(note.id)}
                   data-testid={`button-personal-note-${note.id}`}
                 >
                   <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />
@@ -2295,7 +2369,7 @@ function NotesTab({
                     <button
                       key={note.id}
                       className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/30 bg-card/50 hover:bg-secondary/30 transition-colors text-left opacity-60"
-                      onClick={() => { setSelectedPersonalId(note.id); setNotesView("personal-detail"); }}
+                      onClick={() => openPersonalNote(note.id)}
                       data-testid={`button-personal-note-done-${note.id}`}
                     >
                       <div className="w-4 h-4 rounded-full bg-primary border-primary border-2 flex items-center justify-center shrink-0">
@@ -2429,7 +2503,7 @@ function NotesTab({
                 <button
                   key={note.id}
                   className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/50 bg-card hover:bg-secondary/30 transition-colors text-left"
-                  onClick={() => { setSelectedSharedId(note.id); setNotesView("shared-detail"); }}
+                  onClick={() => openSharedNote(note.id)}
                   data-testid={`button-shared-note-${note.id}`}
                 >
                   <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />
@@ -2450,7 +2524,7 @@ function NotesTab({
                     <button
                       key={note.id}
                       className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/30 bg-card/50 hover:bg-secondary/30 transition-colors text-left opacity-60"
-                      onClick={() => { setSelectedSharedId(note.id); setNotesView("shared-detail"); }}
+                      onClick={() => openSharedNote(note.id)}
                       data-testid={`button-shared-note-done-${note.id}`}
                     >
                       <div className="w-4 h-4 rounded-full bg-primary border-primary border-2 flex items-center justify-center shrink-0">
