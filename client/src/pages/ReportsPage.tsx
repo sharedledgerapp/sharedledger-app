@@ -8,6 +8,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { ChevronLeft, ChevronRight, Calendar, TrendingDown, ArrowLeft, Users, Wallet, BarChart3, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, X, Trash2, Sparkles, ThumbsUp, ThumbsDown, MessageSquare } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths, addMonths, subWeeks, addWeeks, isWithinInterval, parseISO } from "date-fns";
@@ -755,9 +756,9 @@ export default function ReportsPage() {
                                   ? "What did you find most useful about this analysis?"
                                   : "What could have been better about this analysis?"}
                               </p>
-                              <textarea
-                                className="w-full text-xs rounded-md border border-border bg-muted/40 p-2 resize-none focus:outline-none focus:ring-1 focus:ring-primary"
-                                rows={3}
+                              <Textarea
+                                className="text-xs rounded-md border-border bg-muted/40 p-2 focus-visible:ring-1 focus-visible:ring-primary min-h-[60px]"
+                                maxHeight={120}
                                 placeholder={currentFeedback === 1 ? "e.g. The budget breakdown was really clear…" : "e.g. I felt the tone was too generic…"}
                                 value={feedbackCommentText[analysis.id] ?? ""}
                                 onChange={e => setFeedbackCommentText(prev => ({ ...prev, [analysis.id]: e.target.value }))}

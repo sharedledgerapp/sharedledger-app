@@ -184,8 +184,8 @@ function AnalysisCard({ analysis }: { analysis: AiAnalysis }) {
                   <Textarea
                     value={shareText}
                     onChange={(e) => setShareText(e.target.value)}
-                    rows={3}
-                    className="text-sm resize-none bg-background border-border/40 focus-visible:ring-1 rounded-lg"
+                    maxHeight={120}
+                    className="text-sm bg-background border-border/40 focus-visible:ring-1 rounded-lg"
                     data-testid={`textarea-share-analysis-${analysis.id}`}
                   />
                   <div className="flex gap-2 justify-end">

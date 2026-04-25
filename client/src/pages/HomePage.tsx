@@ -7,6 +7,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Plus, Wallet, TrendingUp, Star, ArrowUpRight, ArrowDownRight, ChevronRight, Flag, Target, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, PiggyBank, Clock, Globe, Bell, Sparkles, X, Banknote, ArrowDownLeft } from "lucide-react";
@@ -744,13 +745,13 @@ export default function HomePage() {
               <p className="text-sm font-medium text-foreground mb-2">
                 In 3 months, what would have to be true about your finances for you to feel like this app was worth it?
               </p>
-              <textarea
+              <Textarea
                 value={intentionDraft}
                 onChange={(e) => setIntentionDraft(e.target.value)}
                 placeholder="e.g. I want to stop feeling like money just disappears every month…"
                 maxLength={500}
-                rows={3}
-                className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none placeholder:text-muted-foreground/60"
+                maxHeight={200}
+                className="px-3 py-2.5 rounded-xl border-border bg-background text-foreground text-sm focus-visible:ring-2 focus-visible:ring-primary/50 placeholder:text-muted-foreground/60 min-h-[60px]"
                 data-testid="input-intention-draft"
               />
               <p className="text-right text-xs text-muted-foreground mt-0.5">{intentionDraft.length}/500</p>

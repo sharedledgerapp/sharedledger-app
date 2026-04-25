@@ -1239,7 +1239,7 @@ export default function SettingsPage() {
               value={intentionDraft}
               onChange={(e) => setIntentionDraft(e.target.value)}
               placeholder={"For example:\n• I'd have paid off my credit card\n• We'd have 3 months of emergency savings\n• We'd have stopped arguing about money"}
-              className="min-h-[90px] text-sm resize-none"
+              className="min-h-[90px] text-sm"
               maxLength={500}
               data-testid="textarea-intention"
             />
@@ -1264,7 +1264,7 @@ export default function SettingsPage() {
               value={financialProfileDraft}
               onChange={(e) => setFinancialProfileDraft(e.target.value)}
               placeholder={"For example:\n• My income usually arrives on the 1st and 15th\n• My biggest commitment is rent — 60% of income\n• I'm saving to move out by year-end\n• We split groceries and utilities with my flatmate"}
-              className="min-h-[120px] text-sm resize-none"
+              className="min-h-[120px] text-sm"
               maxLength={2000}
               data-testid="textarea-financial-profile"
             />
@@ -1476,7 +1476,6 @@ export default function SettingsPage() {
                             <Textarea
                               {...field}
                               placeholder="Describe your bug or suggestion…"
-                              rows={5}
                               maxLength={2000}
                               data-testid="textarea-feedback-message"
                             />

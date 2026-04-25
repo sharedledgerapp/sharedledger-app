@@ -764,8 +764,8 @@ function SageTab({
                               <Textarea
                                 value={shareText}
                                 onChange={(e) => setShareText(e.target.value)}
-                                rows={3}
-                                className="text-sm resize-none bg-background border-border/40 focus-visible:ring-1 rounded-lg"
+                                maxHeight={120}
+                                className="text-sm bg-background border-border/40 focus-visible:ring-1 rounded-lg"
                                 data-testid={`textarea-share-sage-${msg.id}`}
                               />
                               <div className="flex gap-2 justify-end">
@@ -828,8 +828,8 @@ function SageTab({
                       value={nudgeText}
                       onChange={(e) => setNudgeText(e.target.value)}
                       placeholder="Share a suggestion or something that could be better…"
-                      rows={2}
-                      className="text-sm resize-none bg-background/70 border-border/40 focus-visible:ring-1 rounded-xl"
+                      maxHeight={120}
+                      className="text-sm bg-background/70 border-border/40 focus-visible:ring-1 rounded-xl"
                       data-testid="textarea-sage-feedback"
                     />
                     <div className="flex gap-2 justify-end">
@@ -1354,7 +1354,7 @@ function PersonalNoteCard({
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
             placeholder="Note content (optional)"
-            className="text-sm min-h-[80px] resize-none"
+            className="text-sm min-h-[80px]"
             data-testid={`textarea-edit-personal-note-content-${note.id}`}
           />
           <div className="flex gap-2 justify-end">
@@ -1825,13 +1825,13 @@ function NotesTab({
           {showIntentionCapture && (
             <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2">
               <p className="text-xs font-semibold text-primary">Your financial intention</p>
-              <textarea
+              <Textarea
                 value={intentionNoteDraft}
                 onChange={(e) => setIntentionNoteDraft(e.target.value)}
                 placeholder="e.g. I want to stop feeling like money just disappears every month…"
                 maxLength={500}
-                rows={3}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none placeholder:text-muted-foreground/60"
+                maxHeight={200}
+                className="px-3 py-2 rounded-lg border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/60 min-h-[60px]"
                 data-testid="input-notes-intention-draft"
               />
               <div className="flex gap-2">
@@ -1894,8 +1894,7 @@ function NotesTab({
                   onChange={(e) => setNewPersonalContent(e.target.value)}
                   onKeyDown={handlePersonalSmartKeyDown}
                   placeholder="Note content (optional)…"
-                  rows={3}
-                  className="resize-none font-mono text-sm"
+                  className="font-mono text-sm"
                   data-testid="input-personal-note-content"
                 />
               </div>
@@ -2053,8 +2052,7 @@ function NotesTab({
                   onChange={(e) => setNewSharedContent(e.target.value)}
                   onKeyDown={handleSharedSmartKeyDown}
                   placeholder={t("noteContentPlaceholder")}
-                  rows={4}
-                  className="resize-none font-mono text-sm"
+                  className="font-mono text-sm"
                   data-testid="input-note-content"
                 />
                 <p className="text-[10px] text-muted-foreground">

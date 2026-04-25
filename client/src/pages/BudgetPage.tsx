@@ -883,8 +883,7 @@ export default function BudgetPage() {
                 value={form.note}
                 onChange={(e) => setForm(f => ({ ...f, note: e.target.value }))}
                 placeholder={t("budgetNotePlaceholder")}
-                className="resize-none"
-                rows={2}
+                className=""
                 data-testid="textarea-budget-note"
               />
             </div>

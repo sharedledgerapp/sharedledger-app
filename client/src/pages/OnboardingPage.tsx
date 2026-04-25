@@ -10,6 +10,7 @@ import { TUTORIAL_STORAGE_KEY } from "@/lib/tutorial-steps";
 import { api } from "@shared/routes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -1354,13 +1355,12 @@ function Step10Intention({
       </div>
 
       <div className="mb-2">
-        <textarea
+        <Textarea
           value={intention}
           onChange={(e) => setIntention(e.target.value)}
           placeholder={isGroup ? "e.g. I want us to be more transparent about who pays what…" : "e.g. I want to stop feeling like money just disappears every month…"}
           maxLength={500}
-          rows={4}
-          className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none placeholder:text-muted-foreground/60"
+          className="px-4 py-3 rounded-xl border-border bg-background text-foreground text-sm focus-visible:ring-2 focus-visible:ring-primary/50 placeholder:text-muted-foreground/60 min-h-[80px]"
           data-testid="input-onboarding-intention"
         />
         <p className="text-right text-xs text-muted-foreground mt-1">{intention.length}/500</p>

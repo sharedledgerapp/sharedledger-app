@@ -789,7 +789,7 @@ export default function LandingPage() {
                 placeholder={t("landingFormMessagePlaceholder")}
                 value={feedbackMessage}
                 onChange={(e) => setFeedbackMessage(e.target.value)}
-                className="rounded-xl min-h-[120px] resize-none"
+                className="rounded-xl min-h-[120px]"
                 data-testid="input-feedback-message"
                 required
               />
