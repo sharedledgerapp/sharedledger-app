@@ -1479,11 +1479,9 @@ function PersonalNoteCard({
 
   useEffect(() => { setLocalContent(note.content); }, [note.content]);
 
-  const { handleKeyDown: handleEditSmartKeyDown } = useSmartTextarea(editContent, setEditContent, editContentRef);
+  const { handleKeyDown: handleEditSmartKeyDown, detectedFormat: editDetectedFormat, handleCursorChange: handleEditCursorChange } = useSmartTextarea(editContent, setEditContent, editContentRef);
 
   const blocks = parseContent(localContent);
-
-  const { handleKeyDown: handleEditSmartKeyDown, detectedFormat: editDetectedFormat, handleCursorChange: handleEditCursorChange } = useSmartTextarea(editContent, setEditContent, editContentRef);
 
   const handleShareToGroup = async () => {
     setShareError(false);
