@@ -2112,6 +2112,23 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const userBudgets = await storage.getBudgets(user.id);
     const allExpenses = await storage.getExpenses(user.id);
 
+    // Mirror the same filtering used by /api/spending/summary so budget "spent"
+    // and Money Out on the home screen always agree on what counts as personal spending:
+    //  1. Only "personal" payment-source expenses (not "family" joint-account expenses)
+    //  2. Exclude friend-group expenses (familyId set to a group that isn't the user's
+    //     own primary household) — matches the default excludeQuickGroupInSummary=false
+    //  3. Use the user's tracked split share when available, not the full expense amount
+    const personalExpenses = allExpenses
+      .filter(e => {
+        if (e.paymentSource !== "personal") return false;
+        if (e.familyId != null && (!user.familyId || e.familyId !== user.familyId)) return false;
+        return true;
+      })
+      .map(e => {
+        const userSplit = (e.splits || []).find((s: any) => s.userId === user.id);
+        return userSplit ? { ...e, amount: userSplit.amount } : e;
+      });
+
     const now = new Date();
     const summaries = userBudgets.map(budget => {
       const startDate = new Date(budget.startDate);
@@ -2131,7 +2148,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
       }
 
-      const categoryExpenses = allExpenses.filter(e => {
+      const categoryExpenses = personalExpenses.filter(e => {
         const expDate = new Date(e.date);
         return e.category === budget.category && expDate >= periodStart && expDate < periodEnd;
       });
@@ -2167,6 +2184,18 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const userBudgets = await storage.getBudgets(user.id);
     const allExpenses = await storage.getExpenses(user.id);
 
+    // Same personal-expense filtering as /api/budget-summary
+    const personalExpenses = allExpenses
+      .filter(e => {
+        if (e.paymentSource !== "personal") return false;
+        if (e.familyId != null && (!user.familyId || e.familyId !== user.familyId)) return false;
+        return true;
+      })
+      .map(e => {
+        const userSplit = (e.splits || []).find((s: any) => s.userId === user.id);
+        return userSplit ? { ...e, amount: userSplit.amount } : e;
+      });
+
     const now = new Date();
     const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -2174,7 +2203,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const monthlyBudgets = userBudgets.filter(b => b.periodType === "monthly");
 
     const results = monthlyBudgets.map(budget => {
-      const categoryExpenses = allExpenses.filter(e => {
+      const categoryExpenses = personalExpenses.filter(e => {
         const expDate = new Date(e.date);
         return e.category === budget.category && expDate >= prevMonthStart && expDate < prevMonthEnd;
       });
