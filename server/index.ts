@@ -2,6 +2,9 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import fs from "fs";
+import path from "path";
+import { pool } from "./db";
 
 const app = express();
 const httpServer = createServer(app);
@@ -64,7 +67,53 @@ app.use((req, res, next) => {
   next();
 });
 
+async function runPendingMigrations() {
+  const migrationsDir = path.join(process.cwd(), "migrations");
+  if (!fs.existsSync(migrationsDir)) return;
+
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS _applied_migrations (
+        filename TEXT PRIMARY KEY,
+        applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    const files = fs.readdirSync(migrationsDir)
+      .filter((f: string) => f.endsWith(".sql"))
+      .sort();
+
+    for (const file of files) {
+      const { rows } = await client.query(
+        `SELECT 1 FROM _applied_migrations WHERE filename = $1`,
+        [file]
+      );
+      if (rows.length > 0) continue;
+
+      const content = fs.readFileSync(path.join(migrationsDir, file), "utf-8");
+      const statements = content
+        .split(";")
+        .map((s: string) => s.replace(/--[^\n]*/g, "").trim())
+        .filter((s: string) => s.length > 0);
+
+      for (const stmt of statements) {
+        await client.query(stmt);
+      }
+
+      await client.query(
+        `INSERT INTO _applied_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING`,
+        [file]
+      );
+      console.log(`[migrations] Applied: ${file}`);
+    }
+  } finally {
+    client.release();
+  }
+}
+
 (async () => {
+  await runPendingMigrations();
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
