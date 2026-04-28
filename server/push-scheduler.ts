@@ -1,7 +1,7 @@
 import webpush from "web-push";
 import { storage } from "./storage";
 import { db } from "./db";
-import { users, expenses, budgets, pushNotificationLog, recurringExpenses, incomeEntries, messages, families } from "@shared/schema";
+import { users, expenses, expenseSplits, budgets, pushNotificationLog, recurringExpenses, incomeEntries, messages, families } from "@shared/schema";
 import { eq, and, gte, lte, lt, sql, inArray } from "drizzle-orm";
 import { generateAnalysis } from "./sage";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
@@ -238,15 +238,26 @@ async function checkBudgetAlerts() {
       const thresholds = budget.thresholds as string[] | null;
       if (!thresholds || thresholds.length === 0) continue;
 
-      const periodStart = budget.startDate
-        ? new Date(budget.startDate)
-        : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-
+      // Compute the CURRENT period — must match /api/budget-summary logic exactly so
+      // the percentage in the notification matches what the user sees on the budget page.
+      const now = new Date();
+      let periodStart: Date;
       let periodEnd: Date;
+
       if (budget.periodType === "weekly") {
-        periodEnd = new Date(periodStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+        // Rolling 7-day window anchored to budget.startDate
+        const anchor = budget.startDate ? new Date(budget.startDate) : new Date(now.getFullYear(), now.getMonth(), 1);
+        const daysSinceStart = Math.floor((now.getTime() - anchor.getTime()) / (1000 * 60 * 60 * 24));
+        const currentPeriodOffset = daysSinceStart % 7;
+        periodStart = new Date(now);
+        periodStart.setDate(now.getDate() - currentPeriodOffset);
+        periodStart.setHours(0, 0, 0, 0);
+        periodEnd = new Date(periodStart);
+        periodEnd.setDate(periodStart.getDate() + 7);
       } else {
-        periodEnd = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, periodStart.getDate());
+        // Monthly: always the current calendar month
+        periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
       }
 
       const periodKey = periodStart.toISOString().slice(0, 10);
@@ -269,7 +280,7 @@ async function checkBudgetAlerts() {
               inArray(expenses.userId, familyUserIds),
               eq(expenses.category, budget.category),
               gte(expenses.date, periodStart),
-              lte(expenses.date, periodEnd)
+              lt(expenses.date, periodEnd)
             )
           );
         spent = parseFloat(familyExpenses?.total || "0");
@@ -278,19 +289,28 @@ async function checkBudgetAlerts() {
           u => u.familyId === budget.familyId && u.budgetAlertsEnabled !== false
         );
       } else {
-        // Personal budget: original single-user logic
+        // Personal budget: single-user logic
+        // Mirrors /api/budget-summary: only personal-payment-source expenses,
+        // uses the user's tracked split share when available.
         const user = userMap.get(budget.userId);
         if (!user || user.budgetAlertsEnabled === false) continue;
 
         const [userExpenses] = await db
-          .select({ total: sql<string>`COALESCE(SUM(amount), '0')` })
+          .select({
+            total: sql<string>`COALESCE(SUM(CASE WHEN ${expenseSplits.amount} IS NOT NULL THEN ${expenseSplits.amount}::numeric ELSE ${expenses.amount}::numeric END), '0')`,
+          })
           .from(expenses)
+          .leftJoin(
+            expenseSplits,
+            and(eq(expenseSplits.expenseId, expenses.id), eq(expenseSplits.userId, budget.userId))
+          )
           .where(
             and(
               eq(expenses.userId, budget.userId),
+              eq(expenses.paymentSource, "personal"),
               eq(expenses.category, budget.category),
               gte(expenses.date, periodStart),
-              lte(expenses.date, periodEnd)
+              lt(expenses.date, periodEnd)
             )
           );
         spent = parseFloat(userExpenses?.total || "0");
