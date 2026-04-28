@@ -825,18 +825,24 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
     const activityUserCurrency = user.currency || "EUR";
 
-    const personalExpenses = allExpenses.filter(e => {
-      if (e.paymentSource !== "personal") return false;
-      const expFamilyId = (e as any).familyId as number | null | undefined;
-      if (expFamilyId != null) {
-        // Only apply currency filtering to friend group expenses — those can genuinely be
-        // in a different currency. Family/couple/roommate group expenses are personal and
-        // always in the user's own currency (family.currency is a display setting only).
-        const friendGroupCurrency = fgCurrencyMap.get(expFamilyId);
-        if (friendGroupCurrency && friendGroupCurrency !== activityUserCurrency) return false;
-      }
-      return true;
-    });
+    const personalExpenses = allExpenses
+      .filter(e => {
+        if (e.paymentSource !== "personal") return false;
+        const expFamilyId = (e as any).familyId as number | null | undefined;
+        if (expFamilyId != null) {
+          // Only apply currency filtering to friend group expenses — those can genuinely be
+          // in a different currency. Family/couple/roommate group expenses are personal and
+          // always in the user's own currency (family.currency is a display setting only).
+          const friendGroupCurrency = fgCurrencyMap.get(expFamilyId);
+          if (friendGroupCurrency && friendGroupCurrency !== activityUserCurrency) return false;
+        }
+        return true;
+      })
+      // Use the user's tracked split share where available, same as spending summary
+      .map(e => {
+        const userSplit = (e.splits || []).find((s: any) => s.userId === user.id);
+        return userSplit ? { ...e, amount: userSplit.amount } : e;
+      });
 
     if (view === "weekly") {
       const dayOfWeek = anchor.getDay();

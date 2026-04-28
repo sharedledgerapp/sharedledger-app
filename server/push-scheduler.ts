@@ -836,10 +836,14 @@ async function checkSpendingExceedsIncome() {
       if (totalIncome <= 0) continue;
 
       const [expenseRow] = await db
-        .select({ total: sql<string>`COALESCE(SUM(amount), '0')` })
+        .select({
+          total: sql<string>`COALESCE(SUM(CASE WHEN ${expenseSplits.amount} IS NOT NULL THEN ${expenseSplits.amount}::numeric ELSE ${expenses.amount}::numeric END), '0')`,
+        })
         .from(expenses)
+        .leftJoin(expenseSplits, and(eq(expenseSplits.expenseId, expenses.id), eq(expenseSplits.userId, user.id)))
         .where(and(
           eq(expenses.userId, user.id),
+          eq(expenses.paymentSource, "personal"),
           gte(expenses.date, monthStart),
           lte(expenses.date, monthEnd)
         ));
@@ -1027,10 +1031,14 @@ async function checkEndOfMonthIncomeRecap() {
       const totalIncome = parseFloat(incomeRow?.total || "0");
 
       const [expenseRow] = await db
-        .select({ total: sql<string>`COALESCE(SUM(amount), '0')` })
+        .select({
+          total: sql<string>`COALESCE(SUM(CASE WHEN ${expenseSplits.amount} IS NOT NULL THEN ${expenseSplits.amount}::numeric ELSE ${expenses.amount}::numeric END), '0')`,
+        })
         .from(expenses)
+        .leftJoin(expenseSplits, and(eq(expenseSplits.expenseId, expenses.id), eq(expenseSplits.userId, user.id)))
         .where(and(
           eq(expenses.userId, user.id),
+          eq(expenses.paymentSource, "personal"),
           gte(expenses.date, monthStart),
           lte(expenses.date, monthEnd)
         ));

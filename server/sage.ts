@@ -60,7 +60,11 @@ export async function buildSageContext(userId: number): Promise<string> {
   let recentExpenses: ExpenseRow[] = [];
   if (expenseAllowed) {
     recentExpenses = await db.select().from(expenses)
-      .where(and(eq(expenses.userId, userId), gte(expenses.date, threeMonthsAgo)))
+      .where(and(
+        eq(expenses.userId, userId),
+        gte(expenses.date, threeMonthsAgo),
+        eq(expenses.paymentSource, "personal"),
+      ))
       .orderBy(desc(expenses.date));
   }
 
