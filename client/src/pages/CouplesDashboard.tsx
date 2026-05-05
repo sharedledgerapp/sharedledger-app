@@ -17,6 +17,7 @@ import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { IncomeSummaryCard } from "@/components/IncomeSummaryCard";
 
 const CATEGORY_EMOJI: Record<string, string> = {
   Food: "🍔", Transport: "🚌", Entertainment: "🎮", Shopping: "🛍️",
@@ -398,6 +399,14 @@ export function CouplesDashboardView({
       )}
 
       {familyIncomeEntries && familyIncomeEntries.length > 0 && (
+        <>
+        <IncomeSummaryCard
+          incomeTotal={familyIncomeEntries.reduce((s, e) => s + Number(e.amount), 0)}
+          spentTotal={totalSpent}
+          recurringExpenses={sharedRecurring || []}
+          currencySymbol={currencySymbol}
+          currency={user?.currency}
+        />
         <Card className="border-border/50 shadow-sm" data-testid="section-couple-income">
           <CardContent className="p-5">
             <h3 className="font-display font-bold text-sm mb-4 flex items-center gap-2">
@@ -457,6 +466,7 @@ export function CouplesDashboardView({
             </div>
           </CardContent>
         </Card>
+        </>
       )}
 
       {milestones && milestones.length > 0 && (

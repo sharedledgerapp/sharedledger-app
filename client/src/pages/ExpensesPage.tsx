@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import type { RecurringExpense, IncomeEntry } from "@shared/schema";
+import { IncomeSummaryCard } from "@/components/IncomeSummaryCard";
 
 import { DEFAULT_INCOME_SOURCES } from "@/pages/SettingsPage";
 
@@ -720,15 +721,27 @@ export default function ExpensesPage() {
               Your net position is only as accurate as what you log. Regular entries give you the clearest picture of where you stand.
             </p>
           </div>
-          {(incomeEntries?.length ?? 0) > 0 && (
-            <IncomeSummaryCard
-              incomeEntries={incomeEntries || []}
-              expenses={expenses || []}
-              recurringExpenses={recurringExpenses || []}
-              currencySymbol={currencySymbol}
-              user={user}
-            />
-          )}
+          {(incomeEntries?.length ?? 0) > 0 && (() => {
+            const now = new Date();
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+            const incomeTotal = (incomeEntries || [])
+              .filter(e => { const d = new Date(e.date); return d >= monthStart && d <= monthEnd; })
+              .reduce((sum, e) => sum + Number(e.amount), 0);
+            const spentTotal = (expenses || [])
+              .filter(e => { const d = new Date((e as any).date); return (e as any).paymentSource === "personal" && d >= monthStart && d <= monthEnd; })
+              .reduce((sum, e) => sum + Number((e as any).amount), 0);
+            return (
+              <IncomeSummaryCard
+                incomeTotal={incomeTotal}
+                spentTotal={spentTotal}
+                recurringExpenses={recurringExpenses || []}
+                currencySymbol={currencySymbol}
+                currency={user?.currency}
+                expenses={expenses || []}
+              />
+            );
+          })()}
           <MoneyInSection
             incomeEntries={incomeEntries || []}
             incomeLoading={incomeLoading}
@@ -2330,169 +2343,6 @@ function CreateExpenseDialog({
   );
 }
 
-function getDaySuffix(day: number): string {
-  if (day >= 11 && day <= 13) return "th";
-  switch (day % 10) {
-    case 1: return "st";
-    case 2: return "nd";
-    case 3: return "rd";
-    default: return "th";
-  }
-}
-
-interface IncomeSummaryCardProps {
-  incomeEntries: IncomeEntry[];
-  expenses: any[];
-  recurringExpenses: RecurringExpense[];
-  currencySymbol: string;
-  user: any;
-}
-
-function IncomeSummaryCard({ incomeEntries, expenses, recurringExpenses, currencySymbol, user }: IncomeSummaryCardProps) {
-  const [expanded, setExpanded] = useState(false);
-
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-  const monthName = now.toLocaleString("default", { month: "long" });
-
-  const incomeThisMonth = incomeEntries
-    .filter(e => { const d = new Date(e.date); return d >= monthStart && d <= monthEnd; })
-    .reduce((sum, e) => sum + Number(e.amount), 0);
-
-  const currentMonthPersonalExpenses = expenses.filter(e => {
-    const d = new Date(e.date);
-    return (e as any).paymentSource === "personal" && d >= monthStart && d <= monthEnd;
-  });
-
-  const spentThisMonth = currentMonthPersonalExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
-  const remaining = incomeThisMonth - spentThisMonth;
-
-  const activeRecurring = recurringExpenses.filter(r => r.isActive);
-  const recurringWithStatus = activeRecurring.map(r => ({
-    ...r,
-    isPaid: currentMonthPersonalExpenses.some(e => e.category === r.category),
-    monthlyAmount: toMonthlyAmount(Number(r.amount), r.frequency),
-  }));
-
-  const committed = recurringWithStatus
-    .filter(r => !r.isPaid)
-    .reduce((sum, r) => sum + r.monthlyAmount, 0);
-
-  const freeToSpend = remaining - committed;
-  const hasRecurring = activeRecurring.length > 0;
-
-  return (
-    <div className="rounded-2xl border border-border/50 shadow-sm overflow-hidden bg-card" data-testid="card-income-summary">
-      <div className="p-4 space-y-3">
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{monthName} Overview</p>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between" data-testid="summary-row-income">
-            <span className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Banknote className="w-4 h-4" />
-              Income
-            </span>
-            <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-              +{currencySymbol}{toFixedAmount(incomeThisMonth, user?.currency)}
-            </span>
-          </div>
-          <div className="flex items-center justify-between" data-testid="summary-row-spent">
-            <span className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Wallet className="w-4 h-4" />
-              Spent
-            </span>
-            <span className="text-sm font-semibold text-foreground">
-              -{currencySymbol}{toFixedAmount(spentThisMonth, user?.currency)}
-            </span>
-          </div>
-          <div className="h-px bg-border/50" />
-          <div className="flex items-center justify-between" data-testid="summary-row-remaining">
-            <span className="text-sm font-semibold text-foreground">Remaining</span>
-            <span className={`text-sm font-bold ${remaining >= 0 ? "text-foreground" : "text-destructive"}`}>
-              {remaining < 0 ? "-" : ""}{currencySymbol}{toFixedAmount(Math.abs(remaining), user?.currency)}
-            </span>
-          </div>
-        </div>
-
-        {hasRecurring && (
-          <button
-            onClick={() => setExpanded(v => !v)}
-            className="w-full flex items-center justify-between py-2 px-3 rounded-xl bg-muted/40 hover:bg-muted/60 transition-colors text-sm"
-            data-testid="button-toggle-recurring-summary"
-          >
-            <span className="flex items-center gap-2 text-muted-foreground">
-              <Repeat className="w-4 h-4" />
-              Recurring this month
-            </span>
-            <div className="flex items-center gap-1.5">
-              <span className="font-medium text-foreground text-xs">
-                {currencySymbol}{toFixedAmount(committed, user?.currency)} upcoming
-              </span>
-              {expanded
-                ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                : <ChevronDown className="w-4 h-4 text-muted-foreground" />
-              }
-            </div>
-          </button>
-        )}
-      </div>
-
-      {expanded && hasRecurring && (
-        <div className="border-t border-border/50 px-4 pb-4 pt-3 space-y-3 bg-muted/20">
-          <div className="space-y-2.5">
-            {recurringWithStatus.map(r => (
-              <div key={r.id} className="flex items-center justify-between text-sm" data-testid={`recurring-summary-item-${r.id}`}>
-                <span className="flex items-center gap-2">
-                  {r.isPaid ? (
-                    <div className="w-5 h-5 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
-                      <Check className="w-3 h-3 text-green-600 dark:text-green-400" />
-                    </div>
-                  ) : (
-                    <div className="w-5 h-5 rounded-full bg-muted border border-border/60 flex items-center justify-center shrink-0">
-                      <Clock className="w-3 h-3 text-muted-foreground" />
-                    </div>
-                  )}
-                  <span className={r.isPaid ? "text-muted-foreground" : "text-foreground"}>{r.name}</span>
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs ${r.isPaid ? "text-muted-foreground" : "font-medium text-foreground"}`}>
-                    {currencySymbol}{toFixedAmount(r.monthlyAmount, user?.currency)}
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className={`text-[10px] px-1.5 py-0 h-4 ${r.isPaid ? "text-green-600 border-green-300 dark:border-green-800" : "text-muted-foreground"}`}
-                  >
-                    {r.isPaid ? "paid" : r.dueDay ? `due ${r.dueDay}${getDaySuffix(r.dueDay)}` : "due"}
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="rounded-xl bg-card border border-border/50 p-3 space-y-1.5" data-testid="section-free-to-spend">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{currencySymbol}{toFixedAmount(remaining, user?.currency)} remaining</span>
-              <span>−</span>
-              <span>{currencySymbol}{toFixedAmount(committed, user?.currency)} committed</span>
-              <span>=</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-foreground">Free to spend</span>
-              <span className={`text-base font-bold ${freeToSpend >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive"}`}>
-                {freeToSpend < 0 ? "-" : ""}{currencySymbol}{toFixedAmount(Math.abs(freeToSpend), user?.currency)}
-              </span>
-            </div>
-          </div>
-
-          <p className="text-[10px] text-muted-foreground text-center">
-            Figures reflect what you've logged in the app
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
 
 interface MoneyInSectionProps {
   incomeEntries: IncomeEntry[];

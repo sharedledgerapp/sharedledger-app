@@ -23,6 +23,7 @@ import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { BalanceBoard } from "@/components/BalanceBoard";
+import { IncomeSummaryCard } from "@/components/IncomeSummaryCard";
 import { RoommatesDashboardView } from "@/pages/RoommatesDashboard";
 import { CouplesDashboardView } from "@/pages/CouplesDashboard";
 import { useFamily } from "@/hooks/use-data";
@@ -650,7 +651,15 @@ export default function FamilyDashboard() {
             <Banknote className="w-5 h-5 text-primary" />
             Household Income
           </h3>
-          <Card className="border-border/50 shadow-sm">
+          <IncomeSummaryCard
+            incomeTotal={familyIncomeEntries.reduce((s, e) => s + Number(e.amount), 0)}
+            spentTotal={Number(data?.summary.totalSpent ?? 0)}
+            recurringExpenses={sharedRecurring || []}
+            currencySymbol={currencySymbol}
+            currency={groupCurrency}
+          />
+          <div className="mt-4">
+            <Card className="border-border/50 shadow-sm">
             <CardContent className="p-4 space-y-3">
               {familyIncomeEntries.map((entry) => {
                 const isOwner = entry.userId === user?.id;
@@ -702,7 +711,8 @@ export default function FamilyDashboard() {
                 </span>
               </div>
             </CardContent>
-          </Card>
+            </Card>
+          </div>
         </section>
       )}
 
