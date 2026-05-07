@@ -721,13 +721,14 @@ export default function ExpensesPage() {
               Your net position is only as accurate as what you log. Regular entries give you the clearest picture of where you stand.
             </p>
           </div>
-          {(incomeEntries?.length ?? 0) > 0 && (() => {
+          {(() => {
             const now = new Date();
             const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
             const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
             const incomeTotal = (incomeEntries || [])
               .filter(e => { const d = new Date(e.date); return d >= monthStart && d <= monthEnd; })
               .reduce((sum, e) => sum + Number(e.amount), 0);
+            if (incomeTotal <= 0) return null;
             const spentTotal = (expenses || [])
               .filter(e => { const d = new Date((e as any).date); return (e as any).paymentSource === "personal" && d >= monthStart && d <= monthEnd; })
               .reduce((sum, e) => sum + Number((e as any).amount), 0);

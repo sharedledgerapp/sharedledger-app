@@ -1274,7 +1274,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       }
       const schema = z.object({
         amount: z.string().or(z.number()).transform(v => String(v)),
-        source: z.enum(["Family / Parents", "Work", "Gift or Unexpected", "Scholarship or Grant", "Other"]),
+        source: z.string().min(1),
         note: z.string().optional().nullable(),
         date: z.date().optional(),
         isRecurring: z.boolean().optional().default(false),
@@ -1325,7 +1325,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       }
       const schema = z.object({
         amount: z.string().or(z.number()).transform(v => String(v)).optional(),
-        source: z.enum(["Family / Parents", "Work", "Gift or Unexpected", "Scholarship or Grant", "Other"]).optional(),
+        source: z.string().min(1).optional(),
         note: z.string().optional().nullable(),
         date: z.date().optional(),
         isRecurring: z.boolean().optional(),
