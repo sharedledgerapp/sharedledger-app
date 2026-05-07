@@ -400,13 +400,22 @@ export function CouplesDashboardView({
 
       {familyIncomeEntries && familyIncomeEntries.length > 0 && (
         <>
-        <IncomeSummaryCard
-          incomeTotal={familyIncomeEntries.reduce((s, e) => s + Number(e.amount), 0)}
-          spentTotal={totalSpent}
-          recurringExpenses={sharedRecurring || []}
-          currencySymbol={currencySymbol}
-          currency={user?.currency}
-        />
+        {(() => {
+          const myIncomeEntries = familyIncomeEntries.filter(e => e.userId === user?.id);
+          const myIncomeTotal = myIncomeEntries.reduce((s, e) => s + Number(e.amount), 0);
+          if (myIncomeTotal <= 0) return null;
+          const myContribution = contributions?.partners?.find(p => p.id === user?.id);
+          const mySpentTotal = myContribution ? Number(myContribution.total) : 0;
+          return (
+            <IncomeSummaryCard
+              incomeTotal={myIncomeTotal}
+              spentTotal={mySpentTotal}
+              recurringExpenses={sharedRecurring || []}
+              currencySymbol={currencySymbol}
+              currency={user?.currency}
+            />
+          );
+        })()}
         <Card className="border-border/50 shadow-sm" data-testid="section-couple-income">
           <CardContent className="p-5">
             <h3 className="font-display font-bold text-sm mb-4 flex items-center gap-2">
