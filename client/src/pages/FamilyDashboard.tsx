@@ -651,22 +651,16 @@ export default function FamilyDashboard() {
             <Banknote className="w-5 h-5 text-primary" />
             Household Income
           </h3>
-          {(() => {
-            const myIncomeEntries = familyIncomeEntries.filter(e => e.userId === user?.id);
-            const myIncomeTotal = myIncomeEntries.reduce((s, e) => s + Number(e.amount), 0);
-            if (myIncomeTotal <= 0) return null;
-            const myMember = data?.memberSpending?.find((m: MemberSpending) => m.id === user?.id);
-            const mySpentTotal = myMember && !myMember.isPrivate ? Number(myMember.total) : 0;
-            return (
-              <IncomeSummaryCard
-                incomeTotal={myIncomeTotal}
-                spentTotal={mySpentTotal}
-                recurringExpenses={sharedRecurring || []}
-                currencySymbol={currencySymbol}
-                currency={groupCurrency}
-              />
-            );
-          })()}
+          {familyIncomeEntries.reduce((s, e) => s + Number(e.amount), 0) > 0 && (
+            <IncomeSummaryCard
+              incomeTotal={familyIncomeEntries.reduce((s, e) => s + Number(e.amount), 0)}
+              spentTotal={Number(data?.summary.totalSpent ?? 0)}
+              recurringExpenses={sharedRecurring || []}
+              currencySymbol={currencySymbol}
+              currency={groupCurrency}
+              periodLabel="Household Overview"
+            />
+          )}
           <div className="mt-4">
             <Card className="border-border/50 shadow-sm">
             <CardContent className="p-4 space-y-3">
