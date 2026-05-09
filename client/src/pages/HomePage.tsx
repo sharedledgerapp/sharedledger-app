@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useExpenses, useGoals, useFamily } from "@/hooks/use-data";
+import type { RecurringExpense } from "@shared/schema";
 import { captureEvent } from "@/lib/analytics";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -11,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Plus, Wallet, TrendingUp, Star, ArrowUpRight, ArrowDownRight, ChevronRight, Flag, Target, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, PiggyBank, Clock, Globe, Bell, Sparkles, X, Banknote, ArrowDownLeft } from "lucide-react";
+import { Plus, Wallet, TrendingUp, Star, ArrowUpRight, ArrowDownRight, ChevronRight, ChevronDown, ChevronUp, Flag, Target, Utensils, Bus, Gamepad2, ShoppingBag, Lightbulb, GraduationCap, Heart, Package, PiggyBank, Clock, Globe, Bell, Sparkles, X, Banknote, ArrowDownLeft, Check, Repeat } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -114,6 +115,7 @@ export default function HomePage() {
   const [intentionDraft, setIntentionDraft] = useState("");
   const [showBalanceDialog, setShowBalanceDialog] = useState(false);
   const [balanceInput, setBalanceInput] = useState("");
+  const [showRecurringBreakdown, setShowRecurringBreakdown] = useState(false);
 
   const { data: spendingSummary } = useQuery<{
     currentMonthTotal: string;
@@ -131,6 +133,11 @@ export default function HomePage() {
     balanceCheckpoint: { amount: number; setAt: string } | null;
   }>({
     queryKey: ["/api/spending/summary"],
+  });
+
+  const { data: recurringExpenses } = useQuery<RecurringExpense[]>({
+    queryKey: ["/api/recurring-expenses"],
+    enabled: !!user,
   });
 
   const { data: budgetSummary } = useQuery<{
@@ -239,6 +246,26 @@ export default function HomePage() {
   const now = new Date();
   const monthStart = startOfMonth(now);
   const monthEnd = endOfMonth(now);
+
+  function toMonthlyAmount(amount: number, frequency: string): number {
+    if (frequency === "yearly") return amount / 12;
+    if (frequency === "quarterly") return amount / 3;
+    return amount;
+  }
+
+  const activeRecurring = (recurringExpenses ?? []).filter(r => r.isActive && r.paymentSource !== "group");
+  const thisMonthPersonalExpenses = (expenses ?? []).filter(e => {
+    const d = new Date(e.date);
+    return (e as any).paymentSource === "personal" && d >= monthStart && d <= monthEnd;
+  });
+  const recurringWithStatus = activeRecurring.map(r => {
+    const isPaid = thisMonthPersonalExpenses.some(e => e.category === r.category && Number(e.amount) > 0);
+    const monthlyAmount = toMonthlyAmount(Number(r.amount), r.frequency);
+    return { ...r, isPaid, monthlyAmount };
+  });
+  const unpaidCommitted = recurringWithStatus.filter(r => !r.isPaid).reduce((s, r) => s + r.monthlyAmount, 0);
+  const referenceNet = balanceBasedNet !== null ? balanceBasedNet : hasIncomeEntries ? netTotal : null;
+  const freeToSpend = referenceNet !== null ? referenceNet - unpaidCommitted : null;
 
   const friendGroupCurrencyMap = new Map<number, string>(
     (friendGroups || []).map(g => [g.id, g.currency || "EUR"])
@@ -380,6 +407,72 @@ export default function HomePage() {
                   </>
                 )}
               </div>
+
+              {/* Expandable recurring commitments section */}
+              {activeRecurring.length > 0 && (
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowRecurringBreakdown(v => !v); }}
+                  className="mt-3 w-full flex items-center justify-between py-2 px-3 rounded-xl bg-white/10 hover:bg-white/15 transition-colors text-[11px] text-white/80"
+                  data-testid="button-toggle-recurring-breakdown"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Repeat className="w-3.5 h-3.5" />
+                    Committed this month
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium">
+                      {recurringWithStatus.filter(r => !r.isPaid).length > 0
+                        ? `${currencySymbol}${toFixedAmount(unpaidCommitted, user?.currency)} upcoming`
+                        : "all paid"}
+                    </span>
+                    {showRecurringBreakdown ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  </div>
+                </button>
+              )}
+
+              {showRecurringBreakdown && activeRecurring.length > 0 && (
+                <div className="mt-1 rounded-xl bg-white/8 border border-white/10 overflow-hidden" data-testid="section-recurring-breakdown">
+                  <div className="px-3 py-2.5 space-y-2">
+                    {recurringWithStatus.map(r => (
+                      <div key={r.id} className="flex items-center justify-between text-[11px]" data-testid={`recurring-item-${r.id}`}>
+                        <span className="flex items-center gap-2">
+                          {r.isPaid ? (
+                            <div className="w-4 h-4 rounded-full bg-green-400/20 flex items-center justify-center shrink-0">
+                              <Check className="w-2.5 h-2.5 text-green-300" />
+                            </div>
+                          ) : (
+                            <div className="w-4 h-4 rounded-full bg-white/10 border border-white/20 flex items-center justify-center shrink-0">
+                              <Clock className="w-2.5 h-2.5 text-white/50" />
+                            </div>
+                          )}
+                          <span className={r.isPaid ? "text-white/40 line-through" : "text-white/80"}>{r.name}</span>
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={r.isPaid ? "text-white/30" : "text-white/80 font-medium"}>
+                            {currencySymbol}{toFixedAmount(r.monthlyAmount, user?.currency)}
+                          </span>
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${r.isPaid ? "bg-green-400/15 text-green-300" : "bg-white/10 text-white/50"}`}>
+                            {r.isPaid ? "paid" : r.dueDay ? `due ${r.dueDay}${r.dueDay === 1 ? "st" : r.dueDay === 2 ? "nd" : r.dueDay === 3 ? "rd" : "th"}` : "due"}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {freeToSpend !== null && (
+                    <div className="border-t border-white/10 px-3 py-2.5 flex items-center justify-between" data-testid="section-free-to-spend">
+                      <span className="text-[11px] text-white/60">Free to spend</span>
+                      <span className={`text-sm font-bold ${freeToSpend >= 0 ? "text-green-300" : "text-red-300"}`}>
+                        {freeToSpend < 0 ? "-" : ""}{currencySymbol}{toFixedAmount(Math.abs(freeToSpend), user?.currency)}
+                      </span>
+                    </div>
+                  )}
+                  {freeToSpend === null && (
+                    <div className="border-t border-white/10 px-3 py-2 text-center">
+                      <span className="text-[10px] text-white/30">Add income to see free-to-spend</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {prevMonthTotal > 0 && (
                 <div className="mt-3 flex gap-3 text-xs font-medium text-white/90">
