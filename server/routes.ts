@@ -755,27 +755,9 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
     const combinedMonthlyTotal = currentMonthTotal + recurringMonthlyTotal;
 
-    const personalMonthlyIncomeTotal = await storage.getMonthlyIncomeTotal(user.id, currentMonthStart, currentMonthEnd);
+    const monthlyIncomeTotal = await storage.getMonthlyIncomeTotal(user.id, currentMonthStart, currentMonthEnd);
     const incomeEntriesList = await storage.getIncomeEntries(user.id);
-
-    // For family/couple groups, Money In = user's own income (all, private + shared)
-    //   PLUS other household members' shared income (to avoid double-counting the user's own).
-    // For personal-only users (or roommates), Money In = personal income only.
-    let monthlyIncomeTotal = personalMonthlyIncomeTotal;
-    let hasIncomeEntries = incomeEntriesList.length > 0;
-    if (user.familyId) {
-      const family = await storage.getFamily(user.familyId);
-      if (family && (family.groupType === "family" || family.groupType === "couple")) {
-        // Get only other members' shared income (excludeUserId avoids double-counting current user's entries)
-        const othersSharedTotal = await storage.getFamilyMonthlyIncomeTotal(user.familyId, currentMonthStart, currentMonthEnd, user.id);
-        monthlyIncomeTotal = personalMonthlyIncomeTotal + othersSharedTotal;
-        // For group users, show income card if there are ANY household shared entries (not just personal)
-        if (!hasIncomeEntries) {
-          const householdEntries = await storage.getFamilyIncomeEntries(user.familyId);
-          hasIncomeEntries = householdEntries.length > 0;
-        }
-      }
-    }
+    const hasIncomeEntries = incomeEntriesList.length > 0;
 
     res.json({
       currentMonthTotal: currentMonthTotal.toFixed(2),
