@@ -728,7 +728,8 @@ export default function ExpensesPage() {
             const incomeTotal = (incomeEntries || [])
               .filter(e => { const d = new Date(e.date); return d >= monthStart && d <= monthEnd; })
               .reduce((sum, e) => sum + Number(e.amount), 0);
-            if (incomeTotal <= 0) return null;
+            const hasActiveRecurring = (recurringExpenses || []).some(r => r.isActive);
+            if (incomeTotal <= 0 && !hasActiveRecurring) return null;
             const spentTotal = (expenses || [])
               .filter(e => { const d = new Date((e as any).date); return (e as any).paymentSource === "personal" && d >= monthStart && d <= monthEnd; })
               .reduce((sum, e) => sum + Number((e as any).amount), 0);
