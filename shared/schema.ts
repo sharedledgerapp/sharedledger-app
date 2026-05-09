@@ -53,6 +53,8 @@ export const users = pgTable("users", {
   onboardingIntention: text("onboarding_intention"),
   lifeStage: text("life_stage").array(),
   lifeStageSetAt: timestamp("life_stage_set_at"),
+  currentBalance: numeric("current_balance"),
+  balanceSetAt: timestamp("balance_set_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

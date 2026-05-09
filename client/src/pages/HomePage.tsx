@@ -6,6 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -111,6 +112,8 @@ export default function HomePage() {
   const [showBudgetPrompt, setShowBudgetPrompt] = useState(false);
   const [showIntentionPrompt, setShowIntentionPrompt] = useState(false);
   const [intentionDraft, setIntentionDraft] = useState("");
+  const [showBalanceDialog, setShowBalanceDialog] = useState(false);
+  const [balanceInput, setBalanceInput] = useState("");
 
   const { data: spendingSummary } = useQuery<{
     currentMonthTotal: string;
@@ -124,6 +127,8 @@ export default function HomePage() {
     settingExcludedGroupExpenseCount: number;
     monthlyIncomeTotal: string;
     hasIncomeEntries: boolean;
+    balanceBasedNet: number | null;
+    balanceCheckpoint: { amount: number; setAt: string } | null;
   }>({
     queryKey: ["/api/spending/summary"],
   });
@@ -190,6 +195,16 @@ export default function HomePage() {
     },
   });
 
+  const setBalanceMutation = useMutation({
+    mutationFn: async (amount: number | null) => {
+      await apiRequest("PATCH", "/api/user/balance", { currentBalance: amount });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/spending/summary"] });
+      setShowBalanceDialog(false);
+    },
+  });
+
   const userHasIntention = !!(user as any)?.onboardingIntention;
 
   useEffect(() => {
@@ -218,6 +233,8 @@ export default function HomePage() {
   const monthlyIncomeTotal = spendingSummary ? Number(spendingSummary.monthlyIncomeTotal) : 0;
   const hasIncomeEntries = spendingSummary?.hasIncomeEntries ?? false;
   const netTotal = monthlyIncomeTotal - combinedTotal;
+  const balanceBasedNet = spendingSummary?.balanceBasedNet ?? null;
+  const balanceCheckpoint = spendingSummary?.balanceCheckpoint ?? null;
 
   const now = new Date();
   const monthStart = startOfMonth(now);
@@ -289,97 +306,13 @@ export default function HomePage() {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        {hasIncomeEntries ? (
-          <Link href="/app/expenses?tab=in" className="col-span-2">
-            <Card className="col-span-2 bg-gradient-to-br from-primary to-primary/80 border-none text-white shadow-xl shadow-primary/20 cursor-pointer hover:shadow-primary/30 transition-shadow" data-tutorial="home-spending">
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start gap-2 mb-2">
-                  <div className="flex items-center gap-2 text-white/80">
-                    <Wallet className="w-4 h-4" />
-                    <span className="text-sm font-medium">This month</span>
-                  </div>
-                  {todayTotal > 0 && (
-                    <div className="text-right bg-white/15 rounded-lg px-3 py-2 backdrop-blur-sm" data-testid="badge-today-total">
-                      <div className="text-[10px] uppercase tracking-wider text-white/70">{t("today")}</div>
-                      <div className="text-base font-bold">{currencySymbol}{toFixedAmount(todayTotal, user?.currency)}</div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Net figure — headline, font shrinks for large numbers */}
-                {(() => {
-                  const netStr = `${netTotal >= 0 ? "+" : "-"}${currencySymbol}${toFixedAmount(Math.abs(netTotal), user?.currency)}`;
-                  const sizeClass = netStr.length > 14 ? "text-2xl" : netStr.length > 11 ? "text-3xl" : netStr.length > 8 ? "text-4xl" : "text-5xl";
-                  return (
-                    <div className={`${sizeClass} font-display font-bold mb-4 leading-tight ${netTotal < 0 ? "text-red-200" : ""}`} data-testid="text-net-total">
-                      {netStr}
-                      <span className="text-sm font-normal text-white/70 ml-2">net</span>
-                    </div>
-                  );
-                })()}
-
-                <div className="space-y-1.5 text-[11px] text-white/80">
-                  <div className="flex items-center justify-between" data-testid="badge-income-total">
-                    <span className="flex items-center gap-1">
-                      <Banknote className="w-3 h-3 shrink-0" />
-                      Money In
-                    </span>
-                    <span className="font-semibold text-green-300">+{currencySymbol}{toFixedAmount(monthlyIncomeTotal, user?.currency)}</span>
-                  </div>
-                  <div className="flex items-center justify-between" data-testid="badge-spending-total">
-                    <span className="flex items-center gap-1">
-                      <Wallet className="w-3 h-3 shrink-0" />
-                      Money Out
-                    </span>
-                    <span className="font-semibold text-white">-{currencySymbol}{toFixedAmount(combinedTotal, user?.currency)}</span>
-                  </div>
-                </div>
-
-                {prevMonthTotal > 0 && (
-                  <div className="mt-3 flex gap-3 text-xs font-medium text-white/90">
-                    <div className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg backdrop-blur-sm" data-testid="badge-trend">
-                      {trend === "up" ? (
-                        <ArrowUpRight className="w-3 h-3" />
-                      ) : (
-                        <ArrowDownRight className="w-3 h-3" />
-                      )}
-                      {trend === "up" ? "+" : "-"}{percentageChange.toFixed(0)}% spending {t("vsLastMonth")}
-                    </div>
-                  </div>
-                )}
-                {(spendingSummary?.crossCurrencyGroupExpenseCount ?? 0) > 0 && (
-                  <div className="mt-2 flex items-center gap-1 text-white/60 text-[10px]" data-testid="badge-cross-currency-note">
-                    <Globe className="w-3 h-3 shrink-0" />
-                    <span>{spendingSummary!.crossCurrencyGroupExpenseCount} group expense{spendingSummary!.crossCurrencyGroupExpenseCount !== 1 ? "s" : ""} in other currencies not counted</span>
-                  </div>
-                )}
-                {(spendingSummary?.settingExcludedGroupExpenseCount ?? 0) > 0 && (
-                  <div className="mt-2 flex items-center gap-1 text-white/60 text-[10px]" data-testid="badge-setting-excluded-note">
-                    <Globe className="w-3 h-3 shrink-0" />
-                    <span>{spendingSummary!.settingExcludedGroupExpenseCount} group expense{spendingSummary!.settingExcludedGroupExpenseCount !== 1 ? "s" : ""} tracked separately in Group tab</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </Link>
-        ) : (
-          <Card className="col-span-2 bg-gradient-to-br from-primary to-primary/80 border-none text-white shadow-xl shadow-primary/20" data-tutorial="home-spending">
+        <Link href="/app/expenses?tab=in" className="col-span-2" data-testid="card-home-spending">
+          <Card className="col-span-2 bg-gradient-to-br from-primary to-primary/80 border-none text-white shadow-xl shadow-primary/20 cursor-pointer hover:shadow-primary/30 transition-shadow" data-tutorial="home-spending">
             <CardContent className="p-6">
-              <div className="flex justify-between items-start gap-2">
-                <div>
-                  <div className="flex items-center gap-2 text-white/80 mb-1">
-                    <Wallet className="w-4 h-4" />
-                    <span className="text-sm font-medium">{t("personalSpending")}</span>
-                  </div>
-                  {(() => {
-                    const totalStr = `${currencySymbol}${toFixedAmount(combinedTotal, user?.currency)}`;
-                    const sizeClass = totalStr.length > 13 ? "text-2xl" : totalStr.length > 10 ? "text-3xl" : "text-4xl";
-                    return (
-                      <div className={`${sizeClass} font-display font-bold leading-tight`} data-testid="text-monthly-total">
-                        {totalStr}
-                      </div>
-                    );
-                  })()}
+              <div className="flex justify-between items-start gap-2 mb-2">
+                <div className="flex items-center gap-2 text-white/80">
+                  <Wallet className="w-4 h-4" />
+                  <span className="text-sm font-medium">This month</span>
                 </div>
                 {todayTotal > 0 && (
                   <div className="text-right bg-white/15 rounded-lg px-3 py-2 backdrop-blur-sm" data-testid="badge-today-total">
@@ -389,41 +322,95 @@ export default function HomePage() {
                 )}
               </div>
 
-              {(monthlyTotal > 0 || recurringTotal > 0) && (
-                <div className="mt-3 space-y-1 text-[11px] text-white/80">
-                  {monthlyTotal > 0 && (
-                    <div className="flex items-center justify-between" data-testid="badge-everyday-total">
+              {/* Headline figure: balance-based net > income-based net > spending total */}
+              {(() => {
+                const useBalance = balanceBasedNet !== null;
+                const useIncome = !useBalance && hasIncomeEntries;
+                const displayVal = useBalance ? balanceBasedNet! : useIncome ? netTotal : combinedTotal;
+                const sign = (useBalance || useIncome) ? (displayVal >= 0 ? "+" : "-") : "";
+                const label = useBalance ? "balance" : useIncome ? "net" : "spent";
+                const numStr = `${sign}${currencySymbol}${toFixedAmount(Math.abs(displayVal), user?.currency)}`;
+                const sizeClass = numStr.length > 14 ? "text-2xl" : numStr.length > 11 ? "text-3xl" : numStr.length > 8 ? "text-4xl" : "text-5xl";
+                return (
+                  <div className={`${sizeClass} font-display font-bold mb-4 leading-tight ${(useBalance || useIncome) && displayVal < 0 ? "text-red-200" : ""}`} data-testid="text-net-total">
+                    {numStr}
+                    <span className="text-sm font-normal text-white/70 ml-2">{label}</span>
+                  </div>
+                );
+              })()}
+
+              <div className="space-y-1.5 text-[11px] text-white/80">
+                {(hasIncomeEntries || balanceBasedNet !== null) ? (
+                  <>
+                    <div className="flex items-center justify-between" data-testid="badge-income-total">
+                      <span className="flex items-center gap-1">
+                        <Banknote className="w-3 h-3 shrink-0" />
+                        Money In
+                      </span>
+                      <span className="font-semibold text-green-300">+{currencySymbol}{toFixedAmount(monthlyIncomeTotal, user?.currency)}</span>
+                    </div>
+                    <div className="flex items-center justify-between" data-testid="badge-spending-total">
                       <span className="flex items-center gap-1">
                         <Wallet className="w-3 h-3 shrink-0" />
-                        Everyday
+                        Money Out
                       </span>
-                      <span className="font-semibold text-white">{currencySymbol}{toFixedAmount(monthlyTotal, user?.currency)}</span>
+                      <span className="font-semibold text-white">-{currencySymbol}{toFixedAmount(combinedTotal, user?.currency)}</span>
                     </div>
-                  )}
-                  {recurringTotal > 0 && (
-                    <div className="flex items-center justify-between" data-testid="badge-recurring-total">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3 shrink-0" />
-                        Recurring
-                      </span>
-                      <span className="font-semibold text-white">{currencySymbol}{toFixedAmount(recurringTotal, user?.currency)}/mo</span>
-                    </div>
-                  )}
-                </div>
-              )}
+                  </>
+                ) : (
+                  <>
+                    {monthlyTotal > 0 && (
+                      <div className="flex items-center justify-between" data-testid="badge-everyday-total">
+                        <span className="flex items-center gap-1">
+                          <Wallet className="w-3 h-3 shrink-0" />
+                          Everyday
+                        </span>
+                        <span className="font-semibold text-white">{currencySymbol}{toFixedAmount(monthlyTotal, user?.currency)}</span>
+                      </div>
+                    )}
+                    {recurringTotal > 0 && (
+                      <div className="flex items-center justify-between" data-testid="badge-recurring-total">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3 shrink-0" />
+                          Recurring
+                        </span>
+                        <span className="font-semibold text-white">{currencySymbol}{toFixedAmount(recurringTotal, user?.currency)}/mo</span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
 
               {prevMonthTotal > 0 && (
                 <div className="mt-3 flex gap-3 text-xs font-medium text-white/90">
                   <div className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg backdrop-blur-sm" data-testid="badge-trend">
-                    {trend === "up" ? (
-                      <ArrowUpRight className="w-3 h-3" />
-                    ) : (
-                      <ArrowDownRight className="w-3 h-3" />
-                    )}
-                    {trend === "up" ? "+" : "-"}{percentageChange.toFixed(0)}% {t("vsLastMonth")}
+                    {trend === "up" ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                    {trend === "up" ? "+" : "-"}{percentageChange.toFixed(0)}% spending {t("vsLastMonth")}
                   </div>
                 </div>
               )}
+
+              {balanceCheckpoint ? (
+                <div className="mt-2 flex items-center gap-2 text-white/50 text-[10px]">
+                  <Banknote className="w-3 h-3 shrink-0" />
+                  <span>Balance set {format(new Date(balanceCheckpoint.setAt), "MMM d")}</span>
+                  <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setBalanceInput(String(balanceCheckpoint!.amount)); setShowBalanceDialog(true); }}
+                    className="underline hover:text-white/80 transition-colors"
+                    data-testid="button-update-balance"
+                  >Update</button>
+                </div>
+              ) : (
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setBalanceInput(""); setShowBalanceDialog(true); }}
+                  className="mt-3 text-[10px] text-white/40 hover:text-white/70 flex items-center gap-1 transition-colors"
+                  data-testid="button-set-balance"
+                >
+                  <Banknote className="w-3 h-3" />
+                  Set balance for accurate net
+                </button>
+              )}
+
               {(spendingSummary?.crossCurrencyGroupExpenseCount ?? 0) > 0 && (
                 <div className="mt-2 flex items-center gap-1 text-white/60 text-[10px]" data-testid="badge-cross-currency-note">
                   <Globe className="w-3 h-3 shrink-0" />
@@ -438,7 +425,49 @@ export default function HomePage() {
               )}
             </CardContent>
           </Card>
-        )}
+        </Link>
+
+        <Dialog open={showBalanceDialog} onOpenChange={setShowBalanceDialog}>
+          <DialogContent className="max-w-xs mx-4">
+            <DialogHeader>
+              <DialogTitle>Set Current Balance</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              Enter your account balance right now. From this point, your net figure will be calculated as: balance + income − spending since today.
+            </p>
+            <Input
+              type="number"
+              inputMode="decimal"
+              placeholder={`e.g. 1247.50`}
+              value={balanceInput}
+              onChange={e => setBalanceInput(e.target.value)}
+              data-testid="input-balance-amount"
+            />
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowBalanceDialog(false)} className="flex-1">Cancel</Button>
+              <Button
+                onClick={() => {
+                  const val = parseFloat(balanceInput);
+                  if (!isNaN(val)) setBalanceMutation.mutate(val);
+                }}
+                disabled={setBalanceMutation.isPending || !balanceInput || isNaN(parseFloat(balanceInput))}
+                className="flex-1"
+                data-testid="button-save-balance"
+              >Save</Button>
+            </div>
+            {balanceCheckpoint && (
+              <Button
+                variant="ghost"
+                className="w-full text-destructive text-xs h-8"
+                onClick={() => setBalanceMutation.mutate(null)}
+                disabled={setBalanceMutation.isPending}
+                data-testid="button-clear-balance"
+              >
+                Remove balance checkpoint
+              </Button>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {(() => {
           const sortedGoals = sortGoalsByPriority(goals || []);

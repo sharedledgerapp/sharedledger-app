@@ -759,6 +759,21 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const incomeEntriesList = await storage.getIncomeEntries(user.id);
     const hasIncomeEntries = incomeEntriesList.length > 0;
 
+    // Balance checkpoint: net = balance + income since checkpoint - personal expenses since checkpoint
+    let balanceBasedNet: number | null = null;
+    let balanceCheckpoint: { amount: number; setAt: string } | null = null;
+    if (user.currentBalance != null && user.balanceSetAt != null) {
+      const checkpointDate = new Date(user.balanceSetAt as Date);
+      const incomeSinceCheckpoint = incomeEntriesList
+        .filter(e => new Date(e.date) >= checkpointDate)
+        .reduce((sum, e) => sum + Number(e.amount), 0);
+      const expensesSinceCheckpoint = personalExpenses
+        .filter(e => new Date(e.date) >= checkpointDate)
+        .reduce((sum, e) => sum + Number(e.amount), 0);
+      balanceBasedNet = Number(user.currentBalance) + incomeSinceCheckpoint - expensesSinceCheckpoint;
+      balanceCheckpoint = { amount: Number(user.currentBalance), setAt: (user.balanceSetAt as Date).toISOString() };
+    }
+
     res.json({
       currentMonthTotal: currentMonthTotal.toFixed(2),
       prevMonthTotal: prevMonthTotal.toFixed(2),
@@ -771,7 +786,21 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       settingExcludedGroupExpenseCount,
       monthlyIncomeTotal: monthlyIncomeTotal.toFixed(2),
       hasIncomeEntries,
+      balanceBasedNet: balanceBasedNet !== null ? Number(balanceBasedNet.toFixed(2)) : null,
+      balanceCheckpoint,
     });
+  });
+
+  app.patch("/api/user/balance", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const schema = z.object({ currentBalance: z.number().nullable() });
+    const { currentBalance } = schema.parse(req.body);
+    if (currentBalance === null) {
+      await storage.updateUser(user.id, { currentBalance: null, balanceSetAt: null });
+    } else {
+      await storage.updateUser(user.id, { currentBalance: String(currentBalance), balanceSetAt: new Date() });
+    }
+    res.json({ success: true });
   });
 
   app.get("/api/spending/activity", requireAuth, async (req, res) => {
