@@ -1620,6 +1620,20 @@ export default function ExpensesPage() {
                 </div>
               </div>
             )}
+            <div>
+              <Label className="text-xs text-muted-foreground">Due on day of month (optional)</Label>
+              <Input
+                type="number"
+                min="1"
+                max="28"
+                value={recurringForm.dueDay}
+                onChange={(e) => setRecurringForm(f => ({ ...f, dueDay: e.target.value }))}
+                placeholder="e.g. 4"
+                className="mt-1"
+                data-testid="input-recurring-due-day"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Used to track paid/unpaid status and reminders</p>
+            </div>
             <div className="rounded-xl border border-border/50 bg-muted/30 p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -1638,40 +1652,25 @@ export default function ExpensesPage() {
                 />
               </div>
               {recurringForm.reminderEnabled && (
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Due on day of month</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      max="28"
-                      value={recurringForm.dueDay}
-                      onChange={(e) => setRecurringForm(f => ({ ...f, dueDay: e.target.value }))}
-                      placeholder="e.g. 15"
-                      className="mt-1"
-                      data-testid="input-recurring-due-day"
-                    />
-                    {recurringForm.reminderEnabled && !recurringForm.dueDay && (
-                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Set a due day to enable reminders</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Notify how many days before</Label>
-                    <Select
-                      value={String(recurringForm.reminderDaysBefore)}
-                      onValueChange={(v) => setRecurringForm(f => ({ ...f, reminderDaysBefore: Number(v) }))}
-                    >
-                      <SelectTrigger className="mt-1" data-testid="select-recurring-reminder-days">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1 day before</SelectItem>
-                        <SelectItem value="3">3 days before</SelectItem>
-                        <SelectItem value="5">5 days before</SelectItem>
-                        <SelectItem value="7">7 days before</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div>
+                  {!recurringForm.dueDay && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">Set a due day above to enable reminders</p>
+                  )}
+                  <Label className="text-xs text-muted-foreground mt-2 block">Notify how many days before</Label>
+                  <Select
+                    value={String(recurringForm.reminderDaysBefore)}
+                    onValueChange={(v) => setRecurringForm(f => ({ ...f, reminderDaysBefore: Number(v) }))}
+                  >
+                    <SelectTrigger className="mt-1" data-testid="select-recurring-reminder-days">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 day before</SelectItem>
+                      <SelectItem value="3">3 days before</SelectItem>
+                      <SelectItem value="5">5 days before</SelectItem>
+                      <SelectItem value="7">7 days before</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
             </div>

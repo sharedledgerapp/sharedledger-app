@@ -178,27 +178,6 @@ export function IncomeSummaryCard({
             ))}
           </div>
 
-          {withPaidStatus ? (
-            <div className="rounded-xl bg-card border border-border/50 p-3 space-y-1.5" data-testid="section-free-to-spend">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>{currencySymbol}{toFixedAmount(remaining, currency)} remaining</span>
-                <span>−</span>
-                <span>{currencySymbol}{toFixedAmount(committed, currency)} committed</span>
-                <span>=</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-foreground">Free to spend</span>
-                <span className={`text-base font-bold ${freeToSpend >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive"}`}>
-                  {freeToSpend < 0 ? "-" : ""}{currencySymbol}{toFixedAmount(Math.abs(freeToSpend), currency)}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <p className="text-[10px] text-muted-foreground text-center">
-              These recurring expenses may already be reflected in your spent total
-            </p>
-          )}
-
           <p className="text-[10px] text-muted-foreground text-center">
             Figures reflect what you've logged in the app
           </p>

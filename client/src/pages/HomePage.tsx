@@ -253,7 +253,7 @@ export default function HomePage() {
     return amount;
   }
 
-  const activeRecurring = (recurringExpenses ?? []).filter(r => r.isActive && r.paymentSource !== "group");
+  const activeRecurring = (recurringExpenses ?? []).filter(r => r.isActive && !r.isGroupShared);
   const thisMonthPersonalExpenses = (expenses ?? []).filter(e => {
     const d = new Date(e.date);
     return (e as any).paymentSource === "personal" && d >= monthStart && d <= monthEnd;
