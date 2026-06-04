@@ -400,6 +400,7 @@ export async function registerRoutes(
       financialProfile: z.string().max(2000).optional().nullable(),
       onboardingIntention: z.string().max(500).optional().nullable(),
       lifeStage: z.array(z.string().max(50)).max(6).optional().nullable(),
+      emailUnsubscribed: z.boolean().optional(),
     });
     
     const parsed = updateSchema.parse(req.body);
@@ -1649,6 +1650,42 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
     await storage.deleteRecurringExpense(id);
     res.status(200).json({ message: "Deleted" });
+  });
+
+  // GET /api/recurring-expense-confirmations?year=X&month=Y
+  app.get("/api/recurring-expense-confirmations", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const now = new Date();
+    const year = parseInt(String(req.query.year)) || now.getFullYear();
+    const month = parseInt(String(req.query.month)) || (now.getMonth() + 1);
+    const confirmations = await storage.getRecurringConfirmationsForMonth(user.id, year, month);
+    res.json(confirmations);
+  });
+
+  // POST /api/recurring-expenses/:id/confirm
+  app.post("/api/recurring-expenses/:id/confirm", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const id = parseInt(req.params.id);
+    const now = new Date();
+    const year = req.body.year || now.getFullYear();
+    const month = req.body.month || (now.getMonth() + 1);
+    const existing = await storage.getRecurringExpense(id);
+    if (!existing || existing.userId !== user.id) {
+      return res.status(404).json({ message: "Recurring expense not found" });
+    }
+    const confirmation = await storage.confirmRecurringExpense(id, user.id, year, month);
+    res.json(confirmation);
+  });
+
+  // DELETE /api/recurring-expenses/:id/confirm
+  app.delete("/api/recurring-expenses/:id/confirm", requireAuth, async (req, res) => {
+    const user = req.user as any;
+    const id = parseInt(req.params.id);
+    const now = new Date();
+    const year = parseInt(String(req.query.year)) || now.getFullYear();
+    const month = parseInt(String(req.query.month)) || (now.getMonth() + 1);
+    await storage.unconfirmRecurringExpense(id, user.id, year, month);
+    res.status(200).json({ message: "Unconfirmed" });
   });
 
   // GET /api/family/shared-recurring-expenses — active recurring expenses shared with group

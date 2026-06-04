@@ -55,6 +55,7 @@ export const users = pgTable("users", {
   lifeStageSetAt: timestamp("life_stage_set_at"),
   currentBalance: numeric("current_balance"),
   balanceSetAt: timestamp("balance_set_at"),
+  emailUnsubscribed: boolean("email_unsubscribed").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -159,6 +160,15 @@ export const recurringExpenses = pgTable("recurring_expenses", {
   reminderEnabled: boolean("reminder_enabled").default(false).notNull(),
   reminderDaysBefore: integer("reminder_days_before").default(3),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const recurringExpenseConfirmations = pgTable("recurring_expense_confirmations", {
+  id: serial("id").primaryKey(),
+  recurringExpenseId: integer("recurring_expense_id").notNull().references(() => recurringExpenses.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  year: integer("year").notNull(),
+  month: integer("month").notNull(),
+  confirmedAt: timestamp("confirmed_at").defaultNow().notNull(),
 });
 
 export const budgets = pgTable("budgets", {
@@ -487,6 +497,7 @@ export const insertAllowanceSchema = createInsertSchema(allowances).omit({ id: t
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
 export const insertNoteSchema = createInsertSchema(notes).omit({ id: true, createdAt: true, isCompleted: true, updatedAt: true, updatedByUserId: true });
 export const insertRecurringExpenseSchema = createInsertSchema(recurringExpenses).omit({ id: true, createdAt: true });
+export const insertRecurringExpenseConfirmationSchema = createInsertSchema(recurringExpenseConfirmations).omit({ id: true, confirmedAt: true });
 export const insertBudgetSchema = createInsertSchema(budgets).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertBudgetSetupPromptSchema = createInsertSchema(budgetSetupPrompts).omit({ id: true, createdAt: true });
 export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({ id: true, createdAt: true });
@@ -513,6 +524,7 @@ export type Message = typeof messages.$inferSelect;
 export type Note = typeof notes.$inferSelect;
 export type MessageReadStatus = typeof messageReadStatus.$inferSelect;
 export type RecurringExpense = typeof recurringExpenses.$inferSelect;
+export type RecurringExpenseConfirmation = typeof recurringExpenseConfirmations.$inferSelect;
 export type Budget = typeof budgets.$inferSelect;
 export type BudgetSetupPrompt = typeof budgetSetupPrompts.$inferSelect;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
@@ -537,6 +549,7 @@ export type InsertAllowance = z.infer<typeof insertAllowanceSchema>;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type InsertNote = z.infer<typeof insertNoteSchema>;
 export type InsertRecurringExpense = z.infer<typeof insertRecurringExpenseSchema>;
+export type InsertRecurringExpenseConfirmation = z.infer<typeof insertRecurringExpenseConfirmationSchema>;
 export type InsertBudget = z.infer<typeof insertBudgetSchema>;
 export type InsertBudgetSetupPrompt = z.infer<typeof insertBudgetSetupPromptSchema>;
 export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;

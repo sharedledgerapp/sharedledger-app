@@ -140,6 +140,28 @@ export default function HomePage() {
     enabled: !!user,
   });
 
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1-indexed
+
+  const { data: recurringConfirmations } = useQuery<{ recurringExpenseId: number }[]>({
+    queryKey: ["/api/recurring-expense-confirmations"],
+    enabled: !!user,
+  });
+
+  const confirmMutation = useMutation({
+    mutationFn: async ({ id, confirmed }: { id: number; confirmed: boolean }) => {
+      if (confirmed) {
+        await apiRequest("POST", `/api/recurring-expenses/${id}/confirm`, { year: currentYear, month: currentMonth });
+      } else {
+        await apiRequest("DELETE", `/api/recurring-expenses/${id}/confirm?year=${currentYear}&month=${currentMonth}`);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/recurring-expense-confirmations"] });
+    },
+  });
+
   const { data: budgetSummary } = useQuery<{
     budgets: any[];
     totalBudget: number;
@@ -243,9 +265,9 @@ export default function HomePage() {
   const balanceBasedNet = spendingSummary?.balanceBasedNet ?? null;
   const balanceCheckpoint = spendingSummary?.balanceCheckpoint ?? null;
 
-  const now = new Date();
   const monthStart = startOfMonth(now);
   const monthEnd = endOfMonth(now);
+  const todayDay = now.getDate();
 
   function toMonthlyAmount(amount: number, frequency: string): number {
     if (frequency === "yearly") return amount / 12;
@@ -253,17 +275,24 @@ export default function HomePage() {
     return amount;
   }
 
+  function getOrdinal(n: number): string {
+    if (n === 1) return "1st";
+    if (n === 2) return "2nd";
+    if (n === 3) return "3rd";
+    return `${n}th`;
+  }
+
+  const confirmedIds = new Set((recurringConfirmations ?? []).map(c => c.recurringExpenseId));
+
   const activeRecurring = (recurringExpenses ?? []).filter(r => r.isActive && !r.isGroupShared);
-  const thisMonthPersonalExpenses = (expenses ?? []).filter(e => {
-    const d = new Date(e.date);
-    return (e as any).paymentSource === "personal" && d >= monthStart && d <= monthEnd;
-  });
   const recurringWithStatus = activeRecurring.map(r => {
-    const isPaid = thisMonthPersonalExpenses.some(e => e.category === r.category && Number(e.amount) > 0);
+    const isConfirmed = confirmedIds.has(r.id);
     const monthlyAmount = toMonthlyAmount(Number(r.amount), r.frequency);
-    return { ...r, isPaid, monthlyAmount };
+    const isDueToday = r.frequency === "monthly" && r.dueDay === todayDay;
+    const isPast = r.frequency === "monthly" && r.dueDay != null && r.dueDay < todayDay && !isConfirmed;
+    return { ...r, isConfirmed, isPast, isDueToday, monthlyAmount };
   });
-  const unpaidCommitted = recurringWithStatus.filter(r => !r.isPaid).reduce((s, r) => s + r.monthlyAmount, 0);
+  const unpaidCommitted = recurringWithStatus.filter(r => !r.isConfirmed).reduce((s, r) => s + r.monthlyAmount, 0);
   const referenceNet = balanceBasedNet !== null ? balanceBasedNet : hasIncomeEntries ? netTotal : null;
   const freeToSpend = referenceNet !== null ? referenceNet - unpaidCommitted : null;
 
@@ -421,9 +450,9 @@ export default function HomePage() {
                   </span>
                   <div className="flex items-center gap-1.5">
                     <span className="font-medium">
-                      {recurringWithStatus.filter(r => !r.isPaid).length > 0
-                        ? `${currencySymbol}${toFixedAmount(unpaidCommitted, user?.currency)} upcoming`
-                        : "all paid"}
+                      {recurringWithStatus.filter(r => !r.isConfirmed).length > 0
+                        ? `${currencySymbol}${toFixedAmount(unpaidCommitted, user?.currency)} pending`
+                        : "all confirmed"}
                     </span>
                     {showRecurringBreakdown ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                   </div>
@@ -433,30 +462,65 @@ export default function HomePage() {
               {showRecurringBreakdown && activeRecurring.length > 0 && (
                 <div className="mt-1 rounded-xl bg-white/8 border border-white/10 overflow-hidden" data-testid="section-recurring-breakdown">
                   <div className="px-3 py-2.5 space-y-2">
-                    {recurringWithStatus.map(r => (
-                      <div key={r.id} className="flex items-center justify-between text-[11px]" data-testid={`recurring-item-${r.id}`}>
-                        <span className="flex items-center gap-2">
-                          {r.isPaid ? (
-                            <div className="w-4 h-4 rounded-full bg-green-400/20 flex items-center justify-center shrink-0">
-                              <Check className="w-2.5 h-2.5 text-green-300" />
-                            </div>
-                          ) : (
-                            <div className="w-4 h-4 rounded-full bg-white/10 border border-white/20 flex items-center justify-center shrink-0">
-                              <Clock className="w-2.5 h-2.5 text-white/50" />
-                            </div>
-                          )}
-                          <span className={r.isPaid ? "text-white/40 line-through" : "text-white/80"}>{r.name}</span>
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className={r.isPaid ? "text-white/30" : "text-white/80 font-medium"}>
-                            {currencySymbol}{toFixedAmount(r.monthlyAmount, user?.currency)}
+                    {recurringWithStatus.map(r => {
+                      let statusLabel = "";
+                      let statusClass = "";
+                      if (r.isConfirmed) {
+                        statusLabel = "confirmed";
+                        statusClass = "bg-green-400/15 text-green-300";
+                      } else if (r.isDueToday) {
+                        statusLabel = "today";
+                        statusClass = "bg-yellow-400/20 text-yellow-300";
+                      } else if (r.isPast) {
+                        statusLabel = "past";
+                        statusClass = "bg-white/10 text-white/40";
+                      } else if (r.dueDay) {
+                        statusLabel = `due ${getOrdinal(r.dueDay)}`;
+                        statusClass = "bg-white/10 text-white/50";
+                      } else {
+                        statusLabel = "due";
+                        statusClass = "bg-white/10 text-white/50";
+                      }
+                      const canConfirm = !r.isConfirmed && (r.isDueToday || r.isPast);
+                      return (
+                        <div key={r.id} className="flex items-center justify-between text-[11px]" data-testid={`recurring-item-${r.id}`}>
+                          <span className="flex items-center gap-2 min-w-0">
+                            {r.isConfirmed ? (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); confirmMutation.mutate({ id: r.id, confirmed: false }); }}
+                                className="w-4 h-4 rounded-full bg-green-400/20 flex items-center justify-center shrink-0 hover:bg-green-400/30 transition-colors"
+                                data-testid={`button-unconfirm-${r.id}`}
+                              >
+                                <Check className="w-2.5 h-2.5 text-green-300" />
+                              </button>
+                            ) : (
+                              <div className="w-4 h-4 rounded-full bg-white/10 border border-white/20 flex items-center justify-center shrink-0">
+                                <Clock className="w-2.5 h-2.5 text-white/50" />
+                              </div>
+                            )}
+                            <span className={`truncate ${r.isConfirmed ? "text-white/40 line-through" : r.isDueToday ? "text-yellow-200" : "text-white/80"}`}>{r.name}</span>
                           </span>
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${r.isPaid ? "bg-green-400/15 text-green-300" : "bg-white/10 text-white/50"}`}>
-                            {r.isPaid ? "paid" : r.dueDay ? `due ${r.dueDay}${r.dueDay === 1 ? "st" : r.dueDay === 2 ? "nd" : r.dueDay === 3 ? "rd" : "th"}` : "due"}
-                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className={r.isConfirmed ? "text-white/30" : "text-white/80 font-medium"}>
+                              {currencySymbol}{toFixedAmount(r.monthlyAmount, user?.currency)}
+                            </span>
+                            {canConfirm ? (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); confirmMutation.mutate({ id: r.id, confirmed: true }); }}
+                                className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium transition-colors ${r.isDueToday ? "bg-yellow-400/25 text-yellow-200 hover:bg-yellow-400/40" : "bg-white/15 text-white/60 hover:bg-white/25"}`}
+                                data-testid={`button-confirm-${r.id}`}
+                              >
+                                {statusLabel} · confirm
+                              </button>
+                            ) : (
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${statusClass}`}>
+                                {statusLabel}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   {freeToSpend !== null && (
                     <div className="border-t border-white/10 px-3 py-2.5 flex items-center justify-between" data-testid="section-free-to-spend">

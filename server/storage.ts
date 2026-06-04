@@ -6,6 +6,7 @@ import {
   intentionPrompts,
   settlements, pushSubscriptions, pushNotificationLog, friendGroupMembers, incomeEntries,
   sageConversations, sageMessages, aiAnalyses, personalNotes,
+  recurringExpenseConfirmations,
   type User, type InsertUser, type Family, type InsertFamily,
   type Expense, type InsertExpense, type Goal, type InsertGoal,
   type GoalApproval, type InsertGoalApproval,
@@ -13,6 +14,7 @@ import {
   type UpdateGoalRequest, type UpdateAllowanceRequest,
   type Message, type InsertMessage, type Note, type InsertNote, type MessageReadStatus,
   type RecurringExpense, type InsertRecurringExpense,
+  type RecurringExpenseConfirmation,
   type Budget, type InsertBudget, type BudgetSetupPrompt, type InsertBudgetSetupPrompt,
   type Settlement, type InsertSettlement, type FriendGroupMember,
   type IncomeEntry, type InsertIncomeEntry,
@@ -36,7 +38,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   getAllUsersWithEmail(): Promise<{ id: number; name: string; email: string }[]>;
   createUser(user: InsertUser & { familyId?: number; googleId?: string | null; appleId?: string | null }): Promise<User>;
-  updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId' | 'onboardingCompleted' | 'userNumber' | 'includeQuickGroupInSummary' | 'incomeSources' | 'sageNotesPermission' | 'sageExpensePermission' | 'sageIncomePermission' | 'sageBudgetGoalsPermission' | 'financialProfile' | 'lifeStage' | 'lifeStageSetAt' | 'currentBalance' | 'balanceSetAt'>>): Promise<User>;
+  updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId' | 'onboardingCompleted' | 'userNumber' | 'includeQuickGroupInSummary' | 'incomeSources' | 'sageNotesPermission' | 'sageExpensePermission' | 'sageIncomePermission' | 'sageBudgetGoalsPermission' | 'financialProfile' | 'lifeStage' | 'lifeStageSetAt' | 'currentBalance' | 'balanceSetAt' | 'emailUnsubscribed'>>): Promise<User>;
   countOnboardedUsers(): Promise<number>;
   assignUserNumber(userId: number): Promise<User>;
   deleteUser(id: number): Promise<void>;
@@ -102,6 +104,11 @@ export interface IStorage {
   getRecurringExpense(id: number): Promise<RecurringExpense | undefined>;
   updateRecurringExpense(id: number, updates: Partial<InsertRecurringExpense>): Promise<RecurringExpense>;
   deleteRecurringExpense(id: number): Promise<void>;
+
+  // Recurring Expense Confirmations
+  getRecurringConfirmationsForMonth(userId: number, year: number, month: number): Promise<RecurringExpenseConfirmation[]>;
+  confirmRecurringExpense(recurringExpenseId: number, userId: number, year: number, month: number): Promise<RecurringExpenseConfirmation>;
+  unconfirmRecurringExpense(recurringExpenseId: number, userId: number, year: number, month: number): Promise<void>;
 
   // Budgets
   createBudget(budget: InsertBudget): Promise<Budget>;
@@ -214,7 +221,7 @@ export class DatabaseStorage implements IStorage {
     const rows = await db
       .select({ id: users.id, name: users.name, email: users.email })
       .from(users)
-      .where(sql`${users.email} IS NOT NULL AND ${users.email} != ''`);
+      .where(sql`${users.email} IS NOT NULL AND ${users.email} != '' AND ${users.emailUnsubscribed} = false`);
     return rows.filter((r) => r.email) as { id: number; name: string; email: string }[];
   }
 
@@ -801,6 +808,37 @@ export class DatabaseStorage implements IStorage {
 
   async deleteRecurringExpense(id: number): Promise<void> {
     await db.delete(recurringExpenses).where(eq(recurringExpenses.id, id));
+  }
+
+  // Recurring Expense Confirmations
+  async getRecurringConfirmationsForMonth(userId: number, year: number, month: number): Promise<RecurringExpenseConfirmation[]> {
+    return db.select().from(recurringExpenseConfirmations)
+      .where(and(
+        eq(recurringExpenseConfirmations.userId, userId),
+        eq(recurringExpenseConfirmations.year, year),
+        eq(recurringExpenseConfirmations.month, month),
+      ));
+  }
+
+  async confirmRecurringExpense(recurringExpenseId: number, userId: number, year: number, month: number): Promise<RecurringExpenseConfirmation> {
+    const [row] = await db.insert(recurringExpenseConfirmations)
+      .values({ recurringExpenseId, userId, year, month })
+      .onConflictDoUpdate({
+        target: [recurringExpenseConfirmations.recurringExpenseId, recurringExpenseConfirmations.userId, recurringExpenseConfirmations.year, recurringExpenseConfirmations.month],
+        set: { confirmedAt: new Date() },
+      })
+      .returning();
+    return row;
+  }
+
+  async unconfirmRecurringExpense(recurringExpenseId: number, userId: number, year: number, month: number): Promise<void> {
+    await db.delete(recurringExpenseConfirmations)
+      .where(and(
+        eq(recurringExpenseConfirmations.recurringExpenseId, recurringExpenseId),
+        eq(recurringExpenseConfirmations.userId, userId),
+        eq(recurringExpenseConfirmations.year, year),
+        eq(recurringExpenseConfirmations.month, month),
+      ));
   }
 
   // Budgets

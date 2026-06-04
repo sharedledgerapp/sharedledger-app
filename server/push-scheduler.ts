@@ -1,7 +1,7 @@
 import webpush from "web-push";
 import { storage } from "./storage";
 import { db } from "./db";
-import { users, expenses, expenseSplits, budgets, pushNotificationLog, recurringExpenses, incomeEntries, messages, families } from "@shared/schema";
+import { users, expenses, expenseSplits, budgets, pushNotificationLog, recurringExpenses, incomeEntries, messages, families, recurringExpenseConfirmations } from "@shared/schema";
 import { eq, and, gte, lte, lt, sql, inArray } from "drizzle-orm";
 import { generateAnalysis } from "./sage";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
@@ -580,6 +580,83 @@ async function checkSageAnalyses() {
   }
 }
 
+async function checkRecurringDueToday() {
+  const now = new Date();
+  if (now.getHours() < 8 || now.getHours() >= 9) return;
+
+  const todayDay = now.getDate();
+  const todayMonth = now.getMonth();
+  const todayYear = now.getFullYear();
+  const year = todayYear;
+  const month = todayMonth + 1; // 1-indexed
+
+  const onboardedUsers = await db.select().from(users).where(eq(users.onboardingCompleted, true));
+  const onboardedUserIds = new Set(onboardedUsers.map(u => u.id));
+
+  const allRecurring = await db.select().from(recurringExpenses)
+    .where(and(
+      eq(recurringExpenses.isActive, true),
+      eq(recurringExpenses.frequency, "monthly"),
+    ));
+
+  for (const expense of allRecurring) {
+    try {
+      if (!onboardedUserIds.has(expense.userId)) continue;
+      const dueDay = expense.dueDay;
+      if (!dueDay || dueDay !== todayDay) continue;
+
+      // Check if already confirmed this month
+      const [existing] = await db.select().from(recurringExpenseConfirmations)
+        .where(and(
+          eq(recurringExpenseConfirmations.recurringExpenseId, expense.id),
+          eq(recurringExpenseConfirmations.userId, expense.userId),
+          eq(recurringExpenseConfirmations.year, year),
+          eq(recurringExpenseConfirmations.month, month),
+        ))
+        .limit(1);
+      if (existing) continue;
+
+      const todayStart = new Date(todayYear, todayMonth, todayDay);
+      const notifKey = `recurring-due-today-${expense.id}-${todayStart.toISOString().slice(0, 10)}`;
+      if (await wasNotifiedSince(expense.userId, notifKey, todayStart)) continue;
+
+      const sent = await sendPushToUser(expense.userId, {
+        title: `${expense.name} is due today`,
+        body: `Your ${expense.name} of ${expense.amount} is due today. Open SharedLedger to confirm when it's sorted.`,
+        tag: `recurring-due-today-${expense.id}`,
+        url: "/app",
+      });
+      if (sent) await markNotified(expense.userId, notifKey);
+
+      // Also notify group members for shared recurring expenses
+      if (expense.isGroupShared && expense.familyId) {
+        const familyMembers = await db.select({ id: users.id })
+          .from(users)
+          .where(and(eq(users.familyId, expense.familyId), eq(users.onboardingCompleted, true)));
+
+        for (const member of familyMembers) {
+          if (member.id === expense.userId) continue;
+          try {
+            const memberKey = `recurring-due-today-group-${expense.id}-${todayStart.toISOString().slice(0, 10)}-${member.id}`;
+            if (await wasNotifiedSince(member.id, memberKey, todayStart)) continue;
+            const memberSent = await sendPushToUser(member.id, {
+              title: `${expense.name} is due today`,
+              body: `The group's ${expense.name} payment of ${expense.amount} is due today.`,
+              tag: `recurring-due-today-group-${expense.id}`,
+              url: "/app",
+            });
+            if (memberSent) await markNotified(member.id, memberKey);
+          } catch (memberErr) {
+            console.error(`[Push] on-day group recurring failed for member ${member.id}:`, memberErr);
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`[Push] checkRecurringDueToday failed for expense ${expense.id}:`, err);
+    }
+  }
+}
+
 async function checkGroupIdleNudge() {
   const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
   const allFamilies = await db.select().from(families);
@@ -1097,6 +1174,7 @@ export function startPushScheduler() {
       { name: "monthlyReminders", fn: checkMonthlyReminders },
       { name: "budgetAlerts", fn: checkBudgetAlerts },
       { name: "recurringReminders", fn: checkRecurringReminders },
+      { name: "recurringDueToday", fn: checkRecurringDueToday },
       { name: "sageAnalyses", fn: checkSageAnalyses },
       { name: "groupIdleNudge", fn: checkGroupIdleNudge },
       { name: "noteReminders", fn: checkNoteReminders },

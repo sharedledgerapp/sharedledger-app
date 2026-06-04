@@ -294,6 +294,12 @@ export async function sendWhatsNewEmail(toEmail: string, name: string): Promise<
     As always, reply to this email with any thoughts. We read every message.
   </p>
   <p style="font-size:14px;color:#6b7280;margin-top:24px">The SharedLedger Team</p>
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin:28px 0" />
+  <p style="font-size:11px;color:#9ca3af;text-align:center;line-height:1.6;margin:0">
+    You're receiving this because you have a SharedLedger account.<br>
+    To stop receiving product update emails, visit
+    <a href="https://sharedledger.app/app/settings" style="color:#9ca3af">Settings → Notifications</a>.
+  </p>
 </div>
 `.trim();
 
@@ -492,6 +498,12 @@ export async function sendSageUpdateEmail(toEmail: string, name: string): Promis
   <p style="font-size:14px;color:#374151;margin-top:20px;line-height:1.6">
     Daniel<br>
     <span style="color:#6b7280">The SharedLedger Team</span>
+  </p>
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin:28px 0" />
+  <p style="font-size:11px;color:#9ca3af;text-align:center;line-height:1.6;margin:0">
+    You're receiving this because you have a SharedLedger account.<br>
+    To stop receiving product update emails, visit
+    <a href="https://sharedledger.app/app/settings" style="color:#9ca3af">Settings → Notifications</a>.
   </p>
 </div>
 `.trim();

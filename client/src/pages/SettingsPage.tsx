@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, User, Users, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat, Sparkles, ChevronDown, MessageCircle, CheckCircle, QrCode, Copy, Share2, TrendingUp, Info, Sun, Moon, Monitor } from "lucide-react";
+import { LogOut, User, Users, Globe, ChevronLeft, Loader2, DollarSign, Trash2, AlertTriangle, Tag, Plus, X, GripVertical, Bell, BellOff, Clock, Repeat, Sparkles, ChevronDown, MessageCircle, CheckCircle, QrCode, Copy, Share2, TrendingUp, Info, Sun, Moon, Monitor, Mail } from "lucide-react";
 import { useTheme, type Theme } from "@/contexts/ThemeContext";
 import { QRCodeCanvas } from "qrcode.react";
 import { shareOrCopy, canNativeShare } from "@/lib/share";
@@ -1177,6 +1177,26 @@ export default function SettingsPage() {
                 checked={budgetAlertsEnabled}
                 onCheckedChange={handleToggleBudgetAlerts}
                 data-testid="switch-budget-alerts"
+              />
+            </div>
+          </div>
+
+          <div className="border-t border-border/50 pt-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 flex-1">
+                <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
+                <div>
+                  <p className="font-medium text-sm">Product update emails</p>
+                  <p className="text-xs text-muted-foreground">Occasional emails about new features and improvements</p>
+                </div>
+              </div>
+              <Switch
+                checked={!(user as any)?.emailUnsubscribed}
+                onCheckedChange={async (checked) => {
+                  await apiRequest("PATCH", "/api/user/profile", { emailUnsubscribed: !checked });
+                  queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+                }}
+                data-testid="switch-product-emails"
               />
             </div>
           </div>
