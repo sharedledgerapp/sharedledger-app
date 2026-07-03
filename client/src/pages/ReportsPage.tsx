@@ -109,11 +109,11 @@ export default function ReportsPage() {
     },
   });
 
-  const threeMonthsAgo = subMonths(new Date(), 3);
+  const sixMonthsAgo = subMonths(new Date(), 6);
   const recentAnalyses = useMemo(() => {
     if (!analyses) return [];
     return analyses
-      .filter(a => new Date(a.createdAt) >= threeMonthsAgo)
+      .filter(a => new Date(a.createdAt) >= sixMonthsAgo)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [analyses]);
 

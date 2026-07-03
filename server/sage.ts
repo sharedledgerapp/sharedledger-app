@@ -42,7 +42,7 @@ SharedLedger App Features:
 // ── Context builder ──────────────────────────────────────────────────────────
 export async function buildSageContext(userId: number): Promise<string> {
   const now = new Date();
-  const threeMonthsAgo = startOfMonth(subMonths(now, 2));
+  const referenceWindowStart = startOfMonth(subMonths(now, 5));
 
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) return "";
@@ -55,22 +55,22 @@ export async function buildSageContext(userId: number): Promise<string> {
   const incomeAllowed = user.sageIncomePermission !== false;
   const budgetGoalsAllowed = user.sageBudgetGoalsPermission !== false;
 
-  // ── All expenses for the last 3 months (gated) ────────────────────────────
+  // ── All expenses for the last 6 months (gated) ────────────────────────────
   type ExpenseRow = typeof expenses.$inferSelect;
   let recentExpenses: ExpenseRow[] = [];
   if (expenseAllowed) {
     recentExpenses = await db.select().from(expenses)
       .where(and(
         eq(expenses.userId, userId),
-        gte(expenses.date, threeMonthsAgo),
+        gte(expenses.date, referenceWindowStart),
         eq(expenses.paymentSource, "personal"),
       ))
       .orderBy(desc(expenses.date));
   }
 
-  // ── Build per-month breakdowns (3 months) ──────────────────────────────────
+  // ── Build per-month breakdowns (6 months) ──────────────────────────────────
   const monthBreakdowns: Array<{ label: string; total: number; cats: string; count: number }> = [];
-  for (let i = 2; i >= 0; i--) {
+  for (let i = 5; i >= 0; i--) {
     const mStart = startOfMonth(subMonths(now, i));
     const mEnd = endOfMonth(subMonths(now, i));
     const mExp = recentExpenses.filter(e =>
@@ -106,18 +106,18 @@ export async function buildSageContext(userId: number): Promise<string> {
     .map(([d, amt]) => `${dayNames[Number(d)]}: ${amt.toFixed(2)}`)
     .join(', ');
 
-  // ── All expense notes across 90 days ──────────────────────────────────────
+  // ── All expense notes across 180 days ──────────────────────────────────────
   const allExpenseNotes = recentExpenses
     .filter(e => e.note && e.note.trim().length > 0 && e.category !== '__income__')
     .slice(0, 20)
     .map(e => `"${e.note}" (${e.category}, ${Number(e.amount).toFixed(2)}, ${format(new Date(e.date), 'MMM d')})`);
 
-  // ── Income history (3 months) (gated) ────────────────────────────────────
+  // ── Income history (6 months) (gated) ────────────────────────────────────
   type IncomeRow = typeof incomeEntries.$inferSelect;
   let incomeHistory: IncomeRow[] = [];
   if (incomeAllowed) {
     incomeHistory = await db.select().from(incomeEntries)
-      .where(and(eq(incomeEntries.userId, userId), gte(incomeEntries.date, threeMonthsAgo)))
+      .where(and(eq(incomeEntries.userId, userId), gte(incomeEntries.date, referenceWindowStart)))
       .orderBy(desc(incomeEntries.date));
   }
 
@@ -138,7 +138,7 @@ export async function buildSageContext(userId: number): Promise<string> {
     .map(([src, amt]) => `${src}: ${amt.toFixed(2)}`)
     .join(', ');
 
-  // Income notes (up to 15 across 90 days)
+  // Income notes (up to 15 across 180 days)
   const incomeNotes = incomeHistory
     .filter(e => e.note && e.note.trim().length > 0)
     .slice(0, 15)
@@ -164,10 +164,10 @@ export async function buildSageContext(userId: number): Promise<string> {
   if (budgetGoalsAllowed) {
     const userBudgets = await storage.getBudgets(userId);
 
-    // Per-month spending per category for the last 3 months
-    const monthKeys = monthBreakdowns.map(m => m.label); // ['Feb 2025', 'Mar 2025', 'Apr 2025']
-    const catMonthSpend: Record<string, number[]> = {}; // category -> [m-2 spend, m-1 spend, m0 spend]
-    for (let i = 2; i >= 0; i--) {
+    // Per-month spending per category for the last 6 months
+    const monthKeys = monthBreakdowns.map(m => m.label); // ['Nov 2025', 'Dec 2025', ..., 'Apr 2026']
+    const catMonthSpend: Record<string, number[]> = {}; // category -> [m-5 spend, ..., m0 spend]
+    for (let i = 5; i >= 0; i--) {
       const mStart = startOfMonth(subMonths(now, i));
       const mEnd = endOfMonth(subMonths(now, i));
       const mExp = recentExpenses.filter(e =>
@@ -321,7 +321,7 @@ ${profileContext}
 ${intentionContext}
 ${dataAccessNote}
 ${expenseAllowed ? `
-SPENDING TREND (3 months):
+SPENDING TREND (6 months):
 ${monthTrend}
 
 MONTH-BY-MONTH BREAKDOWN:
@@ -330,12 +330,12 @@ ${monthBreakdowns.map(m => `${m.label} — Total: ${m.total.toFixed(2)} ${curren
 TOP SPENDING DAYS THIS MONTH (by day of week):
 ${dayBreakdown || 'Not enough data'}
 
-EXPENSE NOTES (last 90 days — what users wrote about their spending):
-${allExpenseNotes.length > 0 ? allExpenseNotes.join('\n') : 'No noted expenses in the last 90 days'}` : ''}
+EXPENSE NOTES (last 180 days — what users wrote about their spending):
+${allExpenseNotes.length > 0 ? allExpenseNotes.join('\n') : 'No noted expenses in the last 180 days'}` : ''}
 ${incomeAllowed ? `
 INCOME:
 Monthly income history: ${incomeMonthlyLines}
-Income sources (last 3 months): ${incomeSourceLines || 'not recorded'}
+Income sources (last 6 months): ${incomeSourceLines || 'not recorded'}
 ${avgIncomeDay ? `Typical income arrival: around day ${avgIncomeDay} of the month` : ''}
 ${incomeNotes.length > 0 ? `Income notes:\n${incomeNotes.join('\n')}` : ''}` : ''}
 ${budgetGoalsAllowed ? `
@@ -346,7 +346,7 @@ Monthly recurring total: ${recurringTotal.toFixed(2)} ${currency}
 BUDGETS (current month progress):
 ${budgetLines || 'No budgets set up'}
 ${budgetBehaviorLines ? `
-BUDGET BEHAVIORAL PATTERNS (3-month analysis):
+BUDGET BEHAVIORAL PATTERNS (6-month analysis):
 ${budgetBehaviorLines}` : ''}
 
 SAVINGS GOALS:
@@ -368,7 +368,7 @@ Your role:
 - Explain how SharedLedger features work when asked
 - Be warm, direct, and non-judgmental — money is personal
 - Reference specific numbers, dates, and notes from the user's data when relevant
-- When the user asks about trends (e.g. "my spending habits"), reference the 3-month breakdown you have
+- When the user asks about trends (e.g. "my spending habits"), reference the 6-month breakdown you have
 - When you see a budget marked CONSISTENTLY OVERSPENT in the data, proactively mention it even if not asked — offer the user the choice: raise the budget to reflect reality, or get advice on reducing that spending
 - If a budget has been adjusted many times (changeCount), note it gently — repeated changes signal a habit worth examining, not just a number problem
 
@@ -377,7 +377,7 @@ Your limits (be clear about these if asked):
 - You do not have access to external bank accounts or real-time market data
 - You cannot take any actions in the app — you advise only
 - Your insights are based on data the user has entered in SharedLedger
-- Your expense/income history goes back up to 3 months
+- Your expense/income history goes back up to 6 months
 
 Personal notes access:
 - If the user has shared personal notes with you, treat them as trusted context about their financial intentions and concerns
@@ -431,7 +431,7 @@ export async function generateAnalysis(
 
   const BUDGET_BEHAVIOR_INSTRUCTION = `
 Budget behavioural patterns — IMPORTANT:
-Check the "BUDGET BEHAVIORAL PATTERNS" section in the financial data. For any category marked CONSISTENTLY OVERSPENT (overspent in 2 or more of the last 3 months):
+Check the "BUDGET BEHAVIORAL PATTERNS" section in the financial data. For any category marked CONSISTENTLY OVERSPENT (overspent in 2 or more of the last 6 months):
 - Name the category and show the actual numbers (spent vs limit, for each relevant month)
 - If the budget has been adjusted multiple times (the data says "adjusted X times"), mention it: "You've tweaked this budget X times already — it might be worth committing to a number that truly fits your life, or working on the habit behind it."
 - Do NOT ask a question after each individual budget item
@@ -472,7 +472,7 @@ Be specific with numbers. Reference expense notes and income notes where relevan
     prompt = `Write a mid-month financial check-in for ${format(now, 'MMMM yyyy')} (day ${daysIn} of ${daysTotal}, ${daysLeft} days remaining).
 
 Focus on:
-1. Quick status — how is spending tracking vs last month at this point? Reference the 3-month trend if relevant.
+1. Quick status — how is spending tracking vs last month at this point? Reference the 6-month trend if relevant.
 2. Budget health — which budgets are at risk of being exceeded? Project end-of-month spend for those.
 3. Consistently overspent budgets — follow the budget behavioural pattern instruction below; mid-month is the right time to flag if a pattern is repeating
 4. Income check — has income arrived as expected? Any gaps?
