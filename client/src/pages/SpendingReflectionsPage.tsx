@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useExpenses } from "@/hooks/use-data";
+import { useExpenses, usePrimaryGroup } from "@/hooks/use-data";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +27,7 @@ interface AiAnalysis {
 
 function AnalysisCard({ analysis }: { analysis: AiAnalysis }) {
   const { user } = useAuth();
+  const { data: primaryGroup } = usePrimaryGroup();
   const [expanded, setExpanded] = useState(false);
   const [localFeedback, setLocalFeedback] = useState<number | null>(analysis.feedback);
   const [sharingOpen, setSharingOpen] = useState(false);
@@ -43,7 +44,7 @@ function AnalysisCard({ analysis }: { analysis: AiAnalysis }) {
 
   const shareToGroupMutation = useMutation({
     mutationFn: async (content: string) => {
-      const res = await apiRequest("POST", "/api/messages", { content });
+      const res = await apiRequest("POST", "/api/messages", { content, groupId: primaryGroup?.id });
       return res.json();
     },
     onSuccess: () => {
@@ -161,7 +162,7 @@ function AnalysisCard({ analysis }: { analysis: AiAnalysis }) {
             >
               <ThumbsDown className="w-3.5 h-3.5" />
             </button>
-            {user?.familyId && expanded && (
+            {primaryGroup && expanded && (
               <button
                 onClick={() => sharingOpen ? setSharingOpen(false) : openShare()}
                 className={cn("ml-auto flex items-center gap-1 text-xs px-2 py-1 rounded-md hover:bg-secondary transition-colors", sharingOpen ? "text-primary" : "text-muted-foreground")}

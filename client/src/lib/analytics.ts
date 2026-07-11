@@ -6,14 +6,12 @@ export function identifyUser(user: {
   username: string;
   currency: string;
   language: string;
-  role: string;
 }) {
   posthog.identify(String(user.id), {
     name: user.name,
     username: user.username,
     currency: user.currency,
     language: user.language,
-    role: user.role,
   });
 }
 

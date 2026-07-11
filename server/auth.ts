@@ -76,7 +76,6 @@ async function findOrCreateOAuthUser(
     username,
     password: null,
     name: displayName,
-    role: "member",
     email: email ?? null,
     profileImageUrl,
     ...providerFields,

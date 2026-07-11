@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import confetti from "canvas-confetti";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { usePrimaryGroup } from "@/hooks/use-data";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { captureEvent } from "@/lib/analytics";
@@ -146,6 +147,7 @@ function StepWrapper({ children, direction, stepKey }: StepWrapperProps) {
 
 export default function OnboardingPage() {
   const { user, isLoading } = useAuth();
+  const { data: primaryGroup } = usePrimaryGroup();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -215,8 +217,9 @@ export default function OnboardingPage() {
       }
       return res.json();
     },
-    onSuccess: (updatedUser) => {
-      queryClient.setQueryData([api.auth.me.path], updatedUser);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.auth.me.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
     },
   });
 
@@ -468,7 +471,7 @@ export default function OnboardingPage() {
                 onContinue={handleStep8Continue}
                 onBack={goPrev}
                 isPending={setupGroupMutation.isPending}
-                alreadyInGroup={!!user?.familyId}
+                alreadyInGroup={!!primaryGroup}
               />
             )}
             {step === 5 && (

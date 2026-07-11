@@ -122,17 +122,17 @@ export function AddFriendExpenseDialog({ open, onOpenChange, groupId, groupCurre
           .map(([uid, amount]) => ({ userId: Number(uid), amount }));
       }
       if (isEditing) {
-        const res = await apiRequest("PATCH", `/api/friend-groups/${groupId}/expenses/${initialExpense.id}`, body);
+        const res = await apiRequest("PATCH", `/api/groups/${groupId}/expenses/${initialExpense.id}`, body);
         return res.json();
       } else {
-        const res = await apiRequest("POST", `/api/friend-groups/${groupId}/expenses`, body);
+        const res = await apiRequest("POST", `/api/groups/${groupId}/expenses`, body);
         return res.json();
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/friend-groups", groupId, "expenses"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/friend-groups", groupId, "balances"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/friend-groups", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups", groupId, "expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups", groupId, "balances"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups", groupId] });
       toast({ title: isEditing ? "Expense updated" : "Expense added" });
       onOpenChange(false);
     },

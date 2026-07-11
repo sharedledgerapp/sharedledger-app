@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { usePrimaryGroup } from "@/hooks/use-data";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,13 +59,15 @@ function getCategoryIcon(category: string) {
 export function RoommatesDashboardView({ summary, recentExpenses }: RoommatesDashboardProps) {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const { data: primaryGroup } = usePrimaryGroup();
   const currencySymbol = getCurrencySymbol(user?.currency);
   const displayExpenses = recentExpenses.slice(0, 5);
   const [expensesView, setExpensesView] = useState<"everyday" | "recurring">("everyday");
 
   const { data: sharedRecurring, isLoading: recurringLoading } = useQuery<RecurringExpense[]>({
-    queryKey: ["/api/family/shared-recurring-expenses"],
-    enabled: !!user?.familyId,
+    queryKey: ["/api/family/shared-recurring-expenses", primaryGroup?.id],
+    queryFn: () => fetch(`/api/family/shared-recurring-expenses?groupId=${primaryGroup?.id}`).then(r => r.json()),
+    enabled: !!primaryGroup,
   });
 
   return (

@@ -62,12 +62,12 @@ export function FriendExpenseDetailSheet({ expense, open, onOpenChange, groupId,
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("DELETE", `/api/friend-groups/${groupId}/expenses/${expense!.id}`);
+      await apiRequest("DELETE", `/api/groups/${groupId}/expenses/${expense!.id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/friend-groups", groupId, "expenses"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/friend-groups", groupId, "balances"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/friend-groups", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups", groupId, "expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups", groupId, "balances"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups", groupId] });
       toast({ title: "Expense deleted" });
       onOpenChange(false);
     },

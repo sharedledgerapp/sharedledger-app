@@ -266,10 +266,9 @@ async function checkBudgetAlerts() {
       let membersToNotify: Array<typeof allUsers[0]>;
 
       if (budget.budgetScope === "shared" && budget.familyId) {
-        // For group budgets: sum expenses across ALL family members
-        const familyUserIds = allUsers
-          .filter(u => u.familyId === budget.familyId)
-          .map(u => u.id);
+        // For group budgets: sum expenses across ALL group members
+        const groupMemberRows = await storage.getGroupMembers(budget.familyId);
+        const familyUserIds = groupMemberRows.map(m => m.id);
         if (familyUserIds.length === 0) continue;
 
         const [familyExpenses] = await db
@@ -284,9 +283,10 @@ async function checkBudgetAlerts() {
             )
           );
         spent = parseFloat(familyExpenses?.total || "0");
-        // Notify all family members who have budget alerts enabled
+        // Notify all group members who have budget alerts enabled
+        const familyUserIdSet = new Set(familyUserIds);
         membersToNotify = allUsers.filter(
-          u => u.familyId === budget.familyId && u.budgetAlertsEnabled !== false
+          u => familyUserIdSet.has(u.id) && u.budgetAlertsEnabled !== false
         );
       } else {
         // Personal budget: single-user logic
@@ -443,9 +443,8 @@ async function checkRecurringReminders() {
         const dueDateKey = matchedDueDate.toISOString().slice(0, 10);
         const todayStart = new Date(todayYear, todayMonth, todayDay);
 
-        const familyMembers = await db.select({ id: users.id })
-          .from(users)
-          .where(and(eq(users.familyId, expense.familyId), eq(users.onboardingCompleted, true)));
+        const familyMembers = (await storage.getGroupMembers(expense.familyId))
+          .filter(m => m.onboardingCompleted);
 
         for (const member of familyMembers) {
           if (member.id === expense.userId) continue; // owner already handled above
@@ -630,9 +629,8 @@ async function checkRecurringDueToday() {
 
       // Also notify group members for shared recurring expenses
       if (expense.isGroupShared && expense.familyId) {
-        const familyMembers = await db.select({ id: users.id })
-          .from(users)
-          .where(and(eq(users.familyId, expense.familyId), eq(users.onboardingCompleted, true)));
+        const familyMembers = (await storage.getGroupMembers(expense.familyId))
+          .filter(m => m.onboardingCompleted);
 
         for (const member of familyMembers) {
           if (member.id === expense.userId) continue;
@@ -663,7 +661,7 @@ async function checkGroupIdleNudge() {
 
   for (const family of allFamilies) {
     try {
-      const members = await storage.getFamilyMembers(family.id);
+      const members = await storage.getGroupMembers(family.id);
       if (members.length < 2) continue;
 
       const [recentMsg] = await db
@@ -973,14 +971,17 @@ async function checkGroupSharedIncomePrompt() {
       const notifKey = `group_shared_income_prompt_${yearMonth}`;
       if (await wasNotifiedSince(user.id, notifKey, monthStart)) continue;
 
-      if (user.familyId) {
-        // Group user — only family/couple groups; skip roommates and friend groups
-        const family = familyMap.get(user.familyId);
+      const myGroups = await storage.getGroupsForUser(user.id);
+      const primaryGroupId = myGroups[0]?.id ?? null;
+
+      if (primaryGroupId) {
+        // Group user — only family/couple groups; skip roommates and friend/trip groups
+        const family = familyMap.get(primaryGroupId);
         const groupType = family?.groupType;
-        if (groupType === "roommates" || groupType === "friends") continue;
+        if (groupType === "roommates" || groupType === "friends" || groupType === "trip") continue;
 
         // Skip if the group already has shared income logged this month
-        if (groupsWithIncome.has(user.familyId)) continue;
+        if (groupsWithIncome.has(primaryGroupId)) continue;
 
         const sent = await sendPushToUser(user.id, {
           title: "New month — log your shared income",
@@ -1045,8 +1046,7 @@ async function checkGroupSharedRecurringNudge() {
 
   const groupUsers = await db.select().from(users).where(and(
     eq(users.onboardingCompleted, true),
-    eq(users.monthlyReminderEnabled, true),
-    sql`${users.familyId} IS NOT NULL`
+    eq(users.monthlyReminderEnabled, true)
   ));
 
   // Load all group-shared recurring expenses to check which groups already have some
@@ -1060,10 +1060,12 @@ async function checkGroupSharedRecurringNudge() {
 
   for (const user of groupUsers) {
     try {
-      if (!user.familyId) continue;
+      const myGroups = await storage.getGroupsForUser(user.id);
+      const primaryGroupId = myGroups[0]?.id ?? null;
+      if (!primaryGroupId) continue;
 
       // Only nudge groups that have NOT yet set up any shared recurring expenses
-      if (groupsWithRecurring.has(user.familyId)) continue;
+      if (groupsWithRecurring.has(primaryGroupId)) continue;
 
       if (await wasNotifiedSince(user.id, nudgeKey, monthStart)) continue;
 

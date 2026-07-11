@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useCelebration } from "@/hooks/use-celebration";
 import { useCategoryEmoji as useAICategoryEmoji, useCategoryIconName, getLucideIcon } from "@/hooks/use-category-icon";
-import { useExpenses, useCreateExpense, useUpdateExpense, useUpload, useFamily } from "@/hooks/use-data";
+import { useExpenses, useCreateExpense, useUpdateExpense, useUpload, useFamily, usePrimaryGroup } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
 import { captureEvent } from "@/lib/analytics";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -100,7 +100,8 @@ export default function ExpensesPage() {
   const { celebrate } = useCelebration();
   
   const currencySymbol = getCurrencySymbol(user?.currency);
-  const { data: familyData } = useFamily();
+  const { data: primaryGroup } = usePrimaryGroup();
+  const { data: familyData } = useFamily(primaryGroup?.id);
 
   const userRecurringCategories = (user as any)?.recurringCategories as string[] | null;
   const RECURRING_CATEGORIES = userRecurringCategories || DEFAULT_RECURRING_CATEGORIES;
@@ -507,7 +508,7 @@ export default function ExpensesPage() {
     currency: string;
     archived: boolean;
   }>>({
-    queryKey: ["/api/friend-groups"],
+    queryKey: ["/api/groups"],
   });
 
   const friendGroupMap = useMemo(() => {
@@ -524,16 +525,9 @@ export default function ExpensesPage() {
     }>();
     const deleted: NonNullable<typeof filteredExpenses> = [];
 
-    const establishedFamilyId: number | null | undefined = user?.familyId;
-
     (filteredExpenses || []).forEach(e => {
       const expFamilyId = (e as any).familyId as number | null | undefined;
       if (expFamilyId != null) {
-        // If this expense belongs to the user's established family group, treat it as regular
-        if (establishedFamilyId && expFamilyId === establishedFamilyId) {
-          regular.push(e);
-          return;
-        }
         const group = friendGroupMap.get(expFamilyId);
         if (group) {
           if (group.archived) {
@@ -543,9 +537,9 @@ export default function ExpensesPage() {
             archivedMap.get(group.id)!.expenses.push(e);
             return;
           }
-          // Active friend group expense — shown normally in regularExpenses
+          // Active group expense (household or friends/trip) — shown normally in regularExpenses
         } else {
-          // familyId not found in friendGroupMap and not established family — group was deleted or user left it
+          // familyId not found in the user's current groups — group was deleted or user left it
           deleted.push(e);
           return;
         }
@@ -558,7 +552,7 @@ export default function ExpensesPage() {
       archivedGroupedExpenses: [...archivedMap.values()],
       deletedGroupExpenses: deleted,
     };
-  }, [filteredExpenses, friendGroupMap, user?.familyId]);
+  }, [filteredExpenses, friendGroupMap]);
 
   // Group regular expenses by date section (must come after regularExpenses is defined)
   const dateSectionedExpenses = useMemo(() => {
@@ -598,10 +592,10 @@ export default function ExpensesPage() {
   }, [deletedGroupExpenses]);
 
   const { data: orphanedGroupCurrencies } = useQuery<Record<number, { currency: string; groupType: string }>>({
-    queryKey: ["/api/friend-groups/currencies", orphanedFamilyIds.join(",")],
+    queryKey: ["/api/groups/currencies", orphanedFamilyIds.join(",")],
     queryFn: async () => {
       if (orphanedFamilyIds.length === 0) return {};
-      const res = await fetch(`/api/friend-groups/currencies?ids=${orphanedFamilyIds.join(",")}`, { credentials: "include" });
+      const res = await fetch(`/api/groups/currencies?ids=${orphanedFamilyIds.join(",")}`, { credentials: "include" });
       return res.json();
     },
     enabled: orphanedFamilyIds.length > 0,
@@ -1739,7 +1733,8 @@ function CreateExpenseDialog({
   const [extractedData, setExtractedData] = useState<ExtractedReceiptData | null>(null);
   const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
   const { user } = useAuth();
-  const { data: familyData } = useFamily();
+  const { data: primaryGroup } = usePrimaryGroup();
+  const { data: familyData } = useFamily(primaryGroup?.id);
   const { t } = useLanguage();
   const [showCurrencyPrompt, setShowCurrencyPrompt] = useState(false);
   const [selectedCurrency, setSelectedCurrency] = useState((user as any)?.currency || "EUR");
@@ -1924,8 +1919,8 @@ function CreateExpenseDialog({
       }
     }
 
-    const effectivePaymentSource = user.familyId ? paymentSource : "personal";
-    const effectiveIsPublic = user.familyId ? (isPublic || paymentSource === "family") : false;
+    const effectivePaymentSource = primaryGroup ? paymentSource : "personal";
+    const effectiveIsPublic = primaryGroup ? (isPublic || paymentSource === "family") : false;
     const effectiveVisibility = effectiveIsPublic ? "public" : "private";
 
     const expenseData: any = {
@@ -1940,6 +1935,7 @@ function CreateExpenseDialog({
       paidByUserId: user.id,
       receiptUrl,
       date: new Date(date).toISOString(),
+      ...(effectiveIsPublic ? { familyId: primaryGroup?.id } : {}),
       ...(splits ? { splits } : {}),
     };
 
@@ -2125,7 +2121,7 @@ function CreateExpenseDialog({
                   <Wallet className="w-4 h-4" />
                   <span className="font-medium">{t("myMoney")}</span>
                 </button>
-                {user?.familyId && (
+                {primaryGroup && (
                   <button
                     type="button"
                     onClick={() => setPaymentSource("family")}
@@ -2144,7 +2140,7 @@ function CreateExpenseDialog({
               </div>
             </div>
 
-            {user?.familyId && (
+            {primaryGroup && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between bg-muted/20 p-4 rounded-xl border border-border/50">
                   <div className="flex items-center gap-2">
@@ -2162,7 +2158,7 @@ function CreateExpenseDialog({
               </div>
             )}
 
-            {user?.familyId && paymentSource === "family" && (
+            {primaryGroup && paymentSource === "family" && (
               <div className="space-y-3 border border-primary/20 rounded-xl p-4 bg-primary/5" data-testid="section-split-options">
                 <Label className="text-sm font-semibold">{t("splitMethod")}</Label>
                 <div className="grid grid-cols-3 gap-2">

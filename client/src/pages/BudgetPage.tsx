@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { usePrimaryGroup } from "@/hooks/use-data";
 import { captureEvent } from "@/lib/analytics";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -92,6 +93,7 @@ function getProgressColor(percent: number): string {
 
 export default function BudgetPage() {
   const { user } = useAuth();
+  const { data: primaryGroup } = usePrimaryGroup();
   const { t } = useLanguage();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -125,8 +127,9 @@ export default function BudgetPage() {
   });
 
   const { data: sharedBudgetData, isLoading: sharedLoading } = useQuery<{ budgets: SharedBudgetSummary[] }>({
-    queryKey: ["/api/family/shared-budgets"],
-    enabled: !!(user as any)?.familyId,
+    queryKey: ["/api/family/shared-budgets", primaryGroup?.id],
+    queryFn: () => fetch(`/api/family/shared-budgets?groupId=${primaryGroup?.id}`).then(r => r.json()),
+    enabled: !!primaryGroup,
   });
 
   useEffect(() => {
@@ -291,7 +294,7 @@ export default function BudgetPage() {
     if (editingBudget) {
       updateMutation.mutate({ id: editingBudget.id, data: payload });
     } else {
-      createMutation.mutate({ ...payload, scope: form.scope });
+      createMutation.mutate({ ...payload, scope: form.scope, groupId: primaryGroup?.id });
     }
   }
 
@@ -600,7 +603,7 @@ export default function BudgetPage() {
         </section>
       )}
 
-      {!!(user as any)?.familyId && (
+      {!!primaryGroup && (
         <section>
           <div className="flex justify-between items-center mb-4">
             <h2 className="font-display font-bold text-lg flex items-center gap-2">

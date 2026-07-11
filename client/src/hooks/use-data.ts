@@ -1,14 +1,40 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
-import { InsertExpense, InsertGoal, InsertAllowance } from "@shared/schema";
+import { InsertExpense, InsertGoal, InsertAllowance, Group } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
-// === FAMILY ===
-export function useFamily() {
-  return useQuery({
-    queryKey: [api.family.get.path],
+// === GROUPS ===
+// A user can belong to several groups (family, roommates, couple, friends, trip) at once.
+// There's no implicit "current group" on the server — every group-scoped request names its
+// groupId explicitly. useGroups() lists everything the user belongs to; usePrimaryGroup() is
+// a convenience fallback (first household-type group, else first group) used by pages that
+// haven't been redesigned around a group switcher yet — the "My Groups" page is where a user
+// sees and acts on all of their groups, including multiple at once.
+export function useGroups() {
+  return useQuery<(Group & { memberCount: number; memberRole: string })[]>({
+    queryKey: ["/api/groups"],
     queryFn: async () => {
-      const res = await fetch(api.family.get.path);
+      const res = await fetch("/api/groups");
+      if (!res.ok) throw new Error("Failed to fetch groups");
+      return res.json();
+    },
+  });
+}
+
+export function usePrimaryGroup() {
+  const { data: groups, ...rest } = useGroups();
+  const householdTypes = new Set(["family", "roommates", "couple"]);
+  const primary = groups?.find(g => householdTypes.has(g.groupType)) ?? groups?.[0];
+  return { data: primary, groups, ...rest };
+}
+
+// === FAMILY ===
+export function useFamily(groupId?: number) {
+  return useQuery({
+    queryKey: [api.family.get.path, groupId],
+    enabled: groupId != null,
+    queryFn: async () => {
+      const res = await fetch(`${api.family.get.path}?groupId=${groupId}`);
       if (!res.ok) throw new Error("Failed to fetch family");
       return api.family.get.responses[200].parse(await res.json());
     },
@@ -110,19 +136,20 @@ export function useDeleteExpense() {
       queryClient.invalidateQueries({ queryKey: ["/api/budget-summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/family/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/group/balances"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/friend-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
       toast({ title: "Deleted", description: "Expense removed successfully." });
     },
   });
 }
 
 // === GOALS ===
-export function useGoals() {
+export function useGoals(groupId?: number) {
   return useQuery({
-    queryKey: [api.goals.list.path],
+    queryKey: [api.goals.list.path, groupId],
     staleTime: 0,
     queryFn: async () => {
-      const res = await fetch(api.goals.list.path, { credentials: "include" });
+      const url = groupId != null ? `${api.goals.list.path}?groupId=${groupId}` : api.goals.list.path;
+      const res = await fetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch goals");
       return api.goals.list.responses[200].parse(await res.json());
     },
@@ -193,11 +220,12 @@ export function useDeleteGoal() {
   });
 }
 
-export function useSharedGoals() {
+export function useSharedGoals(groupId?: number) {
   return useQuery({
-    queryKey: ["/api/goals/shared"],
+    queryKey: ["/api/goals/shared", groupId],
+    enabled: groupId != null,
     queryFn: async () => {
-      const res = await fetch("/api/goals/shared");
+      const res = await fetch(`/api/goals/shared?groupId=${groupId}`);
       if (!res.ok) throw new Error("Failed to fetch shared goals");
       return res.json();
     },
@@ -231,11 +259,12 @@ export function useApproveGoal() {
 }
 
 // === ALLOWANCES ===
-export function useAllowances() {
+export function useAllowances(groupId?: number) {
   return useQuery({
-    queryKey: [api.allowances.list.path],
+    queryKey: [api.allowances.list.path, groupId],
+    enabled: groupId != null,
     queryFn: async () => {
-      const res = await fetch(api.allowances.list.path);
+      const res = await fetch(`${api.allowances.list.path}?groupId=${groupId}`);
       if (!res.ok) throw new Error("Failed to fetch allowances");
       return api.allowances.list.responses[200].parse(await res.json());
     },

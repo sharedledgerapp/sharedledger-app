@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { usePrimaryGroup } from "@/hooks/use-data";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { RecurringExpense } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
@@ -122,14 +123,16 @@ export function CouplesDashboardView({
   const { t } = useLanguage();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { data: primaryGroup } = usePrimaryGroup();
   const [expensesView, setExpensesView] = useState<"everyday" | "recurring">("everyday");
   const currencySymbol = getCurrencySymbol(user?.currency);
   const displayExpenses = recentExpenses.slice(0, 5);
   const totalSpent = Number(summary.totalSpent);
 
   const { data: sharedRecurring, isLoading: recurringLoading } = useQuery<RecurringExpense[]>({
-    queryKey: ["/api/family/shared-recurring-expenses"],
-    enabled: !!user?.familyId,
+    queryKey: ["/api/family/shared-recurring-expenses", primaryGroup?.id],
+    queryFn: () => fetch(`/api/family/shared-recurring-expenses?groupId=${primaryGroup?.id}`).then(r => r.json()),
+    enabled: !!primaryGroup,
   });
 
   const deleteSharedIncomeMutation = useMutation({
@@ -148,9 +151,9 @@ export function CouplesDashboardView({
   const incomeStartStr = periodStart.toISOString();
   const incomeEndStr = periodEnd.toISOString();
   const { data: familyIncomeEntries } = useQuery<FamilyIncomeEntry[]>({
-    queryKey: ["/api/family/income", incomeStartStr, incomeEndStr],
-    queryFn: () => fetch(`/api/family/income?startDate=${encodeURIComponent(incomeStartStr)}&endDate=${encodeURIComponent(incomeEndStr)}`).then(r => r.json()),
-    enabled: !!user?.familyId,
+    queryKey: ["/api/family/income", primaryGroup?.id, incomeStartStr, incomeEndStr],
+    queryFn: () => fetch(`/api/family/income?groupId=${primaryGroup?.id}&startDate=${encodeURIComponent(incomeStartStr)}&endDate=${encodeURIComponent(incomeEndStr)}`).then(r => r.json()),
+    enabled: !!primaryGroup,
     staleTime: 10_000,
   });
 

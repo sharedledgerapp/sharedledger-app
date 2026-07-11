@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useFamily } from "@/hooks/use-data";
+import { useFamily, usePrimaryGroup } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
 import { captureEvent } from "@/lib/analytics";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -62,7 +62,8 @@ const groupTypeLabels: Record<string, Record<string, string>> = {
 };
 
 export default function FamilyPage() {
-  const { data, isLoading } = useFamily();
+  const { data: primaryGroup } = usePrimaryGroup();
+  const { data, isLoading } = useFamily(primaryGroup?.id);
   const { user } = useAuth();
   const { toast } = useToast();
   const { t, language } = useLanguage();
@@ -72,7 +73,7 @@ export default function FamilyPage() {
 
   const changeRoleMutation = useMutation({
     mutationFn: async ({ memberId, role }: { memberId: number; role: string }) => {
-      const res = await apiRequest("PATCH", `/api/family/members/${memberId}/role`, { role });
+      const res = await apiRequest("PATCH", `/api/family/members/${memberId}/role`, { role, groupId: primaryGroup?.id });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.message || "Failed to update role");
@@ -98,13 +99,14 @@ export default function FamilyPage() {
 
   const leaveGroupMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/group/leave");
+      const res = await apiRequest("POST", `/api/groups/${primaryGroup?.id}/leave`);
       if (!res.ok) throw new Error("Failed to leave group");
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/family"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
       toast({ title: "Left group", description: "You have left the group." });
       captureEvent("group_left");
     },
@@ -144,6 +146,7 @@ export default function FamilyPage() {
       queryClient.setQueryData(["/api/user"], updatedUser);
       queryClient.invalidateQueries({ queryKey: ["/api/family"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
       setJoinDialog(false);
       setJoinCode("");
       toast({ title: "Joined!", description: "You have joined the group." });
@@ -164,9 +167,9 @@ export default function FamilyPage() {
       return res.json();
     },
     onSuccess: (result: any) => {
-      queryClient.setQueryData(["/api/user"], result);
       queryClient.invalidateQueries({ queryKey: ["/api/family"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
       setCreateDialog(false);
       setNewGroupName("");
       if (result?.inviteCode) {
@@ -187,7 +190,7 @@ export default function FamilyPage() {
   const parentCount = members.filter((m: any) => m.role === 'parent').length;
   const familyGroupType = (family as any)?.groupType || "family";
   const isFamily = familyGroupType === "family";
-  const isAdmin = user?.role === "parent";
+  const isAdmin = primaryGroup?.memberRole === "parent";
   const GroupIcon = groupTypeIcons[familyGroupType] || Users;
 
   const shareInvite = async () => {
@@ -206,7 +209,7 @@ export default function FamilyPage() {
     return result;
   };
 
-  const noGroupUI = !user?.familyId && !isLoading;
+  const noGroupUI = !primaryGroup && !isLoading;
 
   return (
     <div className="space-y-6 pb-20">

@@ -4,7 +4,7 @@ import { db } from "./db";
 import { storage } from "./storage";
 import {
   expenses, budgets, goals, recurringExpenses, incomeEntries, families, users,
-  friendGroupMembers, aiAnalyses
+  aiAnalyses
 } from "@shared/schema";
 import { eq, and, gte, lte, desc, inArray } from "drizzle-orm";
 import { format, startOfMonth, endOfMonth, startOfDay, subMonths, getDay } from "date-fns";
@@ -46,6 +46,11 @@ export async function buildSageContext(userId: number): Promise<string> {
 
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) return "";
+
+  // Sage speaks about "your group" using the user's first group membership as a stand-in
+  // primary group — a user with several groups still gets one coherent group narrative.
+  const myGroups = await storage.getGroupsForUser(userId);
+  const primaryGroupId = myGroups[0]?.id ?? null;
 
   const currency = user.currency || "EUR";
 
@@ -232,7 +237,7 @@ export async function buildSageContext(userId: number): Promise<string> {
   // ── Goals (gated) ─────────────────────────────────────────────────────────
   let goalLines = "";
   if (budgetGoalsAllowed) {
-    const userGoals = await storage.getGoals(userId, user.familyId || 0);
+    const userGoals = await storage.getGoals(userId, primaryGroupId || 0);
     goalLines = userGoals.slice(0, 5).map(g => {
       const pct = g.targetAmount ? Math.round((Number(g.currentAmount) / Number(g.targetAmount)) * 100) : 0;
       const deadline = g.deadline ? ` — due ${format(new Date(g.deadline), 'MMM yyyy')}` : '';
@@ -242,11 +247,11 @@ export async function buildSageContext(userId: number): Promise<string> {
 
   // ── Group context ──────────────────────────────────────────────────────────
   let groupContext = "";
-  if (user.familyId) {
-    const family = await storage.getFamily(user.familyId);
-    const members = await storage.getFamilyMembers(user.familyId);
-    const sharedBudgets = await storage.getSharedBudgets(user.familyId);
-    const sharedGoals = await storage.getSharedGoals(user.familyId);
+  if (primaryGroupId) {
+    const family = await storage.getFamily(primaryGroupId);
+    const members = await storage.getGroupMembers(primaryGroupId);
+    const sharedBudgets = await storage.getSharedBudgets(primaryGroupId);
+    const sharedGoals = await storage.getSharedGoals(primaryGroupId);
     const memberIntentions = members
       .filter(m => m.id !== userId && (m as any).onboardingIntention?.trim())
       .map(m => `  - ${m.name}: "${(m as any).onboardingIntention!.trim()}"`)

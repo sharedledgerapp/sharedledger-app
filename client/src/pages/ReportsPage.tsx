@@ -74,7 +74,7 @@ export default function ReportsPage() {
   const deleteMutation = useDeleteExpense();
   const [, setLocation] = useLocation();
   const { data: friendGroups } = useQuery<Array<{ id: number; name: string; currency: string }>>({
-    queryKey: ["/api/friend-groups"],
+    queryKey: ["/api/groups"],
   });
 
   const { data: analyses } = useQuery<AiAnalysis[]>({

@@ -102,9 +102,9 @@ export default function FriendGroupDashboard() {
   const [pendingAction, setPendingAction] = useState<"leave" | "archive" | null>(null);
 
   const { data: group, isLoading: groupLoading } = useQuery<FriendGroup>({
-    queryKey: ["/api/friend-groups", groupId],
+    queryKey: ["/api/groups", groupId],
     queryFn: async () => {
-      const res = await fetch(`/api/friend-groups/${groupId}`, { credentials: "include" });
+      const res = await fetch(`/api/groups/${groupId}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load group");
       return res.json();
     },
@@ -112,9 +112,9 @@ export default function FriendGroupDashboard() {
   });
 
   const { data: expenses, isLoading: expensesLoading, isError: expensesError } = useQuery<GroupExpense[]>({
-    queryKey: ["/api/friend-groups", groupId, "expenses"],
+    queryKey: ["/api/groups", groupId, "expenses"],
     queryFn: async () => {
-      const res = await fetch(`/api/friend-groups/${groupId}/expenses`, { credentials: "include" });
+      const res = await fetch(`/api/groups/${groupId}/expenses`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load expenses");
       return res.json();
     },
@@ -122,9 +122,9 @@ export default function FriendGroupDashboard() {
   });
 
   const { data: balances, isError: balancesError } = useQuery<Balance[]>({
-    queryKey: ["/api/friend-groups", groupId, "balances"],
+    queryKey: ["/api/groups", groupId, "balances"],
     queryFn: async () => {
-      const res = await fetch(`/api/friend-groups/${groupId}/balances`, { credentials: "include" });
+      const res = await fetch(`/api/groups/${groupId}/balances`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load balances");
       return res.json();
     },
@@ -133,10 +133,10 @@ export default function FriendGroupDashboard() {
 
   const leaveMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", `/api/friend-groups/${groupId}/leave`);
+      await apiRequest("POST", `/api/groups/${groupId}/leave`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/friend-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
       toast({ title: "Left group" });
       navigate("/app/groups");
     },
@@ -147,12 +147,12 @@ export default function FriendGroupDashboard() {
 
   const archiveMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("PATCH", `/api/friend-groups/${groupId}/archive`);
+      const res = await apiRequest("PATCH", `/api/groups/${groupId}/archive`);
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/friend-groups", groupId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/friend-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
       toast({ title: "Group archived" });
     },
     onError: (e: Error) => {
@@ -162,7 +162,7 @@ export default function FriendGroupDashboard() {
 
   const deleteMyExpensesMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("DELETE", `/api/friend-groups/${groupId}/my-expenses`);
+      await apiRequest("DELETE", `/api/groups/${groupId}/my-expenses`);
     },
   });
 

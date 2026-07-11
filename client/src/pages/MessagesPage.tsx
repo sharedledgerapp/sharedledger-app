@@ -3,6 +3,7 @@ import { useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/use-auth";
+import { usePrimaryGroup } from "@/hooks/use-data";
 import { captureEvent } from "@/lib/analytics";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -209,6 +210,7 @@ function SageTab({
   pageContextTopic?: string | null;
 }) {
   const { user } = useAuth();
+  const { data: primaryGroup } = usePrimaryGroup();
   const [activeConvId, setActiveConvId] = useState<number | null>(null);
   const [inputText, setInputText] = useState("");
   const [localMessages, setLocalMessages] = useState<SageMessage[]>([]);
@@ -335,7 +337,7 @@ function SageTab({
 
   const shareToGroupMutation = useMutation({
     mutationFn: async (content: string) => {
-      const res = await apiRequest("POST", "/api/messages", { content });
+      const res = await apiRequest("POST", "/api/messages", { content, groupId: primaryGroup?.id });
       return res.json();
     },
     onSuccess: () => {
@@ -732,7 +734,7 @@ function SageTab({
                         <span className="text-[10px] text-muted-foreground ml-1">
                           {format(new Date(msg.createdAt), "h:mm a")}
                         </span>
-                        {user?.familyId && (
+                        {primaryGroup && (
                           <button
                             onClick={() => shareMessageId === msg.id ? setShareMessageId(null) : openShare(msg)}
                             className={cn("p-1 rounded hover:bg-secondary transition-colors ml-1", shareMessageId === msg.id ? "text-primary" : "text-muted-foreground")}
@@ -906,20 +908,22 @@ function formatMessageTime(dateStr: string) {
   return format(date, "MMM d, h:mm a");
 }
 
-function GroupChatPanel({ onBack, groupName }: { onBack: () => void; groupName: string }) {
+function GroupChatPanel({ onBack, groupName, groupId }: { onBack: () => void; groupName: string; groupId?: number }) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { data: messages, isLoading } = useQuery<MessageItem[]>({
-    queryKey: ["/api/messages"],
+    queryKey: ["/api/messages", groupId],
+    queryFn: () => fetch(`/api/messages?groupId=${groupId}`, { credentials: "include" }).then(r => r.json()),
+    enabled: !!groupId,
     refetchInterval: 5000,
   });
 
   const sendMutation = useMutation({
     mutationFn: async (content: string) => {
-      const res = await apiRequest("POST", "/api/messages", { content });
+      const res = await apiRequest("POST", "/api/messages", { content, groupId });
       return res.json();
     },
     onSuccess: () => {
@@ -1869,7 +1873,8 @@ function NotesTab({
 }) {
   const { t } = useLanguage();
   const { user } = useAuth();
-  const hasGroup = !!user?.familyId;
+  const { data: primaryGroup } = usePrimaryGroup();
+  const hasGroup = !!primaryGroup;
 
   const lsViewKey = notesLSKey(LS_NOTES_VIEW, user?.id);
   const lsPersonalKey = notesLSKey(LS_NOTES_PERSONAL_ID, user?.id);
@@ -1914,12 +1919,14 @@ function NotesTab({
   });
 
   const { data: sharedNotesList, isLoading: sharedLoading } = useQuery<SharedNoteItem[]>({
-    queryKey: ["/api/notes"],
+    queryKey: ["/api/notes", primaryGroup?.id],
+    queryFn: () => fetch(`/api/notes?groupId=${primaryGroup?.id}`, { credentials: "include" }).then(r => r.json()),
     enabled: hasGroup,
   });
 
   const { data: familyInfo } = useQuery<FamilyInfo>({
-    queryKey: ["/api/family/info"],
+    queryKey: ["/api/family/info", primaryGroup?.id],
+    queryFn: () => fetch(`/api/family/info?groupId=${primaryGroup?.id}`).then(r => r.json()),
     enabled: hasGroup,
   });
 
@@ -2040,7 +2047,7 @@ function NotesTab({
 
   const shareToGroupMutation = useMutation({
     mutationFn: async (content: string) => {
-      const res = await apiRequest("POST", "/api/messages", { content });
+      const res = await apiRequest("POST", "/api/messages", { content, groupId: primaryGroup?.id });
       return res.json();
     },
     onSuccess: () => {
@@ -2051,7 +2058,7 @@ function NotesTab({
 
   const createSharedMutation = useMutation({
     mutationFn: async (data: { title: string; content: string }) => {
-      const res = await apiRequest("POST", "/api/notes", data);
+      const res = await apiRequest("POST", "/api/notes", { ...data, groupId: primaryGroup?.id });
       return res.json();
     },
     onSuccess: () => {
@@ -2677,17 +2684,19 @@ function MessagesConversationList({
   onOpenSage: () => void;
   onOpenGroupChat: () => void;
 }) {
-  const { user } = useAuth();
-  const hasGroup = !!user?.familyId;
+  const { data: primaryGroup } = usePrimaryGroup();
+  const hasGroup = !!primaryGroup;
 
   const { data: preview } = useQuery<MessagesPreview>({
-    queryKey: ["/api/messages/preview"],
+    queryKey: ["/api/messages/preview", primaryGroup?.id],
+    queryFn: () => fetch(`/api/messages/preview?groupId=${primaryGroup?.id}`).then(r => r.json()),
     enabled: hasGroup,
     refetchInterval: hasGroup ? 10000 : false,
   });
 
   const { data: familyInfo } = useQuery<FamilyInfo>({
-    queryKey: ["/api/family/info"],
+    queryKey: ["/api/family/info", primaryGroup?.id],
+    queryFn: () => fetch(`/api/family/info?groupId=${primaryGroup?.id}`).then(r => r.json()),
     enabled: hasGroup,
   });
 
@@ -2778,7 +2787,8 @@ export default function MessagesPage() {
   const [pendingPageContext, setPendingPageContext] = useState<string | null>(null);
   const [pendingPageContextTopic, setPendingPageContextTopic] = useState<string | null>(null);
 
-  const isSolo = !((user as any)?.familyId);
+  const { data: primaryGroup } = usePrimaryGroup();
+  const isSolo = !primaryGroup;
   const search = useSearch();
 
   // Read URL params for context-awareness (e.g. opened from Budget page or push notification).
@@ -2815,7 +2825,8 @@ export default function MessagesPage() {
   };
 
   const { data: familyInfo } = useQuery<FamilyInfo>({
-    queryKey: ["/api/family/info"],
+    queryKey: ["/api/family/info", primaryGroup?.id],
+    queryFn: () => fetch(`/api/family/info?groupId=${primaryGroup?.id}`).then(r => r.json()),
     enabled: !isSolo,
   });
 
@@ -2878,6 +2889,7 @@ export default function MessagesPage() {
             <GroupChatPanel
               onBack={() => setMessagesView("list")}
               groupName={familyInfo?.name ?? "Group Chat"}
+              groupId={primaryGroup?.id}
             />
           )}
         </>

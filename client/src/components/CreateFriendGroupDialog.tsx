@@ -20,10 +20,11 @@ import { QrScannerDialog } from "./QrScannerDialog";
 const createSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(60),
   currency: z.string().default("EUR"),
+  groupType: z.enum(["friends", "trip"]).default("friends"),
 });
 
 const joinSchema = z.object({
-  code: z.string().regex(/^FRD-[A-Z0-9]{4}$/i, "Enter a valid invite code (e.g. FRD-ABCD)"),
+  code: z.string().regex(/^[A-Z]{3}-[A-Z0-9]{4}$/i, "Enter a valid invite code (e.g. FRD-ABCD)"),
 });
 
 interface Props {
@@ -39,7 +40,7 @@ export function CreateFriendGroupDialog({ open, onOpenChange }: Props) {
 
   const createForm = useForm<z.infer<typeof createSchema>>({
     resolver: zodResolver(createSchema),
-    defaultValues: { name: "", currency: (user as { currency?: string })?.currency || "EUR" },
+    defaultValues: { name: "", currency: (user as { currency?: string })?.currency || "EUR", groupType: "friends" },
   });
 
   useEffect(() => {
@@ -58,11 +59,11 @@ export function CreateFriendGroupDialog({ open, onOpenChange }: Props) {
 
   const createMutation = useMutation({
     mutationFn: async (values: z.infer<typeof createSchema>) => {
-      const res = await apiRequest("POST", "/api/friend-groups", values);
+      const res = await apiRequest("POST", "/api/groups", values);
       return res.json() as Promise<{ id: number; name: string; code: string }>;
     },
     onSuccess: (group) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/friend-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
       onOpenChange(false);
       createForm.reset();
       navigate(`/app/groups/${group.id}?code=${group.code}`);
@@ -74,11 +75,11 @@ export function CreateFriendGroupDialog({ open, onOpenChange }: Props) {
 
   const joinMutation = useMutation({
     mutationFn: async (values: z.infer<typeof joinSchema>) => {
-      const res = await apiRequest("POST", "/api/friend-groups/join", { code: values.code.toUpperCase().trim() });
+      const res = await apiRequest("POST", "/api/groups/join", { code: values.code.toUpperCase().trim() });
       return res.json() as Promise<{ id: number; name: string }>;
     },
     onSuccess: (group) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/friend-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
       toast({ title: "Joined group!", description: `You joined ${group.name}` });
       onOpenChange(false);
       navigate(`/app/groups/${group.id}`);
@@ -103,6 +104,27 @@ export function CreateFriendGroupDialog({ open, onOpenChange }: Props) {
           <TabsContent value="create" className="mt-4">
             <Form {...createForm}>
               <form onSubmit={createForm.handleSubmit((v) => createMutation.mutate(v))} className="space-y-4">
+                <FormField
+                  control={createForm.control}
+                  name="groupType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Type</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-group-type">
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="friends">Friends</SelectItem>
+                          <SelectItem value="trip">Trip</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={createForm.control}
                   name="name"

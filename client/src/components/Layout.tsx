@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { Home, Wallet, Users, Trophy, PieChart, Shield, Settings, BarChart3, MessageCircle, ArrowLeftRight } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { usePrimaryGroup } from "@/hooks/use-data";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -9,16 +10,13 @@ import { useQuery } from "@tanstack/react-query";
 
 export function BottomNav() {
   const [location] = useLocation();
-  const { user } = useAuth();
   const { t } = useLanguage();
-
-  const groupHref = user?.familyId ? "/app/family-dashboard" : "/app/family";
 
   const routes = [
     { href: "/app", label: t("home"), icon: Home, groupTab: false },
     { href: "/app/expenses", label: "Money", icon: ArrowLeftRight, groupTab: false },
     { href: "/app/goals", label: t("goals"), icon: Trophy, groupTab: false },
-    { href: groupHref, label: t("group"), icon: Users, groupTab: true },
+    { href: "/app/groups", label: t("group"), icon: Users, groupTab: true },
   ];
 
   return (
@@ -27,7 +25,7 @@ export function BottomNav() {
         {routes.map((route) => {
           const Icon = route.icon;
           const isActive = route.groupTab
-            ? location.startsWith("/app/family")
+            ? location.startsWith("/app/groups") || location.startsWith("/app/family")
             : location === route.href || (route.href === "/app" && location === "/app");
           return (
             <Link key={route.href} href={route.href} className="w-full h-full">
@@ -58,15 +56,19 @@ export function BottomNav() {
 export function Layout({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const { data: primaryGroup } = usePrimaryGroup();
 
   const { data: unreadData } = useQuery<{ count: number }>({
-    queryKey: ['/api/messages/unread'],
+    queryKey: ['/api/messages/unread', primaryGroup?.id],
     refetchInterval: 15000,
-    enabled: !!user && !!user.familyId,
+    enabled: !!user && !!primaryGroup,
+    queryFn: async () => {
+      const res = await fetch(`/api/messages/unread?groupId=${primaryGroup?.id}`);
+      if (!res.ok) throw new Error("Failed to fetch unread count");
+      return res.json();
+    },
   });
   const unreadCount = unreadData?.count || 0;
-
-  const hasGroup = !!user?.familyId;
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
@@ -115,7 +117,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <Link href="/app/goals" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
             <Trophy className="w-5 h-5" /> {t("goals")}
           </Link>
-          <Link href="/app/family" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
+          <Link href="/app/groups" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
             <Users className="w-5 h-5" /> {t("group")}
           </Link>
           <Link href="/app/family-dashboard" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium transition-colors">
@@ -147,7 +149,7 @@ export function Layout({ children }: { children: ReactNode }) {
               </Avatar>
               <div className="overflow-hidden flex-1">
                 <p className="font-medium truncate">{user?.name}</p>
-                <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
+                <p className="text-xs text-muted-foreground truncate">{user?.username}</p>
               </div>
               <Settings className="w-4 h-4 text-muted-foreground" />
             </div>

@@ -52,7 +52,7 @@ export function SettleUpDialog({ open, onOpenChange, balance, groupId, groupCurr
 
   const mutation = useMutation({
     mutationFn: async (values: z.infer<typeof settleSchema>) => {
-      const res = await apiRequest("POST", `/api/friend-groups/${groupId}/settle`, {
+      const res = await apiRequest("POST", `/api/groups/${groupId}/settle`, {
         toUserId: balance!.toUserId,
         amount: values.amount,
         note: values.note || null,
@@ -60,16 +60,16 @@ export function SettleUpDialog({ open, onOpenChange, balance, groupId, groupCurr
       return res.json();
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/friend-groups", groupId, "balances"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/friend-groups", groupId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/friend-groups", groupId, "expenses"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/groups", groupId, "balances"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups", groupId, "expenses"] });
       toast({ title: "Payment recorded!", description: `Settlement of ${currencySymbol}${form.getValues("amount")} recorded.` });
 
       try {
-        const freshRes = await fetch(`/api/friend-groups/${groupId}/balances`, { credentials: "include" });
+        const freshRes = await fetch(`/api/groups/${groupId}/balances`, { credentials: "include" });
         if (freshRes.ok) {
           const freshBalances: Balance[] = await freshRes.json();
-          queryClient.setQueryData(["/api/friend-groups", groupId, "balances"], freshBalances);
+          queryClient.setQueryData(["/api/groups", groupId, "balances"], freshBalances);
           if (freshBalances.length === 0) {
             celebrate("light");
             toast({ title: "You're all square!", description: "Clean slate, fresh start." });

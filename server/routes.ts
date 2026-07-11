@@ -14,7 +14,7 @@ async function hashPassword(password: string): Promise<string> {
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
   return `${buf.toString("hex")}.${salt}`;
 }
-import { insertUserSchema, families, oauthGroupSetupSchema, type User, type InsertRecurringExpense } from "@shared/schema";
+import { insertUserSchema, families, oauthGroupSetupSchema, type User, type Family, type InsertRecurringExpense } from "@shared/schema";
 import multer from "multer";
 import passport from "passport";
 import { db } from "./db";
@@ -55,6 +55,45 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
 function sanitizeUser(user: any) {
   const { password, ...safe } = user;
   return safe;
+}
+
+// Resolves an explicit groupId from a request (query for GET, body for POST/PATCH/DELETE)
+// and verifies the requesting user is a member of it. Returns null if missing, malformed,
+// or the user isn't a member — callers translate that into the appropriate 400/403/404.
+async function resolveGroupId(user: { id: number }, raw: unknown): Promise<number | null> {
+  const groupId = typeof raw === "string" ? parseInt(raw, 10) : typeof raw === "number" ? raw : NaN;
+  if (isNaN(groupId)) return null;
+  const isMember = await storage.isGroupMember(groupId, user.id);
+  return isMember ? groupId : null;
+}
+
+// A user's role (parent/child/admin/member) is per-group membership now, not a global field.
+async function getRoleInGroup(groupId: number, userId: number): Promise<string | null> {
+  const members = await storage.getGroupMembers(groupId);
+  return members.find(m => m.id === userId)?.memberRole ?? null;
+}
+
+// Personal-expense filtering shared by /api/budget-summary and /api/budget-monthly-review,
+// mirroring /api/spending/summary: household groups (family/roommates/couple) always count
+// toward personal spending; friends/trip groups are excluded (their own separate wallet).
+async function getPersonalExpensesForBudgeting(user: { id: number; currency?: string | null }) {
+  const allExpenses = await storage.getExpenses(user.id);
+  const myGroups = await storage.getGroupsForUser(user.id);
+  const groupMap = new Map(myGroups.map(g => [g.id, g]));
+  const CURRENCY_GATED_TYPES = new Set(["friends", "trip"]);
+
+  return allExpenses
+    .filter(e => {
+      if (e.paymentSource !== "personal") return false;
+      if (e.familyId == null) return true;
+      const group = groupMap.get(e.familyId);
+      if (!group) return false;
+      return !CURRENCY_GATED_TYPES.has(group.groupType);
+    })
+    .map(e => {
+      const userSplit = (e.splits || []).find((s: any) => s.userId === user.id);
+      return userSplit ? { ...e, amount: userSplit.amount } : e;
+    });
 }
 
 const upload = multer({ 
@@ -143,12 +182,17 @@ export async function registerRoutes(
         }
       }
 
-      let familyId: number;
-      let role = userData.role;
+      const { role: requestedRole, ...userDataNoRole } = userData;
 
       const inviteCode = groupCode || familyCode;
       const newGroupName = groupName || familyName;
       const newGroupType = groupType || "family";
+
+      const hashedPassword = await hashPassword(userData.password);
+      const user = await storage.createUser({
+        ...userDataNoRole,
+        password: hashedPassword,
+      });
 
       if (inviteCode) {
         const family = await storage.getFamilyByCode(inviteCode);
@@ -158,50 +202,15 @@ export async function registerRoutes(
         if (family.groupType === "friends") {
           return res.status(400).json({ message: "This is a Friends group invite code. Use the Friends tab to join." });
         }
-        familyId = family.id;
-        if (family.groupType === "family") {
-          role = "child";
-        } else {
-          role = "member";
-        }
+        const joinRole = family.groupType === "family" ? "child" : "member";
+        await storage.joinGroupByCode(inviteCode, user.id, joinRole);
       } else if (newGroupName) {
-        if (newGroupType === "family" && role !== 'parent' && role !== 'member') {
+        if (newGroupType === "family" && requestedRole !== 'parent' && requestedRole !== 'member') {
              return res.status(400).json({ message: "Only parents can create new family groups." });
         }
-        const prefix = newGroupType === "family" ? "FAM" : newGroupType === "roommates" ? "GRP" : newGroupType === "friends" ? "FRD" : "CPL";
-        const code = `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
-        const family = await storage.createFamily({ name: newGroupName, code, groupType: newGroupType });
-        familyId = family.id;
-        if (newGroupType !== "family") {
-          role = "member";
-        }
-      } else {
-        const hashedPassword = await hashPassword(userData.password);
-        const user = await storage.createUser({
-          ...userData,
-          password: hashedPassword,
-          role: "member",
-          familyId: null,
-        });
-
-        if (userData.username.includes("@")) {
-          sendWelcomeEmail(userData.username, userData.name).catch(() => {});
-        }
-
-        req.login(user, (err) => {
-          if (err) return next(err);
-          res.status(201).json(sanitizeUser(user));
-        });
-        return;
+        const creatorRole = newGroupType === "family" ? "parent" : "member";
+        await storage.createGroup({ name: newGroupName, groupType: newGroupType, creatorId: user.id, creatorRole });
       }
-
-      const hashedPassword = await hashPassword(userData.password);
-      const user = await storage.createUser({
-        ...userData,
-        password: hashedPassword,
-        role,
-        familyId
-      });
 
       if (userData.username.includes("@")) {
         sendWelcomeEmail(userData.username, userData.name).catch(() => {});
@@ -317,17 +326,14 @@ export async function registerRoutes(
     res.status(200).json(sanitizeUser(user));
   });
 
+  // Creates or joins a group for the current user. Callable any number of times —
+  // a user may belong to several groups at once (family, roommates, couple, friends, trip).
   app.post("/api/auth/setup-group", requireAuth, async (req, res, next) => {
     try {
       const user = req.user as any;
-      if (user.familyId) {
-        return res.status(400).json({ message: "You are already in a group" });
-      }
-
       const { groupCode, groupName, groupType } = oauthGroupSetupSchema.parse(req.body);
-      let role = req.body.role || "member";
 
-      let familyId: number;
+      let group: Family;
 
       if (groupCode) {
         const family = await storage.getFamilyByCode(groupCode);
@@ -337,34 +343,21 @@ export async function registerRoutes(
         if (family.groupType === "friends") {
           return res.status(400).json({ message: "This is a Friends group invite code. Use the Friends tab to join." });
         }
-        familyId = family.id;
-        if (family.groupType === "family") {
-          role = "child";
-        } else {
-          role = "member";
-        }
+        const joinRole = family.groupType === "family" ? "child" : "member";
+        group = await storage.joinGroupByCode(groupCode, user.id, joinRole);
       } else if (groupName) {
         const newGroupType = groupType || "family";
-        const prefix = newGroupType === "family" ? "FAM" : newGroupType === "roommates" ? "GRP" : newGroupType === "friends" ? "FRD" : "CPL";
-        const code = `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
-        const family = await storage.createFamily({ name: groupName, code, groupType: newGroupType });
-        familyId = family.id;
-        if (newGroupType === "family") {
-          role = "parent";
-        } else {
-          role = "member";
-        }
+        const creatorRole = newGroupType === "family" ? "parent" : "member";
+        group = await storage.createGroup({ name: groupName, groupType: newGroupType, creatorId: user.id, creatorRole });
       } else {
         return res.status(400).json({ message: "Please provide an invite code or group name." });
       }
 
-      const updated = await storage.updateUser(user.id, { familyId, role });
-      const sanitized = sanitizeUser(updated);
+      const sanitized = sanitizeUser(user);
       if (groupCode) {
-        res.json(sanitized);
+        res.json({ ...sanitized, group });
       } else {
-        const createdFamily = await storage.getFamily(familyId);
-        res.json({ ...sanitized, inviteCode: createdFamily?.code ?? null });
+        res.json({ ...sanitized, group, inviteCode: group.code });
       }
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -436,14 +429,8 @@ export async function registerRoutes(
   });
 
   // === LEAVE GROUP ===
-  app.post("/api/group/leave", requireAuth, async (req, res) => {
-    const user = req.user as any;
-    if (!user.familyId) {
-      return res.status(400).json({ message: "You are not in a group" });
-    }
-    await storage.updateUser(user.id, { familyId: null });
-    res.json({ message: "You have left the group" });
-  });
+  // Superseded by POST /api/groups/:id/leave (a user can belong to several groups now,
+  // so "leave" must name which one).
 
   // === RECEIPT OCR ROUTE ===
 
@@ -616,108 +603,73 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
 
-    const [allExpenses, friendGroups] = await Promise.all([
+    const [allExpenses, myGroups] = await Promise.all([
       storage.getExpenses(user.id),
-      storage.getFriendGroupsForUser(user.id),
+      storage.getGroupsForUser(user.id),
     ]);
 
-    // Build a lookup map for friend groups: groupId → group
-    const friendGroupMap = new Map<number, typeof friendGroups[0]>(
-      friendGroups.map(g => [g.id, g])
+    // Build a lookup map for the user's current groups: groupId → group
+    const groupMap = new Map<number, typeof myGroups[0]>(
+      myGroups.map(g => [g.id, g])
     );
     const userCurrency = (user.currency || "EUR") as string;
 
-    // Safety net: look up currencies for orphaned expenses from groups the user has left.
-    // These have a familyId but are no longer in the active friendGroupMap.
-    const orphanedFamilyIds = [...new Set(
+    // Safety net: look up type/currency for orphaned expenses from groups the user has left.
+    // These have a familyId but are no longer in the active groupMap.
+    const orphanedGroupIds = [...new Set(
       allExpenses
-        .filter(e => e.paymentSource === "personal" && e.familyId != null && !friendGroupMap.has(e.familyId!))
+        .filter(e => e.paymentSource === "personal" && e.familyId != null && !groupMap.has(e.familyId!))
         .map(e => e.familyId as number)
     )];
-    const orphanedGroupCurrencies = orphanedFamilyIds.length > 0
-      ? await storage.getFriendGroupCurrenciesForIds(orphanedFamilyIds)
+    const orphanedGroupCurrencies = orphanedGroupIds.length > 0
+      ? await storage.getGroupCurrenciesForIds(orphanedGroupIds)
       : new Map<number, { currency: string; groupType: string }>();
 
-    // Whether to include quick group (friend group) spending in personal summary.
+    // Whether to include quick group (friends/trip) spending in personal summary.
     // Default is false (excluded) — users must explicitly opt in via Settings > Privacy.
     const includeQuickGroupInSummary = !!(user.includeQuickGroupInSummary);
 
-    // Adjust personal expenses for friend group currency handling:
-    // - If includeQuickGroupInSummary is false (default), all friend group expenses are excluded
-    // - Cross-currency friend group expenses are always excluded (would corrupt totals)
-    // - Same-currency friend group expenses: use the user's tracked split share if set,
-    //   otherwise fall back to the full amount (user paid it solo / no split tracked)
-    // - Orphaned expenses (from groups the user has left) get the same currency check via
-    //   the orphanedGroupCurrencies safety net above
-    // crossCurrencyGroupExpenseCount — expenses excluded because the group uses a DIFFERENT currency
-    //   than the user (only relevant when includeQuickGroupInSummary is true).
-    // settingExcludedGroupExpenseCount — expenses excluded because includeQuickGroupInSummary is
-    //   false (the default). These are not a currency issue; they're a privacy/opt-in choice.
+    // Household groups (family/roommates/couple) have no currency of their own to worry
+    // about — family.currency is a display setting only, and their personal expenses
+    // always belong in Money Out. Friends/trip groups are their own wallet, potentially
+    // in a different currency, so they're gated behind the opt-in + currency match below.
+    // crossCurrencyGroupExpenseCount — expenses excluded because the group uses a DIFFERENT
+    //   currency than the user (only relevant when includeQuickGroupInSummary is true).
+    // settingExcludedGroupExpenseCount — expenses excluded because includeQuickGroupInSummary
+    //   is false (the default). These are not a currency issue; they're a privacy/opt-in choice.
+    const CURRENCY_GATED_TYPES = new Set(["friends", "trip"]);
     let crossCurrencyGroupExpenseCount = 0;
     let settingExcludedGroupExpenseCount = 0;
     const personalExpenses = allExpenses
       .filter(e => e.paymentSource === "personal")
       .map(e => {
         if (e.familyId != null) {
-          if (friendGroupMap.has(e.familyId)) {
-            // Expense belongs to an active friend group
-            if (!includeQuickGroupInSummary) {
-              settingExcludedGroupExpenseCount++;
-              return null;
-            }
-            const group = friendGroupMap.get(e.familyId)!;
-            const groupCurrency = (group.currency || "EUR") as string;
-            if (groupCurrency !== userCurrency) {
-              crossCurrencyGroupExpenseCount++;
-              return null;
-            }
-            // Use the user's split share if one exists; otherwise count full amount
-            const userSplit = (e.splits || []).find(s => s.userId === user.id);
-            if (userSplit) {
-              return { ...e, amount: userSplit.amount };
-            }
-            return e;
-          } else {
-            // familyId exists but is not in the active friend-group map.
+          const activeGroup = groupMap.get(e.familyId);
+          const orphanEntry = orphanedGroupCurrencies.get(e.familyId);
+          const groupType = activeGroup?.groupType ?? orphanEntry?.groupType;
+          const groupCurrency = activeGroup?.currency ?? orphanEntry?.currency;
 
-            // If this expense is tagged with the user's own primary family group,
-            // always include it regardless of group type. The friend-group exclusion
-            // logic is only for secondary groups the user joined separately (via
-            // friend_group_members). A primary family_id on the user record means
-            // this is their household group, and their personal expenses belong in
-            // Money Out no matter how the group is typed.
-            if (user.familyId && e.familyId === user.familyId) {
-              return e;
-            }
-
-            const orphanEntry = orphanedGroupCurrencies.get(e.familyId);
-            if (orphanEntry === undefined) {
-              // Group row no longer exists — exclude as safe default
-              return null;
-            }
-            if (orphanEntry.groupType !== "friends") {
-              // Non-friend group expense (family/couple/roommates).
-              // Personal expenses have no currency of their own — family.currency is a display
-              // setting for shared group expenses only. Always include these.
-              return e;
-            }
-            // Orphaned friend group expense — exclude unless user opted in
-            if (!includeQuickGroupInSummary) {
-              settingExcludedGroupExpenseCount++;
-              return null;
-            }
-            // Apply currency exclusion for friend group expenses
-            if (orphanEntry.currency !== userCurrency) {
-              crossCurrencyGroupExpenseCount++;
-              return null;
-            }
-            // Same currency: apply split share if available, else full amount
-            const userSplit = (e.splits || []).find(s => s.userId === user.id);
-            if (userSplit) {
-              return { ...e, amount: userSplit.amount };
-            }
+          if (groupType === undefined) {
+            // Group row no longer exists — exclude as safe default
+            return null;
+          }
+          if (!CURRENCY_GATED_TYPES.has(groupType)) {
             return e;
           }
+          if (!includeQuickGroupInSummary) {
+            settingExcludedGroupExpenseCount++;
+            return null;
+          }
+          if ((groupCurrency || "EUR") !== userCurrency) {
+            crossCurrencyGroupExpenseCount++;
+            return null;
+          }
+          // Use the user's split share if one exists; otherwise count full amount
+          const userSplit = (e.splits || []).find(s => s.userId === user.id);
+          if (userSplit) {
+            return { ...e, amount: userSplit.amount };
+          }
+          return e;
         }
         return e;
       })
@@ -825,16 +777,15 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
     const allExpenses = await storage.getExpenses(user.id);
 
-    // Build a currency map so cross-currency group expenses are excluded from the totals
-    const friendGroupsList = await storage.getFriendGroupsForUser(user.id);
+    // Build a currency map so cross-currency group expenses are excluded from the totals.
+    // Only friends/trip groups are their own wallet with a potentially different currency —
+    // family/roommates/couple groups are always in the user's own currency.
+    const myGroupsList = await storage.getGroupsForUser(user.id);
     const fgCurrencyMap = new Map<number, string>(
-      friendGroupsList.map(g => [g.id, g.currency || "EUR"])
+      myGroupsList
+        .filter(g => g.groupType === "friends" || g.groupType === "trip")
+        .map(g => [g.id, g.currency || "EUR"])
     );
-    let establishedFamilyCurrency: string | null = null;
-    if (user.familyId) {
-      const fam = await storage.getFamily(user.familyId);
-      if (fam) establishedFamilyCurrency = fam.currency || null;
-    }
     const activityUserCurrency = user.currency || "EUR";
 
     const personalExpenses = allExpenses
@@ -941,7 +892,8 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.get("/api/family/dashboard", requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(404).json({ message: "No group" });
+    const groupId = await resolveGroupId(user, req.query.groupId);
+    if (!groupId) return res.status(404).json({ message: "No group" });
 
     const { period = "month", startDate, endDate } = req.query as {
       period?: "month" | "week";
@@ -969,17 +921,17 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
 
     const [family, members, sharedGoals] = await Promise.all([
-      storage.getFamily(user.familyId),
-      storage.getFamilyMembers(user.familyId),
-      storage.getSharedGoals(user.familyId),
+      storage.getFamily(groupId),
+      storage.getGroupMembers(groupId),
+      storage.getSharedGoals(groupId),
     ]);
 
     // Guard: do not aggregate friend/quick groups in the established family dashboard
-    if (!family || family.groupType === "friends") {
+    if (!family || family.groupType === "friends" || family.groupType === "trip") {
       return res.status(404).json({ message: "No established group" });
     }
 
-    const sharedExpenses = await storage.getSharedExpenses(user.familyId, start, end);
+    const sharedExpenses = await storage.getSharedExpenses(groupId, start, end);
 
     const totalSpent = sharedExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
     const expenseCount = sharedExpenses.length;
@@ -1002,7 +954,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       .filter(e => e.paymentSource === "personal")
       .reduce((sum, e) => sum + Number(e.amount), 0);
 
-    const balances = await storage.getGroupBalances(user.familyId, { members });
+    const balances = await storage.getGroupBalances(groupId, { members });
 
     const memberExpensesMap: Record<number, { id: number; amount: string | number; category: string; note: string | null; date: string | Date; paymentSource: string }[]> = {};
     const memberSpending = members.map(member => {
@@ -1022,7 +974,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       return {
         id: member.id,
         name: member.name,
-        role: member.role,
+        role: member.memberRole,
         total: memberTotal.toFixed(2),
         expenseCount: memberExpenses.length,
         isPrivate: false,
@@ -1045,7 +997,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
     let coupleData: { contributions?: any; milestones?: any } = {};
     if (family?.groupType === "couple") {
-      const allTimeShared = await storage.getSharedExpenses(user.familyId);
+      const allTimeShared = await storage.getSharedExpenses(groupId);
       const allTimeTotal = allTimeShared.reduce((sum, e) => sum + Number(e.amount), 0);
 
       const contributions = members.map(member => {
@@ -1120,7 +1072,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   // === GROUP ROUTES ===
 
-  app.get("/api/friend-groups/currencies", requireAuth, async (req, res) => {
+  app.get("/api/groups/currencies", requireAuth, async (req, res) => {
     const user = req.user as any;
     const requestedIds = ((req.query.ids as string) || "")
       .split(",")
@@ -1128,8 +1080,8 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       .filter(n => !isNaN(n));
     if (requestedIds.length === 0) return res.json({});
     // Only return info for groups the caller has access to via membership or expenses
-    const userFriendGroups = await storage.getFriendGroupsForUser(user.id);
-    const memberGroupIds = new Set(userFriendGroups.map(g => g.id));
+    const myGroups = await storage.getGroupsForUser(user.id);
+    const memberGroupIds = new Set(myGroups.map(g => g.id));
     // Also allow orphaned familyIds from user's own expenses (past groups)
     const userExpenses = await storage.getExpenses(user.id);
     const userExpenseFamilyIds = new Set(
@@ -1139,7 +1091,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       id => memberGroupIds.has(id) || userExpenseFamilyIds.has(id)
     );
     if (authorizedIds.length === 0) return res.json({});
-    const map = await storage.getFriendGroupCurrenciesForIds(authorizedIds);
+    const map = await storage.getGroupCurrenciesForIds(authorizedIds);
     const result: Record<number, { currency: string; groupType: string }> = {};
     map.forEach((val, key) => { result[key] = val; });
     res.json(result);
@@ -1147,58 +1099,65 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.get("/api/group/balances", requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(404).json({ message: "No group" });
-    const balances = await storage.getGroupBalances(user.familyId);
+    const groupId = await resolveGroupId(user, req.query.groupId);
+    if (!groupId) return res.status(404).json({ message: "No group" });
+    const balances = await storage.getGroupBalances(groupId);
     res.json(balances);
   });
 
   app.patch("/api/family/members/:id/role", requireAuth, async (req, res) => {
     const user = req.user as any;
-    
-    if (user.role !== 'parent') {
+    const { role, groupId: rawGroupId } = z.object({
+      role: z.enum(["parent", "child", "member"]),
+      groupId: z.number(),
+    }).parse(req.body);
+
+    const groupId = await resolveGroupId(user, rawGroupId);
+    if (!groupId) {
+      return res.status(400).json({ message: "You must be in this group" });
+    }
+
+    const callerRole = await getRoleInGroup(groupId, user.id);
+    if (callerRole !== 'parent') {
       return res.status(403).json({ message: "Only admins can change member roles" });
     }
-    
-    if (!user.familyId) {
-      return res.status(400).json({ message: "You must be in a group" });
-    }
-    
+
     const memberId = parseInt(req.params.id);
-    const { role } = z.object({ role: z.enum(["parent", "child", "member"]) }).parse(req.body);
-    
     if (memberId === user.id) {
       return res.status(400).json({ message: "You cannot change your own role" });
     }
-    
-    const member = await storage.getUser(memberId);
-    if (!member || member.familyId !== user.familyId) {
+
+    const isMemberOfGroup = await storage.isGroupMember(groupId, memberId);
+    if (!isMemberOfGroup) {
       return res.status(404).json({ message: "Member not found in your group" });
     }
 
-    const family = await storage.getFamily(user.familyId);
+    const family = await storage.getFamily(groupId);
     if (family && family.groupType !== "family" && (role === "parent" || role === "child")) {
       return res.status(400).json({ message: "Parent/child roles are only available for family groups" });
     }
-    
+
     if (role === 'parent') {
-      const familyMembers = await storage.getFamilyMembers(user.familyId);
-      const parentCount = familyMembers.filter(m => m.role === 'parent').length;
+      const groupMembers = await storage.getGroupMembers(groupId);
+      const parentCount = groupMembers.filter(m => m.memberRole === 'parent').length;
       if (parentCount >= 2) {
         return res.status(400).json({ message: "Maximum of 2 admins per group" });
       }
     }
-    
-    const updated = await storage.updateUser(memberId, { role });
-    res.json({ id: updated.id, name: updated.name, role: updated.role });
+
+    await storage.updateMemberRole(groupId, memberId, role);
+    const member = await storage.getUser(memberId);
+    res.json({ id: memberId, name: member?.name, role });
   });
 
   const familyGetHandler = async (req: Request, res: Response) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(404).json({ message: "No group" });
+    const groupId = await resolveGroupId(user, req.query.groupId);
+    if (!groupId) return res.status(404).json({ message: "No group" });
 
-    const family = await storage.getFamily(user.familyId);
-    const members = await storage.getFamilyMembers(user.familyId);
-    
+    const family = await storage.getFamily(groupId);
+    const members = await storage.getGroupMembers(groupId);
+
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
@@ -1208,13 +1167,13 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         return {
           id: member.id,
           name: member.name,
-          role: member.role,
+          role: member.memberRole,
           total: null,
           isPrivate: true
         };
       }
 
-      const memberExpenses = await storage.getExpenses(member.id, user.familyId);
+      const memberExpenses = await storage.getExpenses(member.id, groupId);
       const monthlyTotal = memberExpenses
         .filter(e => new Date(e.date) >= startOfMonth)
         .reduce((sum, e) => sum + Number(e.amount), 0);
@@ -1222,12 +1181,12 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       return {
         id: member.id,
         name: member.name,
-        role: member.role,
+        role: member.memberRole,
         total: monthlyTotal.toFixed(2),
         isPrivate: false
       };
     }));
-    
+
     res.json({ family, members: memberSummaries });
   };
 
@@ -1238,31 +1197,34 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.get("/api/settlements", requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(400).json({ message: "Not in a group" });
-    const groupSettlements = await storage.getSettlements(user.familyId);
+    const groupId = await resolveGroupId(user, req.query.groupId);
+    if (!groupId) return res.status(400).json({ message: "Not in a group" });
+    const groupSettlements = await storage.getSettlements(groupId);
     res.json(groupSettlements);
   });
 
   app.post("/api/settlements", requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(400).json({ message: "Not in a group" });
-    
     const schema = z.object({
+      groupId: z.number(),
       toUserId: z.number(),
       amount: z.string().or(z.number()).transform(v => String(v)),
       note: z.string().optional().nullable(),
     });
     const data = schema.parse(req.body);
 
-    const toUser = await storage.getUser(data.toUserId);
-    if (!toUser || toUser.familyId !== user.familyId) {
+    const groupId = await resolveGroupId(user, data.groupId);
+    if (!groupId) return res.status(400).json({ message: "Not in a group" });
+
+    const toUserIsMember = await storage.isGroupMember(groupId, data.toUserId);
+    if (!toUserIsMember) {
       return res.status(400).json({ message: "User not in your group" });
     }
 
     const settlement = await storage.createSettlement({
       fromUserId: user.id,
       toUserId: data.toUserId,
-      groupId: user.familyId,
+      groupId,
       amount: data.amount,
       note: data.note || null,
     });
@@ -1294,20 +1256,25 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         shareDetails: z.boolean().nullable().optional(),
         reminderEnabled: z.boolean().optional().default(false),
         reminderDaysBefore: z.number().int().min(1).max(7).optional().default(3),
+        groupId: z.number().optional(),
       });
-      const data = schema.parse(body);
+      const { groupId: rawGroupId, ...data } = schema.parse(body);
       // null = not shared; false = total only; true = full details
-      // Only family/couple groups may share income; roommates/friends excluded
+      // Only family/couple groups may share income; roommates/friends/trip excluded
       const shareDetails = data.shareDetails ?? null;
       let isShared = false;
-      if (shareDetails !== null && user.familyId) {
-        const userFamily = await storage.getFamily(user.familyId);
-        isShared = !!(userFamily && (userFamily.groupType === "family" || userFamily.groupType === "couple"));
+      let sharedGroupId: number | null = null;
+      if (shareDetails !== null && rawGroupId != null) {
+        sharedGroupId = await resolveGroupId(user, rawGroupId);
+        if (sharedGroupId) {
+          const userFamily = await storage.getFamily(sharedGroupId);
+          isShared = !!(userFamily && (userFamily.groupType === "family" || userFamily.groupType === "couple"));
+        }
       }
       const entry = await storage.createIncomeEntry({
         ...data,
         userId: user.id,
-        familyId: isShared ? user.familyId : null,
+        familyId: isShared ? sharedGroupId : null,
         date: data.date || new Date(),
         isRecurring: data.isRecurring ?? false,
         recurringInterval: data.recurringInterval || null,
@@ -1345,18 +1312,24 @@ If any field cannot be determined, use null. Be precise with the total amount. R
         shareDetails: z.boolean().nullable().optional(),
         reminderEnabled: z.boolean().optional(),
         reminderDaysBefore: z.number().int().min(1).max(7).optional(),
+        groupId: z.number().optional(),
       });
-      const updates = schema.parse(body);
+      const { groupId: rawGroupId, ...updates } = schema.parse(body);
       // Determine shareDetails: use provided value or fall back to existing
       const shareDetails = "shareDetails" in updates ? updates.shareDetails : existing.shareDetails;
       // null = not shared; false = total only; true = full details
-      // Only family/couple groups may share income; roommates/friends excluded
+      // Only family/couple groups may share income; roommates/friends/trip excluded
       let isShared = false;
-      if (shareDetails !== null && shareDetails !== undefined && user.familyId) {
-        const userFamily = await storage.getFamily(user.familyId);
-        isShared = !!(userFamily && (userFamily.groupType === "family" || userFamily.groupType === "couple"));
+      let sharedGroupId: number | null = null;
+      const effectiveGroupId = rawGroupId ?? existing.familyId;
+      if (shareDetails !== null && shareDetails !== undefined && effectiveGroupId != null) {
+        sharedGroupId = await resolveGroupId(user, effectiveGroupId);
+        if (sharedGroupId) {
+          const userFamily = await storage.getFamily(sharedGroupId);
+          isShared = !!(userFamily && (userFamily.groupType === "family" || userFamily.groupType === "couple"));
+        }
       }
-      const familyId = isShared ? user.familyId : null;
+      const familyId = isShared ? sharedGroupId : null;
       const updated = await storage.updateIncomeEntry(id, { ...updates, familyId, shareDetails: isShared ? (shareDetails ?? null) : null });
       res.json(updated);
     } catch (err) {
@@ -1380,15 +1353,16 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.get("/api/family/income", requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(400).json({ message: "No group" });
-    const family = await storage.getFamily(user.familyId);
+    const groupId = await resolveGroupId(user, req.query.groupId);
+    if (!groupId) return res.status(400).json({ message: "No group" });
+    const family = await storage.getFamily(groupId);
     if (!family || (family.groupType !== "family" && family.groupType !== "couple")) {
       return res.status(400).json({ message: "Household income only available for family and couple groups" });
     }
     const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
     const start = startDate ? new Date(startDate) : undefined;
     const end = endDate ? new Date(endDate) : undefined;
-    const entries = await storage.getFamilyIncomeEntries(user.familyId, start, end);
+    const entries = await storage.getFamilyIncomeEntries(groupId, start, end);
     res.json(entries);
   });
 
@@ -1398,14 +1372,16 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const user = req.user as any;
     const query = api.expenses.list.input?.parse(req.query);
     const targetUserId = query?.userId || user.id;
-    
+
     if (targetUserId !== user.id) {
-      const targetUser = await storage.getUser(targetUserId);
-      if (!targetUser || targetUser.familyId !== user.familyId) {
+      const groupId = await resolveGroupId(user, req.query.groupId);
+      if (!groupId) return res.status(403).json({ message: "Forbidden" });
+      const targetIsMember = await storage.isGroupMember(groupId, targetUserId);
+      if (!targetIsMember) {
         return res.status(403).json({ message: "Forbidden" });
       }
-      
-      const userExpenses = await storage.getExpenses(targetUserId, user.familyId);
+
+      const userExpenses = await storage.getExpenses(targetUserId, groupId);
       return res.json(userExpenses.filter(e => e.visibility === "public"));
     }
 
@@ -1439,10 +1415,16 @@ If any field cannot be determined, use null. Be precise with the total amount. R
           }
         }
 
+        let groupId: number | null = null;
+        if (expenseInput.familyId != null) {
+          groupId = await resolveGroupId(user, expenseInput.familyId);
+          if (!groupId) return res.status(403).json({ message: "You are not a member of that group" });
+        }
+
         const expense = await storage.createExpense({
           ...expenseInput,
           userId: user.id,
-          familyId: user.familyId,
+          familyId: groupId,
           paidByUserId: expenseInput.paidByUserId || user.id,
         }, splits);
         res.status(201).json(expense);
@@ -1535,22 +1517,27 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       dueDay: z.number().int().min(1).max(28).optional().nullable(),
       reminderEnabled: z.boolean().optional().default(false),
       reminderDaysBefore: z.number().int().min(1).max(7).optional().default(3),
+      groupId: z.number().optional(),
     });
-    const data = schema.parse(req.body);
-    if (data.isGroupShared && !user.familyId) {
-      return res.status(400).json({ message: "You must be in a group to share a recurring expense" });
+    const { groupId: rawGroupId, ...data } = schema.parse(req.body);
+    let groupId: number | null = null;
+    if (data.isGroupShared) {
+      groupId = await resolveGroupId(user, rawGroupId);
+      if (!groupId) {
+        return res.status(400).json({ message: "You must be in a group to share a recurring expense" });
+      }
     }
     const expense = await storage.createRecurringExpense({
       ...data,
       userId: user.id,
-      familyId: user.familyId,
+      familyId: groupId,
     });
     res.status(201).json(expense);
 
     // When creating as group-shared, notify all other group members (fire-and-forget)
-    if (data.isGroupShared && user.familyId && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    if (data.isGroupShared && groupId && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
       try {
-        const familyMembers = await storage.getFamilyMembers(user.familyId);
+        const familyMembers = await storage.getGroupMembers(groupId);
         const ownerName = user.name ?? "A member";
         const freqLabel = expense.frequency === "yearly" ? "year" : expense.frequency === "quarterly" ? "quarter" : "month";
 
@@ -1594,25 +1581,28 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       dueDay: z.number().int().min(1).max(28).optional().nullable(),
       reminderEnabled: z.boolean().optional(),
       reminderDaysBefore: z.number().int().min(1).max(7).optional(),
+      groupId: z.number().optional(),
     });
-    const parsed = schema.parse(req.body);
+    const { groupId: rawGroupId, ...parsed } = schema.parse(req.body);
     // When sharing with group, ensure familyId is stamped server-side
+    let sharedGroupId: number | null = existing.familyId;
     if (parsed.isGroupShared === true) {
-      if (!user.familyId) {
+      sharedGroupId = await resolveGroupId(user, rawGroupId ?? existing.familyId);
+      if (!sharedGroupId) {
         return res.status(400).json({ message: "You must be in a group to share a recurring expense" });
       }
     }
     const updates: Partial<InsertRecurringExpense> = {
       ...parsed,
-      ...(parsed.isGroupShared === true ? { familyId: user.familyId } : {}),
+      ...(parsed.isGroupShared === true ? { familyId: sharedGroupId } : {}),
     };
     const updated = await storage.updateRecurringExpense(id, updates);
     res.json(updated);
 
     // When isGroupShared flips false → true, notify all other group members (fire-and-forget)
-    if (parsed.isGroupShared === true && !existing.isGroupShared && user.familyId && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    if (parsed.isGroupShared === true && !existing.isGroupShared && sharedGroupId && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
       try {
-        const familyMembers = await storage.getFamilyMembers(user.familyId);
+        const familyMembers = await storage.getGroupMembers(sharedGroupId);
         const expenseName = parsed.name ?? existing.name;
         const expenseAmount = parsed.amount ?? existing.amount;
         const expenseFreq = parsed.frequency ?? existing.frequency;
@@ -1691,8 +1681,9 @@ If any field cannot be determined, use null. Be precise with the total amount. R
   // GET /api/family/shared-recurring-expenses — active recurring expenses shared with group
   app.get("/api/family/shared-recurring-expenses", requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.json([]);
-    const items = await storage.getSharedRecurringExpenses(user.familyId);
+    const groupId = await resolveGroupId(user, req.query.groupId);
+    if (!groupId) return res.json([]);
+    const items = await storage.getSharedRecurringExpenses(groupId);
     res.json(items);
   });
 
@@ -1700,15 +1691,17 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.get(api.goals.list.path, requireAuth, async (req, res) => {
     const user = req.user as any;
-    const goals = await storage.getGoals(user.id, user.familyId);
+    const groupId = await resolveGroupId(user, req.query.groupId);
+    const goals = await storage.getGoals(user.id, groupId);
     res.json(goals);
   });
 
   app.get("/api/goals/shared", requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(404).json({ message: "No group" });
-    
-    const sharedGoals = await storage.getSharedGoals(user.familyId);
+    const groupId = await resolveGroupId(user, req.query.groupId);
+    if (!groupId) return res.status(404).json({ message: "No group" });
+
+    const sharedGoals = await storage.getSharedGoals(groupId);
     res.json(sharedGoals);
   });
 
@@ -1727,15 +1720,24 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
     const input = parsed.data;
 
+    let groupId: number | null = null;
+    if (input.familyId != null) {
+      groupId = await resolveGroupId(user, input.familyId);
+      if (!groupId) return res.status(403).json({ message: "You are not a member of that group" });
+    }
+
     let goal = await storage.createGoal({
         ...input,
         userId: user.id,
-        familyId: user.familyId ?? null,
+        familyId: groupId,
     });
 
-    if (input.visibility === 'family' && user.role === 'parent') {
-      await storage.createGoalApproval(goal.id, user.id);
-      goal = await storage.approveGoal(goal.id);
+    if (input.visibility === 'family' && groupId) {
+      const callerRole = await getRoleInGroup(groupId, user.id);
+      if (callerRole === 'parent') {
+        await storage.createGoalApproval(goal.id, user.id);
+        goal = await storage.approveGoal(goal.id);
+      }
     }
 
     res.status(201).json(goal);
@@ -1745,13 +1747,13 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const user = req.user as any;
     const id = parseInt(req.params.id);
     const goal = await storage.getGoal(id);
-    
+
     if (!goal) return res.status(404).json({ message: "Goal not found" });
-    
-    const canEdit = goal.userId === user.id || 
-      (user.role === 'parent' && goal.familyId === user.familyId);
+
+    const callerRole = goal.familyId ? await getRoleInGroup(goal.familyId, user.id) : null;
+    const canEdit = goal.userId === user.id || callerRole === 'parent';
     if (!canEdit) return res.status(403).json({ message: "Forbidden" });
-    
+
     const body = req.body;
     if (typeof body.deadline === 'string') {
       body.deadline = new Date(body.deadline);
@@ -1765,13 +1767,13 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const user = req.user as any;
     const id = parseInt(req.params.id);
     const goal = await storage.getGoal(id);
-    
+
     if (!goal) return res.status(404).json({ message: "Goal not found" });
-    
-    const canDelete = goal.userId === user.id || 
-      (user.role === 'parent' && goal.familyId === user.familyId);
+
+    const callerRole = goal.familyId ? await getRoleInGroup(goal.familyId, user.id) : null;
+    const canDelete = goal.userId === user.id || callerRole === 'parent';
     if (!canDelete) return res.status(403).json({ message: "Forbidden" });
-    
+
     await storage.deleteGoal(id);
     res.status(204).send();
   });
@@ -1781,32 +1783,34 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const user = req.user as any;
     const goalId = parseInt(req.params.id);
     const goal = await storage.getGoal(goalId);
-    
+
     if (!goal) return res.status(404).json({ message: "Goal not found" });
-    if (goal.familyId !== user.familyId) return res.status(403).json({ message: "Forbidden" });
+    const isMember = goal.familyId ? await storage.isGroupMember(goal.familyId, user.id) : false;
+    if (!isMember) return res.status(403).json({ message: "Forbidden" });
     if (goal.visibility !== 'family') return res.status(400).json({ message: "Only family goals require approval" });
-    
+
     const approvals = await storage.getGoalApprovals(goalId);
     const alreadyApproved = approvals.some(a => a.userId === user.id);
-    
+
     if (alreadyApproved) {
       return res.status(400).json({ message: "You have already approved this goal" });
     }
-    
+
     const approval = await storage.createGoalApproval(goalId, user.id);
-    
-    if (user.role === 'parent') {
+
+    const callerRole = await getRoleInGroup(goal.familyId!, user.id);
+    if (callerRole === 'parent') {
       const updatedGoal = await storage.approveGoal(goalId);
       return res.json({ approval, goal: updatedGoal });
     }
-    
+
     res.json({ approval, goal });
   });
 
   app.delete("/api/goals/:id/approve", requireAuth, async (req, res) => {
     const user = req.user as any;
     const goalId = parseInt(req.params.id);
-    
+
     await storage.deleteGoalApproval(goalId, user.id);
     res.status(204).send();
   });
@@ -1815,10 +1819,11 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const user = req.user as any;
     const goalId = parseInt(req.params.id);
     const goal = await storage.getGoal(goalId);
-    
+
     if (!goal) return res.status(404).json({ message: "Goal not found" });
-    if (goal.familyId !== user.familyId) return res.status(403).json({ message: "Forbidden" });
-    
+    const isMember = goal.familyId ? await storage.isGroupMember(goal.familyId, user.id) : false;
+    if (!isMember) return res.status(403).json({ message: "Forbidden" });
+
     const approvals = await storage.getGoalApprovals(goalId);
     res.json(approvals);
   });
@@ -1827,8 +1832,11 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.get(api.allowances.list.path, requireAuth, async (req, res) => {
     const user = req.user as any;
-    const allowances = await storage.getAllowances(user.familyId);
-    if (user.role === 'child') {
+    const groupId = await resolveGroupId(user, req.query.groupId);
+    if (!groupId) return res.json([]);
+    const allowances = await storage.getAllowances(groupId);
+    const callerRole = await getRoleInGroup(groupId, user.id);
+    if (callerRole === 'child') {
         const mine = allowances.filter(a => a.childId === user.id);
         return res.json(mine);
     }
@@ -1837,9 +1845,17 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.post(api.allowances.upsert.path, requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (user.role !== 'parent') return res.status(403).json({ message: "Only parents can set allowances" });
-    
-    const input = api.allowances.upsert.input.parse(req.body);
+    const { groupId: rawGroupId, ...body } = req.body;
+    const groupId = await resolveGroupId(user, rawGroupId);
+    if (!groupId) return res.status(400).json({ message: "You must be in the group" });
+
+    const callerRole = await getRoleInGroup(groupId, user.id);
+    if (callerRole !== 'parent') return res.status(403).json({ message: "Only parents can set allowances" });
+
+    const input = api.allowances.upsert.input.parse(body);
+    const childIsMember = await storage.isGroupMember(groupId, input.childId);
+    if (!childIsMember) return res.status(400).json({ message: "That child is not in your group" });
+
     const allowance = await storage.upsertAllowance(input);
     res.json(allowance);
   });
@@ -1848,21 +1864,23 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.get('/api/messages', requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(400).json({ message: "Not in a group" });
-    const msgs = await storage.getMessages(user.familyId);
-    await storage.markMessagesRead(user.id, user.familyId);
+    const groupId = await resolveGroupId(user, req.query.groupId);
+    if (!groupId) return res.status(400).json({ message: "Not in a group" });
+    const msgs = await storage.getMessages(groupId);
+    await storage.markMessagesRead(user.id, groupId);
     res.json(msgs);
   });
 
   app.post('/api/messages', requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(400).json({ message: "Not in a group" });
+    const groupId = await resolveGroupId(user, req.body.groupId);
+    if (!groupId) return res.status(400).json({ message: "Not in a group" });
     const { content } = req.body;
     if (!content || typeof content !== 'string' || content.trim().length === 0) {
       return res.status(400).json({ message: "Message content is required" });
     }
     const message = await storage.createMessage({
-      familyId: user.familyId,
+      familyId: groupId,
       userId: user.id,
       content: content.trim(),
     });
@@ -1870,7 +1888,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
     if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
       try {
-        const familyMembers = await storage.getFamilyMembers(user.familyId);
+        const familyMembers = await storage.getGroupMembers(groupId);
         const senderName = user.name ?? "Someone";
         const preview = content.trim().length > 60 ? content.trim().slice(0, 60) + "…" : content.trim();
         for (const member of familyMembers) {
@@ -1888,8 +1906,9 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.get('/api/messages/unread', requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.json({ count: 0 });
-    const count = await storage.getUnreadCount(user.id, user.familyId);
+    const groupId = await resolveGroupId(user, req.query.groupId);
+    if (!groupId) return res.json({ count: 0 });
+    const count = await storage.getUnreadCount(user.id, groupId);
     res.json({ count });
   });
 
@@ -1897,20 +1916,22 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.get('/api/notes', requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(400).json({ message: "Not in a group" });
-    const notesList = await storage.getNotes(user.familyId);
+    const groupId = await resolveGroupId(user, req.query.groupId);
+    if (!groupId) return res.status(400).json({ message: "Not in a group" });
+    const notesList = await storage.getNotes(groupId);
     res.json(notesList);
   });
 
   app.post('/api/notes', requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(400).json({ message: "Not in a group" });
+    const groupId = await resolveGroupId(user, req.body.groupId);
+    if (!groupId) return res.status(400).json({ message: "Not in a group" });
     const { title, content } = req.body;
     if (!title || typeof title !== 'string' || title.trim().length === 0) {
       return res.status(400).json({ message: "Note title is required" });
     }
     const note = await storage.createNote({
-      familyId: user.familyId,
+      familyId: groupId,
       userId: user.id,
       title: title.trim(),
       content: content || null,
@@ -1919,7 +1940,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
     if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
       try {
-        const familyMembers = await storage.getFamilyMembers(user.familyId);
+        const familyMembers = await storage.getGroupMembers(groupId);
         const creatorName = user.name ?? "Someone";
         for (const member of familyMembers) {
           if (member.id === user.id) continue;
@@ -1936,11 +1957,11 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.patch('/api/notes/:id', requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(400).json({ message: "Not in a group" });
     const noteId = parseInt(req.params.id);
     const note = await storage.getNote(noteId);
     if (!note) return res.status(404).json({ message: "Note not found" });
-    if (note.familyId !== user.familyId) return res.status(403).json({ message: "Forbidden" });
+    const isMember = await storage.isGroupMember(note.familyId, user.id);
+    if (!isMember) return res.status(403).json({ message: "Forbidden" });
     const { title, content, isCompleted, isPinned } = req.body;
     const updates: any = {};
     if (title !== undefined) updates.title = title;
@@ -1953,16 +1974,17 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.delete('/api/notes/:id', requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(400).json({ message: "Not in a group" });
     const noteId = parseInt(req.params.id);
     const note = await storage.getNote(noteId);
     if (!note) return res.status(404).json({ message: "Note not found" });
-    if (note.familyId !== user.familyId) return res.status(403).json({ message: "Forbidden" });
+    const isMember = await storage.isGroupMember(note.familyId, user.id);
+    if (!isMember) return res.status(403).json({ message: "Forbidden" });
     const isCreator = note.userId === user.id;
-    const family = await storage.getFamily(user.familyId);
-    let isAdmin = user.role === 'parent';
-    if (family?.groupType === 'friends') {
-      const members = await storage.getFriendGroupMembers(user.familyId);
+    const family = await storage.getFamily(note.familyId);
+    const callerRole = await getRoleInGroup(note.familyId, user.id);
+    let isAdmin = callerRole === 'parent';
+    if (family?.groupType === 'friends' || family?.groupType === 'trip') {
+      const members = await storage.getGroupMembers(note.familyId);
       const self = members.find((m: any) => m.id === user.id);
       isAdmin = self?.memberRole === 'admin';
     }
@@ -2026,15 +2048,12 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.get('/api/family/info', requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.status(404).json({ message: 'No group' });
-    const family = await storage.getFamily(user.familyId);
+    const groupId = await resolveGroupId(user, req.query.groupId);
+    if (!groupId) return res.status(404).json({ message: 'No group' });
+    const family = await storage.getFamily(groupId);
     if (!family) return res.status(404).json({ message: 'Group not found' });
-    let isAdmin = user.role === 'parent';
-    if (family.groupType === 'friends') {
-      const members = await storage.getFriendGroupMembers(user.familyId);
-      const self = members.find((m: any) => m.id === user.id);
-      isAdmin = self?.memberRole === 'admin';
-    }
+    const callerRole = await getRoleInGroup(groupId, user.id);
+    const isAdmin = callerRole === 'parent' || callerRole === 'admin';
     res.json({ id: family.id, name: family.name, groupType: family.groupType, code: family.code, isAdmin });
   });
 
@@ -2042,10 +2061,11 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.get('/api/messages/preview', requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.json({ lastMessage: null, unreadCount: 0 });
+    const groupId = await resolveGroupId(user, req.query.groupId);
+    if (!groupId) return res.json({ lastMessage: null, unreadCount: 0 });
     const [msgs, count] = await Promise.all([
-      storage.getMessages(user.familyId, 1),
-      storage.getUnreadCount(user.id, user.familyId),
+      storage.getMessages(groupId, 1),
+      storage.getUnreadCount(user.id, groupId),
     ]);
     res.json({ lastMessage: msgs[0] ?? null, unreadCount: count });
   });
@@ -2069,9 +2089,11 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       thresholds: z.array(z.string()).optional().nullable(),
       note: z.string().max(500).optional().nullable(),
       scope: z.enum(["personal", "shared"]).default("personal"),
+      groupId: z.number().optional(),
     });
-    const data = schema.parse(req.body);
-    const isShared = data.scope === "shared" && !!user.familyId;
+    const { groupId: rawGroupId, ...data } = schema.parse(req.body);
+    const sharedGroupId = data.scope === "shared" ? await resolveGroupId(user, rawGroupId) : null;
+    const isShared = !!sharedGroupId;
     const budget = await storage.createBudget({
       category: data.category,
       amount: data.amount,
@@ -2081,7 +2103,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       thresholds: data.thresholds,
       note: data.note,
       userId: user.id,
-      familyId: isShared ? user.familyId : (user.familyId ?? null),
+      familyId: sharedGroupId,
       budgetScope: isShared ? "shared" : "personal",
       createdByUserId: isShared ? user.id : null,
       updatedByUserId: isShared ? user.id : null,
@@ -2091,17 +2113,18 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   app.get("/api/family/shared-budgets", requireAuth, async (req, res) => {
     const user = req.user as any;
-    if (!user.familyId) return res.json({ budgets: [] });
+    const groupId = await resolveGroupId(user, req.query.groupId);
+    if (!groupId) return res.json({ budgets: [] });
 
-    const sharedBudgets = await storage.getSharedBudgets(user.familyId);
+    const sharedBudgets = await storage.getSharedBudgets(groupId);
     if (sharedBudgets.length === 0) return res.json({ budgets: [] });
 
     const now = new Date();
     const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const periodEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999));
     const [sharedExpenses, familyMembers] = await Promise.all([
-      storage.getSharedExpenses(user.familyId, periodStart, periodEnd),
-      storage.getFamilyMembers(user.familyId),
+      storage.getSharedExpenses(groupId, periodStart, periodEnd),
+      storage.getGroupMembers(groupId),
     ]);
     const memberMap = new Map(familyMembers.map(m => [m.id, m.name]));
 
@@ -2129,7 +2152,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const user = req.user as any;
     const id = parseInt(req.params.id);
     const existing = await storage.getBudget(id);
-    const isSharedMember = existing?.budgetScope === "shared" && existing?.familyId === user.familyId;
+    const isSharedMember = !!(existing?.budgetScope === "shared" && existing?.familyId && await storage.isGroupMember(existing.familyId, user.id));
     if (!existing || (existing.userId !== user.id && !isSharedMember)) {
       return res.status(404).json({ message: "Budget not found" });
     }
@@ -2153,7 +2176,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     const user = req.user as any;
     const id = parseInt(req.params.id);
     const existing = await storage.getBudget(id);
-    const isSharedMember = existing?.budgetScope === "shared" && existing?.familyId === user.familyId;
+    const isSharedMember = !!(existing?.budgetScope === "shared" && existing?.familyId && await storage.isGroupMember(existing.familyId, user.id));
     if (!existing || (existing.userId !== user.id && !isSharedMember)) {
       return res.status(404).json({ message: "Budget not found" });
     }
@@ -2164,24 +2187,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
   app.get("/api/budget-summary", requireAuth, async (req, res) => {
     const user = req.user as any;
     const userBudgets = await storage.getBudgets(user.id);
-    const allExpenses = await storage.getExpenses(user.id);
-
-    // Mirror the same filtering used by /api/spending/summary so budget "spent"
-    // and Money Out on the home screen always agree on what counts as personal spending:
-    //  1. Only "personal" payment-source expenses (not "family" joint-account expenses)
-    //  2. Exclude friend-group expenses (familyId set to a group that isn't the user's
-    //     own primary household) — matches the default excludeQuickGroupInSummary=false
-    //  3. Use the user's tracked split share when available, not the full expense amount
-    const personalExpenses = allExpenses
-      .filter(e => {
-        if (e.paymentSource !== "personal") return false;
-        if (e.familyId != null && (!user.familyId || e.familyId !== user.familyId)) return false;
-        return true;
-      })
-      .map(e => {
-        const userSplit = (e.splits || []).find((s: any) => s.userId === user.id);
-        return userSplit ? { ...e, amount: userSplit.amount } : e;
-      });
+    const personalExpenses = await getPersonalExpensesForBudgeting(user);
 
     const now = new Date();
     const summaries = userBudgets.map(budget => {
@@ -2236,19 +2242,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
   app.get("/api/budget-monthly-review", requireAuth, async (req, res) => {
     const user = req.user as any;
     const userBudgets = await storage.getBudgets(user.id);
-    const allExpenses = await storage.getExpenses(user.id);
-
-    // Same personal-expense filtering as /api/budget-summary
-    const personalExpenses = allExpenses
-      .filter(e => {
-        if (e.paymentSource !== "personal") return false;
-        if (e.familyId != null && (!user.familyId || e.familyId !== user.familyId)) return false;
-        return true;
-      })
-      .map(e => {
-        const userSplit = (e.splits || []).find((s: any) => s.userId === user.id);
-        return userSplit ? { ...e, amount: userSplit.amount } : e;
-      });
+    const personalExpenses = await getPersonalExpensesForBudgeting(user);
 
     const now = new Date();
     const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -2401,16 +2395,17 @@ If any field cannot be determined, use null. Be precise with the total amount. R
 
   // === FRIEND GROUP ROUTES ===
 
-  // POST /api/friend-groups — Create a new friend group
-  app.post("/api/friend-groups", requireAuth, async (req, res, next) => {
+  // POST /api/groups — Create a new group of any type (family/roommates/couple/friends/trip)
+  app.post("/api/groups", requireAuth, async (req, res, next) => {
     try {
       const user = req.user as any;
       const schema = z.object({
         name: z.string().min(1).max(100),
         currency: z.string().optional().default("EUR"),
+        groupType: z.enum(["family", "roommates", "couple", "friends", "trip"]).optional().default("friends"),
       });
-      const { name, currency } = schema.parse(req.body);
-      const group = await storage.createFriendGroup({ name, currency, creatorId: user.id });
+      const { name, currency, groupType } = schema.parse(req.body);
+      const group = await storage.createGroup({ name, currency, groupType, creatorId: user.id });
       res.status(201).json(group);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -2418,24 +2413,24 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
   });
 
-  // GET /api/friend-groups — List all friend groups for the current user
-  app.get("/api/friend-groups", requireAuth, async (req, res, next) => {
+  // GET /api/groups — List all groups the current user belongs to
+  app.get("/api/groups", requireAuth, async (req, res, next) => {
     try {
       const user = req.user as any;
-      const groups = await storage.getFriendGroupsForUser(user.id);
+      const groups = await storage.getGroupsForUser(user.id);
       res.json(groups);
     } catch (err) {
       next(err);
     }
   });
 
-  // POST /api/friend-groups/join — Join a group by invite code
-  app.post("/api/friend-groups/join", requireAuth, async (req, res, next) => {
+  // POST /api/groups/join — Join a group by invite code
+  app.post("/api/groups/join", requireAuth, async (req, res, next) => {
     try {
       const user = req.user as any;
       const schema = z.object({ code: z.string().min(1) });
       const { code } = schema.parse(req.body);
-      const group = await storage.joinFriendGroup(code.toUpperCase().trim(), user.id);
+      const group = await storage.joinGroupByCode(code.toUpperCase().trim(), user.id);
       res.json(group);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -2446,20 +2441,20 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
   });
 
-  // GET /api/friend-groups/:id — Get a group with members and net balances
-  app.get("/api/friend-groups/:id", requireAuth, async (req, res, next) => {
+  // GET /api/groups/:id — Get a group with members and net balances
+  app.get("/api/groups/:id", requireAuth, async (req, res, next) => {
     try {
       const user = req.user as any;
       const groupId = parseInt(req.params.id);
       if (isNaN(groupId)) return res.status(400).json({ message: "Invalid group ID" });
 
-      const isMember = await storage.isFriendGroupMember(groupId, user.id);
+      const isMember = await storage.isGroupMember(groupId, user.id);
       if (!isMember) return res.status(403).json({ message: "Forbidden" });
 
-      const group = await storage.getFriendGroup(groupId);
+      const group = await storage.getGroup(groupId);
       if (!group) return res.status(404).json({ message: "Group not found" });
 
-      const balances = await storage.getFriendGroupNetBalances(groupId);
+      const balances = await storage.getGroupNetBalances(groupId);
       const safeMembers = group.members.map(({ password, ...safe }) => safe);
       res.json({ ...group, members: safeMembers, balances });
     } catch (err) {
@@ -2467,36 +2462,38 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
   });
 
-  // POST /api/friend-groups/:id/leave — Leave a group
-  app.post("/api/friend-groups/:id/leave", requireAuth, async (req, res, next) => {
+  // POST /api/groups/:id/leave — Leave a group
+  app.post("/api/groups/:id/leave", requireAuth, async (req, res, next) => {
     try {
       const user = req.user as any;
       const groupId = parseInt(req.params.id);
       if (isNaN(groupId)) return res.status(400).json({ message: "Invalid group ID" });
 
-      const isMember = await storage.isFriendGroupMember(groupId, user.id);
+      const isMember = await storage.isGroupMember(groupId, user.id);
       if (!isMember) return res.status(403).json({ message: "Forbidden" });
 
-      await storage.leaveFriendGroup(groupId, user.id);
+      await storage.leaveGroup(groupId, user.id);
       res.json({ message: "You have left the group" });
     } catch (err) {
       next(err);
     }
   });
 
-  // DELETE /api/friend-groups/:id/my-expenses — Delete only the current user's expenses in a group
-  app.delete("/api/friend-groups/:id/my-expenses", requireAuth, async (req, res, next) => {
+  // DELETE /api/groups/:id/my-expenses — Delete only the current user's expenses in a group
+  app.delete("/api/groups/:id/my-expenses", requireAuth, async (req, res, next) => {
     try {
       const user = req.user as any;
       const groupId = parseInt(req.params.id);
       if (isNaN(groupId)) return res.status(400).json({ message: "Invalid group ID" });
 
-      // Validate the target is a friend group and the caller is a member
-      const group = await storage.getFriendGroup(groupId);
+      // Validate the target is a friends/trip group and the caller is a member
+      const group = await storage.getGroup(groupId);
       if (!group) return res.status(404).json({ message: "Group not found" });
-      if (group.groupType !== "friends") return res.status(400).json({ message: "Not a friend group" });
+      if (group.groupType !== "friends" && group.groupType !== "trip") {
+        return res.status(400).json({ message: "Not a friends or trip group" });
+      }
 
-      const isMember = await storage.isFriendGroupMember(groupId, user.id);
+      const isMember = await storage.isGroupMember(groupId, user.id);
       if (!isMember) return res.status(403).json({ message: "Forbidden" });
 
       await storage.deleteUserExpensesForGroup(groupId, user.id);
@@ -2506,56 +2503,78 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
   });
 
-  // PATCH /api/friend-groups/:id/archive — Archive a group (admin only)
-  app.patch("/api/friend-groups/:id/archive", requireAuth, async (req, res, next) => {
+  // PATCH /api/groups/:id/archive — Archive a group (admin only)
+  app.patch("/api/groups/:id/archive", requireAuth, async (req, res, next) => {
     try {
       const user = req.user as any;
       const groupId = parseInt(req.params.id);
       if (isNaN(groupId)) return res.status(400).json({ message: "Invalid group ID" });
 
-      const members = await storage.getFriendGroupMembers(groupId);
+      const members = await storage.getGroupMembers(groupId);
       const self = members.find(m => m.id === user.id);
       if (!self) return res.status(403).json({ message: "Forbidden" });
       if (self.memberRole !== "admin") return res.status(403).json({ message: "Only group admins can archive the group" });
 
-      const group = await storage.archiveFriendGroup(groupId);
+      const group = await storage.archiveGroup(groupId);
       res.json(group);
     } catch (err) {
       next(err);
     }
   });
 
-  // GET /api/friend-groups/:id/balances — Net simplified balances
-  app.get("/api/friend-groups/:id/balances", requireAuth, async (req, res, next) => {
+  // PATCH /api/groups/:id/close — Close a trip (admin only)
+  app.patch("/api/groups/:id/close", requireAuth, async (req, res, next) => {
     try {
       const user = req.user as any;
       const groupId = parseInt(req.params.id);
       if (isNaN(groupId)) return res.status(400).json({ message: "Invalid group ID" });
 
-      const isMember = await storage.isFriendGroupMember(groupId, user.id);
+      const group = await storage.getGroup(groupId);
+      if (!group) return res.status(404).json({ message: "Group not found" });
+      if (group.groupType !== "trip") return res.status(400).json({ message: "Only trips can be closed" });
+
+      const self = group.members.find(m => m.id === user.id);
+      if (!self) return res.status(403).json({ message: "Forbidden" });
+      if (self.memberRole !== "admin") return res.status(403).json({ message: "Only trip admins can close the trip" });
+
+      const updated = await storage.closeGroup(groupId);
+      res.json(updated);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // GET /api/groups/:id/balances — Net simplified balances
+  app.get("/api/groups/:id/balances", requireAuth, async (req, res, next) => {
+    try {
+      const user = req.user as any;
+      const groupId = parseInt(req.params.id);
+      if (isNaN(groupId)) return res.status(400).json({ message: "Invalid group ID" });
+
+      const isMember = await storage.isGroupMember(groupId, user.id);
       if (!isMember) return res.status(403).json({ message: "Forbidden" });
 
-      const balances = await storage.getFriendGroupNetBalances(groupId);
+      const balances = await storage.getGroupNetBalances(groupId);
       res.json(balances);
     } catch (err) {
       next(err);
     }
   });
 
-  // GET /api/friend-groups/:id/expenses — Expense feed
-  app.get("/api/friend-groups/:id/expenses", requireAuth, async (req, res, next) => {
+  // GET /api/groups/:id/expenses — Expense feed
+  app.get("/api/groups/:id/expenses", requireAuth, async (req, res, next) => {
     try {
       const user = req.user as any;
       const groupId = parseInt(req.params.id);
       if (isNaN(groupId)) return res.status(400).json({ message: "Invalid group ID" });
 
-      const isMember = await storage.isFriendGroupMember(groupId, user.id);
+      const isMember = await storage.isGroupMember(groupId, user.id);
       if (!isMember) return res.status(403).json({ message: "Forbidden" });
 
-      const members = await storage.getFriendGroupMembers(groupId);
+      const members = await storage.getGroupMembers(groupId);
       const memberMap = new Map(members.map(m => [m.id, m.name]));
 
-      const publicExpenses = await storage.getFriendGroupExpenses(groupId);
+      const publicExpenses = await storage.getGroupExpenses(groupId);
 
       const enriched = publicExpenses.map(e => ({
         ...e,
@@ -2570,17 +2589,17 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
   });
 
-  // POST /api/friend-groups/:id/expenses — Add a shared expense
-  app.post("/api/friend-groups/:id/expenses", requireAuth, async (req, res, next) => {
+  // POST /api/groups/:id/expenses — Add a shared expense
+  app.post("/api/groups/:id/expenses", requireAuth, async (req, res, next) => {
     try {
       const user = req.user as any;
       const groupId = parseInt(req.params.id);
       if (isNaN(groupId)) return res.status(400).json({ message: "Invalid group ID" });
 
-      const isMember = await storage.isFriendGroupMember(groupId, user.id);
+      const isMember = await storage.isGroupMember(groupId, user.id);
       if (!isMember) return res.status(403).json({ message: "Forbidden" });
 
-      const group = await storage.getFriendGroup(groupId);
+      const group = await storage.getGroup(groupId);
       if (!group) return res.status(404).json({ message: "Group not found" });
       if (group.archived) return res.status(400).json({ message: "This group is archived" });
 
@@ -2650,21 +2669,21 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
   });
 
-  // GET /api/friend-groups/:id/expenses/:expenseId — Get a single expense with splits + member names
-  app.get("/api/friend-groups/:id/expenses/:expenseId", requireAuth, async (req, res, next) => {
+  // GET /api/groups/:id/expenses/:expenseId — Get a single expense with splits + member names
+  app.get("/api/groups/:id/expenses/:expenseId", requireAuth, async (req, res, next) => {
     try {
       const user = req.user as any;
       const groupId = parseInt(req.params.id);
       const expenseId = parseInt(req.params.expenseId);
       if (isNaN(groupId) || isNaN(expenseId)) return res.status(400).json({ message: "Invalid ID" });
 
-      const isMember = await storage.isFriendGroupMember(groupId, user.id);
+      const isMember = await storage.isGroupMember(groupId, user.id);
       if (!isMember) return res.status(403).json({ message: "Forbidden" });
 
       const expense = await storage.getExpense(expenseId);
       if (!expense || expense.familyId !== groupId) return res.status(404).json({ message: "Expense not found" });
 
-      const members = await storage.getFriendGroupMembers(groupId);
+      const members = await storage.getGroupMembers(groupId);
       const memberMap = new Map(members.map(m => [m.id, m.name]));
 
       res.json({
@@ -2677,21 +2696,21 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
   });
 
-  // PATCH /api/friend-groups/:id/expenses/:expenseId — Edit an expense
-  app.patch("/api/friend-groups/:id/expenses/:expenseId", requireAuth, async (req, res, next) => {
+  // PATCH /api/groups/:id/expenses/:expenseId — Edit an expense
+  app.patch("/api/groups/:id/expenses/:expenseId", requireAuth, async (req, res, next) => {
     try {
       const user = req.user as any;
       const groupId = parseInt(req.params.id);
       const expenseId = parseInt(req.params.expenseId);
       if (isNaN(groupId) || isNaN(expenseId)) return res.status(400).json({ message: "Invalid ID" });
 
-      const isMember = await storage.isFriendGroupMember(groupId, user.id);
+      const isMember = await storage.isGroupMember(groupId, user.id);
       if (!isMember) return res.status(403).json({ message: "Forbidden" });
 
       const expense = await storage.getExpense(expenseId);
       if (!expense || expense.familyId !== groupId) return res.status(404).json({ message: "Expense not found" });
 
-      const group = await storage.getFriendGroup(groupId);
+      const group = await storage.getGroup(groupId);
       if (group?.archived) return res.status(400).json({ message: "This group is archived" });
 
       const schema = z.object({
@@ -2759,16 +2778,16 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
   });
 
-  // DELETE /api/friend-groups/:id/expenses/:expenseId — Delete an expense
+  // DELETE /api/groups/:id/expenses/:expenseId — Delete an expense
   // Only the expense creator or a group admin may delete (even in archived groups)
-  app.delete("/api/friend-groups/:id/expenses/:expenseId", requireAuth, async (req, res, next) => {
+  app.delete("/api/groups/:id/expenses/:expenseId", requireAuth, async (req, res, next) => {
     try {
       const user = req.user as any;
       const groupId = parseInt(req.params.id);
       const expenseId = parseInt(req.params.expenseId);
       if (isNaN(groupId) || isNaN(expenseId)) return res.status(400).json({ message: "Invalid ID" });
 
-      const members = await storage.getFriendGroupMembers(groupId);
+      const members = await storage.getGroupMembers(groupId);
       const currentMember = members.find(m => m.id === user.id);
       if (!currentMember) return res.status(403).json({ message: "Forbidden" });
 
@@ -2788,14 +2807,14 @@ If any field cannot be determined, use null. Be precise with the total amount. R
     }
   });
 
-  // POST /api/friend-groups/:id/settle — Record a settlement
-  app.post("/api/friend-groups/:id/settle", requireAuth, async (req, res, next) => {
+  // POST /api/groups/:id/settle — Record a settlement
+  app.post("/api/groups/:id/settle", requireAuth, async (req, res, next) => {
     try {
       const user = req.user as any;
       const groupId = parseInt(req.params.id);
       if (isNaN(groupId)) return res.status(400).json({ message: "Invalid group ID" });
 
-      const isMember = await storage.isFriendGroupMember(groupId, user.id);
+      const isMember = await storage.isGroupMember(groupId, user.id);
       if (!isMember) return res.status(403).json({ message: "Forbidden" });
 
       const schema = z.object({
@@ -2805,7 +2824,7 @@ If any field cannot be determined, use null. Be precise with the total amount. R
       });
       const data = schema.parse(req.body);
 
-      const toUserMember = await storage.isFriendGroupMember(groupId, data.toUserId);
+      const toUserMember = await storage.isGroupMember(groupId, data.toUserId);
       if (!toUserMember) return res.status(400).json({ message: "User not in this group" });
 
       const settlement = await storage.createSettlement({
@@ -3174,7 +3193,7 @@ If the text is NOT relevant (general advice, greetings, unrelated topics, Sage's
       if (!groupType && !currency) {
         return res.status(400).json({ message: "Provide groupType and/or currency" });
       }
-      const updated = await storage.updateFamilyGroupSettings(familyId, { groupType, currency });
+      const updated = await storage.updateGroupSettings(familyId, { groupType, currency });
       res.json({ success: true, family: updated });
     } catch (e) {
       next(e);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useExpenses, useGoals, useFamily } from "@/hooks/use-data";
+import { useExpenses, useGoals, useFamily, usePrimaryGroup } from "@/hooks/use-data";
 import type { RecurringExpense } from "@shared/schema";
 import { captureEvent } from "@/lib/analytics";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -34,6 +34,7 @@ interface FriendGroupSummary {
   name: string;
   currency: string;
   archived: boolean;
+  groupType: string;
   memberCount: number;
   memberRole: string;
 }
@@ -44,7 +45,8 @@ export default function HomePage() {
   const [, navigate] = useLocation();
   const { data: expenses, isLoading: expensesLoading } = useExpenses();
   const { data: goals, isLoading: goalsLoading } = useGoals();
-  const { data: familyData } = useFamily();
+  const { data: primaryGroup } = usePrimaryGroup();
+  const { data: familyData } = useFamily(primaryGroup?.id);
   const { startTutorial } = useTutorial();
 
   const [showPushPrompt, setShowPushPrompt] = useState(false);
@@ -102,9 +104,9 @@ export default function HomePage() {
   };
 
   const { data: friendGroups } = useQuery<FriendGroupSummary[]>({
-    queryKey: ["/api/friend-groups"],
+    queryKey: ["/api/groups"],
     queryFn: async () => {
-      const res = await fetch("/api/friend-groups", { credentials: "include" });
+      const res = await fetch("/api/groups", { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     },
@@ -296,10 +298,12 @@ export default function HomePage() {
   const referenceNet = balanceBasedNet !== null ? balanceBasedNet : hasIncomeEntries ? netTotal : null;
   const freeToSpend = referenceNet !== null ? referenceNet - unpaidCommitted : null;
 
+  const CURRENCY_GATED_TYPES = new Set(["friends", "trip"]);
   const friendGroupCurrencyMap = new Map<number, string>(
-    (friendGroups || []).map(g => [g.id, g.currency || "EUR"])
+    (friendGroups || [])
+      .filter(g => CURRENCY_GATED_TYPES.has(g.groupType))
+      .map(g => [g.id, g.currency || "EUR"])
   );
-  const establishedFamilyCurrency = familyData?.family?.currency || null;
   const userCurrency = user?.currency || "EUR";
 
   const personalExpenses = expenses?.filter(e => {
@@ -308,8 +312,7 @@ export default function HomePage() {
     if (expDate < monthStart || expDate > monthEnd) return false;
     const expFamilyId = (e as any).familyId as number | null | undefined;
     if (expFamilyId != null) {
-      const groupCurrency = friendGroupCurrencyMap.get(expFamilyId)
-        ?? (expFamilyId === user?.familyId ? establishedFamilyCurrency : null);
+      const groupCurrency = friendGroupCurrencyMap.get(expFamilyId);
       if (groupCurrency && groupCurrency !== userCurrency) return false;
     }
     return true;

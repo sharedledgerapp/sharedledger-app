@@ -26,7 +26,7 @@ import { BalanceBoard } from "@/components/BalanceBoard";
 import { IncomeSummaryCard } from "@/components/IncomeSummaryCard";
 import { RoommatesDashboardView } from "@/pages/RoommatesDashboard";
 import { CouplesDashboardView } from "@/pages/CouplesDashboard";
-import { useFamily } from "@/hooks/use-data";
+import { useFamily, usePrimaryGroup } from "@/hooks/use-data";
 import { InviteSection } from "@/components/InviteSection";
 
 const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#a78bfa", "#fb923c", "#4ade80"];
@@ -141,7 +141,8 @@ export default function FamilyDashboard() {
   const { t } = useLanguage();
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { data: familyData } = useFamily();
+  const { data: primaryGroup } = usePrimaryGroup();
+  const { data: familyData } = useFamily(primaryGroup?.id);
   const isRoommates = familyData?.family?.groupType === "roommates";
 
   const deleteSharedIncomeMutation = useMutation({
@@ -166,19 +167,21 @@ export default function FamilyDashboard() {
   const [leaveDialog, setLeaveDialog] = useState(false);
 
   const { data: sharedRecurring, isLoading: recurringLoading } = useQuery<RecurringExpense[]>({
-    queryKey: ["/api/family/shared-recurring-expenses"],
-    enabled: !!user?.familyId,
+    queryKey: ["/api/family/shared-recurring-expenses", primaryGroup?.id],
+    queryFn: () => fetch(`/api/family/shared-recurring-expenses?groupId=${primaryGroup?.id}`).then(r => r.json()),
+    enabled: !!primaryGroup,
   });
 
   const leaveGroupMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/group/leave");
+      const res = await apiRequest("POST", `/api/groups/${primaryGroup?.id}/leave`);
       if (!res.ok) throw new Error("Failed to leave group");
       return res.json();
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/user"] });
       qc.invalidateQueries({ queryKey: ["/api/family"] });
+      qc.invalidateQueries({ queryKey: ["/api/groups"] });
       toast({ title: t("leaveGroup"), description: t("confirmLeaveGroup") });
     },
   });
@@ -203,15 +206,16 @@ export default function FamilyDashboard() {
   const queryEnd = isRoommates ? roommatesEnd : periodEnd;
 
   const { data, isLoading } = useQuery<FamilyDashboardData>({
-    queryKey: ["/api/family/dashboard", isRoommates ? "roommates-90d" : periodType, queryStart.toISOString(), queryEnd.toISOString()],
+    queryKey: ["/api/family/dashboard", primaryGroup?.id, isRoommates ? "roommates-90d" : periodType, queryStart.toISOString(), queryEnd.toISOString()],
     queryFn: async () => {
       const res = await fetch(
-        `/api/family/dashboard?period=${periodType}&startDate=${queryStart.toISOString()}&endDate=${queryEnd.toISOString()}`,
+        `/api/family/dashboard?groupId=${primaryGroup?.id}&period=${periodType}&startDate=${queryStart.toISOString()}&endDate=${queryEnd.toISOString()}`,
         { credentials: "include" }
       );
       if (!res.ok) throw new Error("Failed to load family dashboard");
       return res.json();
     },
+    enabled: !!primaryGroup,
     staleTime: 5_000,
     refetchInterval: 10_000,
   });
@@ -227,8 +231,9 @@ export default function FamilyDashboard() {
   };
 
   const { data: sharedBudgetsData } = useQuery<{ budgets: SharedBudgetSummary[] }>({
-    queryKey: ["/api/family/shared-budgets"],
-    enabled: !!user?.familyId,
+    queryKey: ["/api/family/shared-budgets", primaryGroup?.id],
+    queryFn: () => fetch(`/api/family/shared-budgets?groupId=${primaryGroup?.id}`).then(r => r.json()),
+    enabled: !!primaryGroup,
     staleTime: 10_000,
   });
 
@@ -247,9 +252,9 @@ export default function FamilyDashboard() {
   const familyIncomeStartStr = periodStart.toISOString();
   const familyIncomeEndStr = periodEnd.toISOString();
   const { data: familyIncomeEntries } = useQuery<FamilyIncomeEntry[]>({
-    queryKey: ["/api/family/income", familyIncomeStartStr, familyIncomeEndStr],
-    queryFn: () => fetch(`/api/family/income?startDate=${encodeURIComponent(familyIncomeStartStr)}&endDate=${encodeURIComponent(familyIncomeEndStr)}`).then(r => r.json()),
-    enabled: !!user?.familyId,
+    queryKey: ["/api/family/income", primaryGroup?.id, familyIncomeStartStr, familyIncomeEndStr],
+    queryFn: () => fetch(`/api/family/income?groupId=${primaryGroup?.id}&startDate=${encodeURIComponent(familyIncomeStartStr)}&endDate=${encodeURIComponent(familyIncomeEndStr)}`).then(r => r.json()),
+    enabled: !!primaryGroup,
     staleTime: 10_000,
   });
 
@@ -270,7 +275,7 @@ export default function FamilyDashboard() {
 
   const [, navigate] = useLocation();
 
-  if (!user?.familyId) {
+  if (!primaryGroup) {
     return (
       <div className="space-y-6 pb-20">
         <div className="text-center py-16 px-6">
@@ -719,7 +724,7 @@ export default function FamilyDashboard() {
         </section>
       )}
 
-      {user?.familyId && (
+      {primaryGroup && (
         <section data-testid="section-shared-budgets">
           <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2">
             <PiggyBank className="w-5 h-5 text-primary" />

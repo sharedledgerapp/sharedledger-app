@@ -26,6 +26,8 @@ interface FriendGroup {
   code: string;
   currency: string;
   archived: boolean;
+  groupType: "family" | "roommates" | "couple" | "friends" | "trip";
+  status?: "open" | "closed" | null;
   memberCount: number;
   memberRole: string;
   createdAt: string;
@@ -39,9 +41,9 @@ export default function FriendGroupsPage() {
   const currentUserId = (user as { id: number })?.id;
 
   const { data: groups, isLoading } = useQuery<FriendGroup[]>({
-    queryKey: ["/api/friend-groups"],
+    queryKey: ["/api/groups"],
     queryFn: async () => {
-      const res = await fetch("/api/friend-groups", { credentials: "include" });
+      const res = await fetch("/api/groups", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load groups");
       return res.json();
     },
@@ -226,9 +228,9 @@ function GroupCard({ group, currentUserId }: { group: FriendGroup; currentUserId
   const currencySymbol = getCurrencySymbol(group.currency);
 
   const { data: balances } = useQuery<Balance[]>({
-    queryKey: ["/api/friend-groups", group.id, "balances"],
+    queryKey: ["/api/groups", group.id, "balances"],
     queryFn: async () => {
-      const res = await fetch(`/api/friend-groups/${group.id}/balances`, { credentials: "include" });
+      const res = await fetch(`/api/groups/${group.id}/balances`, { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     },
@@ -265,8 +267,12 @@ function GroupCard({ group, currentUserId }: { group: FriendGroup; currentUserId
                     <Archive className="w-2.5 h-2.5" /> Archived
                   </Badge>
                 )}
+                {group.status === "closed" && (
+                  <Badge variant="secondary" className="text-xs gap-1 flex-shrink-0">Closed</Badge>
+                )}
               </div>
               <div className="flex items-center gap-3 mt-1">
+                <Badge variant="outline" className="text-xs px-1.5 py-0 h-4 capitalize">{group.groupType}</Badge>
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <Users className="w-3 h-3" /> {group.memberCount} {group.memberCount === 1 ? "member" : "members"}
                 </span>

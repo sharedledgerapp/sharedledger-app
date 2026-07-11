@@ -1,5 +1,5 @@
 
-import { pgTable, text, serial, integer, boolean, timestamp, numeric, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, numeric, varchar, unique } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -10,9 +10,11 @@ export const families = pgTable("families", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   code: text("code").notNull().unique(),
-  groupType: text("group_type", { enum: ["family", "roommates", "couple", "friends"] }).default("family").notNull(),
+  groupType: text("group_type", { enum: ["family", "roommates", "couple", "friends", "trip"] }).default("family").notNull(),
   currency: text("currency").default("EUR"),
   archived: boolean("archived").default(false).notNull(),
+  status: text("status", { enum: ["open", "closed"] }).default("open"),
+  closedAt: timestamp("closed_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -23,8 +25,6 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password"),
   name: text("name").notNull(),
-  role: text("role", { enum: ["parent", "child", "member"] }).notNull(),
-  familyId: integer("family_id").references(() => families.id),
   googleId: text("google_id").unique(),
   appleId: text("apple_id").unique(),
   email: text("email").unique(),
@@ -58,6 +58,16 @@ export const users = pgTable("users", {
   emailUnsubscribed: boolean("email_unsubscribed").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+export const groupMembers = pgTable("group_members", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").notNull().references(() => families.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  role: text("role", { enum: ["parent", "child", "admin", "member"] }).default("member").notNull(),
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueMembership: unique().on(table.groupId, table.userId),
+}));
 
 export const expenses = pgTable("expenses", {
   id: serial("id").primaryKey(),
@@ -216,16 +226,13 @@ export const messageReadStatus = pgTable("message_read_status", {
 // === RELATIONS ===
 
 export const familiesRelations = relations(families, ({ many }) => ({
-  users: many(users),
+  members: many(groupMembers),
   goals: many(goals),
   settlements: many(settlements),
 }));
 
 export const usersRelations = relations(users, ({ one, many }) => ({
-  family: one(families, {
-    fields: [users.familyId],
-    references: [families.id],
-  }),
+  groupMemberships: many(groupMembers),
   expenses: many(expenses),
   goals: many(goals),
   allowance: one(allowances, {
@@ -233,6 +240,17 @@ export const usersRelations = relations(users, ({ one, many }) => ({
      references: [allowances.childId]
   }),
   splits: many(expenseSplits),
+}));
+
+export const groupMembersRelations = relations(groupMembers, ({ one }) => ({
+  group: one(families, {
+    fields: [groupMembers.groupId],
+    references: [families.id],
+  }),
+  user: one(users, {
+    fields: [groupMembers.userId],
+    references: [users.id],
+  }),
 }));
 
 export const expensesRelations = relations(expenses, ({ one, many }) => ({
@@ -350,14 +368,6 @@ export const recurringExpensesRelations = relations(recurringExpenses, ({ one })
   }),
 }));
 
-export const friendGroupMembers = pgTable("friend_group_members", {
-  id: serial("id").primaryKey(),
-  groupId: integer("group_id").notNull().references(() => families.id),
-  userId: integer("user_id").notNull().references(() => users.id),
-  role: text("role", { enum: ["admin", "member"] }).default("member").notNull(),
-  joinedAt: timestamp("joined_at").defaultNow().notNull(),
-});
-
 export const pushSubscriptions = pgTable("push_subscriptions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
@@ -389,17 +399,6 @@ export const incomeEntries = pgTable("income_entries", {
   reminderDaysBefore: integer("reminder_days_before").default(3),
   createdAt: timestamp("created_at").defaultNow(),
 });
-
-export const friendGroupMembersRelations = relations(friendGroupMembers, ({ one }) => ({
-  group: one(families, {
-    fields: [friendGroupMembers.groupId],
-    references: [families.id],
-  }),
-  user: one(users, {
-    fields: [friendGroupMembers.userId],
-    references: [users.id],
-  }),
-}));
 
 export const pushSubscriptionsRelations = relations(pushSubscriptions, ({ one }) => ({
   user: one(users, {
@@ -501,7 +500,7 @@ export const insertRecurringExpenseConfirmationSchema = createInsertSchema(recur
 export const insertBudgetSchema = createInsertSchema(budgets).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertBudgetSetupPromptSchema = createInsertSchema(budgetSetupPrompts).omit({ id: true, createdAt: true });
 export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({ id: true, createdAt: true });
-export const insertFriendGroupMemberSchema = createInsertSchema(friendGroupMembers).omit({ id: true, joinedAt: true });
+export const insertGroupMemberSchema = createInsertSchema(groupMembers).omit({ id: true, joinedAt: true });
 export const insertIncomeEntrySchema = createInsertSchema(incomeEntries).omit({ id: true, createdAt: true });
 export const insertSageConversationSchema = createInsertSchema(sageConversations).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSageMessageSchema = createInsertSchema(sageMessages).omit({ id: true, createdAt: true });
@@ -529,7 +528,7 @@ export type Budget = typeof budgets.$inferSelect;
 export type BudgetSetupPrompt = typeof budgetSetupPrompts.$inferSelect;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type PushNotificationLog = typeof pushNotificationLog.$inferSelect;
-export type FriendGroupMember = typeof friendGroupMembers.$inferSelect;
+export type GroupMember = typeof groupMembers.$inferSelect;
 export type IncomeEntry = typeof incomeEntries.$inferSelect;
 export type SageConversation = typeof sageConversations.$inferSelect;
 export type SageMessage = typeof sageMessages.$inferSelect;
@@ -553,7 +552,7 @@ export type InsertRecurringExpenseConfirmation = z.infer<typeof insertRecurringE
 export type InsertBudget = z.infer<typeof insertBudgetSchema>;
 export type InsertBudgetSetupPrompt = z.infer<typeof insertBudgetSetupPromptSchema>;
 export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
-export type InsertFriendGroupMember = z.infer<typeof insertFriendGroupMemberSchema>;
+export type InsertGroupMember = z.infer<typeof insertGroupMemberSchema>;
 export type InsertIncomeEntry = z.infer<typeof insertIncomeEntrySchema>;
 export type InsertSageConversation = z.infer<typeof insertSageConversationSchema>;
 export type InsertSageMessage = z.infer<typeof insertSageMessageSchema>;
@@ -578,14 +577,15 @@ export const registerSchema = insertUserSchema.extend({
   familyName: z.string().optional(),
   groupCode: z.string().optional(),
   groupName: z.string().optional(),
-  groupType: z.enum(["family", "roommates", "couple", "friends"]).optional(),
+  groupType: z.enum(["family", "roommates", "couple", "friends", "trip"]).optional(),
+  role: z.enum(["parent", "child", "admin", "member"]).optional(),
 });
 
 export const oauthGroupSetupSchema = z.object({
   groupCode: z.string().optional(),
   groupName: z.string().optional(),
-  groupType: z.enum(["family", "roommates", "couple", "friends"]).optional(),
-  role: z.enum(["parent", "child", "member"]).optional(),
+  groupType: z.enum(["family", "roommates", "couple", "friends", "trip"]).optional(),
+  role: z.enum(["parent", "child", "admin", "member"]).optional(),
 });
 
 export type LoginRequest = z.infer<typeof loginSchema>;

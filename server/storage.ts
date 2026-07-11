@@ -1,10 +1,10 @@
 
 import { db } from "./db";
-import { 
+import {
   users, families, expenses, goals, allowances, expenseSplits, goalApprovals,
   messages, notes, messageReadStatus, recurringExpenses, budgets, budgetSetupPrompts,
   intentionPrompts,
-  settlements, pushSubscriptions, pushNotificationLog, friendGroupMembers, incomeEntries,
+  settlements, pushSubscriptions, pushNotificationLog, groupMembers, incomeEntries,
   sageConversations, sageMessages, aiAnalyses, personalNotes,
   recurringExpenseConfirmations,
   type User, type InsertUser, type Family, type InsertFamily,
@@ -16,7 +16,7 @@ import {
   type RecurringExpense, type InsertRecurringExpense,
   type RecurringExpenseConfirmation,
   type Budget, type InsertBudget, type BudgetSetupPrompt, type InsertBudgetSetupPrompt,
-  type Settlement, type InsertSettlement, type FriendGroupMember,
+  type Settlement, type InsertSettlement, type GroupMember,
   type IncomeEntry, type InsertIncomeEntry,
   type SageConversation, type SageMessage, type AiAnalysis,
   type PersonalNote, type InsertPersonalNote,
@@ -37,8 +37,8 @@ export interface IStorage {
   getUserByAppleId(appleId: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getAllUsersWithEmail(): Promise<{ id: number; name: string; email: string }[]>;
-  createUser(user: InsertUser & { familyId?: number; googleId?: string | null; appleId?: string | null }): Promise<User>;
-  updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId' | 'onboardingCompleted' | 'userNumber' | 'includeQuickGroupInSummary' | 'incomeSources' | 'sageNotesPermission' | 'sageExpensePermission' | 'sageIncomePermission' | 'sageBudgetGoalsPermission' | 'financialProfile' | 'lifeStage' | 'lifeStageSetAt' | 'currentBalance' | 'balanceSetAt' | 'emailUnsubscribed'>>): Promise<User>;
+  createUser(user: InsertUser & { googleId?: string | null; appleId?: string | null }): Promise<User>;
+  updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'profileImageUrl' | 'language' | 'currency' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'onboardingCompleted' | 'userNumber' | 'includeQuickGroupInSummary' | 'incomeSources' | 'sageNotesPermission' | 'sageExpensePermission' | 'sageIncomePermission' | 'sageBudgetGoalsPermission' | 'financialProfile' | 'lifeStage' | 'lifeStageSetAt' | 'currentBalance' | 'balanceSetAt' | 'emailUnsubscribed'>>): Promise<User>;
   countOnboardedUsers(): Promise<number>;
   assignUserNumber(userId: number): Promise<User>;
   deleteUser(id: number): Promise<void>;
@@ -47,14 +47,25 @@ export interface IStorage {
   clearPasswordResetToken(userId: number): Promise<void>;
   updatePassword(userId: number, hashedPassword: string): Promise<void>;
   
-  // Group (formerly Family)
+  // Groups
   createFamily(family: InsertFamily): Promise<Family>;
   getFamily(id: number): Promise<Family | undefined>;
   getFamilyByCode(code: string): Promise<Family | undefined>;
-  getFamilyMembers(familyId: number): Promise<User[]>;
-  
+  createGroup(data: { name: string; groupType: "family" | "roommates" | "couple" | "friends" | "trip"; currency?: string; creatorId: number; creatorRole?: "parent" | "child" | "admin" | "member" }): Promise<Family>;
+  getGroupsForUser(userId: number, groupType?: string): Promise<(Family & { memberCount: number; memberRole: string })[]>;
+  getGroup(groupId: number): Promise<(Family & { members: (User & { memberRole: string })[] }) | undefined>;
+  getGroupMembers(groupId: number): Promise<(User & { memberRole: string })[]>;
+  isGroupMember(groupId: number, userId: number): Promise<boolean>;
+  updateMemberRole(groupId: number, userId: number, role: "parent" | "child" | "admin" | "member"): Promise<void>;
+  joinGroupByCode(code: string, userId: number, role?: "parent" | "child" | "admin" | "member"): Promise<Family>;
+  leaveGroup(groupId: number, userId: number): Promise<void>;
+  archiveGroup(groupId: number): Promise<Family>;
+  closeGroup(groupId: number): Promise<Family>;
+  updateGroupSettings(groupId: number, settings: { groupType?: string; currency?: string }): Promise<Family>;
+  getGroupCurrenciesForIds(groupIds: number[]): Promise<Map<number, { currency: string; groupType: string }>>;
+
   // Expenses
-  createExpense(expense: InsertExpense & { familyId: number }, splits?: Omit<InsertExpenseSplit, 'expenseId'>[]): Promise<Expense & { splits: ExpenseSplit[] }>;
+  createExpense(expense: InsertExpense & { familyId: number | null }, splits?: Omit<InsertExpenseSplit, 'expenseId'>[]): Promise<Expense & { splits: ExpenseSplit[] }>;
   getExpenses(userId?: number, familyId?: number): Promise<(Expense & { splits: ExpenseSplit[] })[]>;
   getSharedExpenses(familyId: number, startDate?: Date, endDate?: Date): Promise<Expense[]>;
   updateExpense(id: number, updates: Partial<InsertExpense>, splits?: Omit<InsertExpenseSplit, 'expenseId'>[]): Promise<Expense & { splits: ExpenseSplit[] }>;
@@ -68,7 +79,7 @@ export interface IStorage {
 
   // Goals
   createGoal(goal: InsertGoal): Promise<Goal>;
-  getGoals(userId: number, familyId: number): Promise<Goal[]>;
+  getGoals(userId: number, familyId: number | null): Promise<Goal[]>;
   getSharedGoals(familyId: number): Promise<(Goal & { creatorName: string; approvalCount: number })[]>;
   updateGoal(id: number, updates: UpdateGoalRequest): Promise<Goal>;
   deleteGoal(id: number): Promise<void>;
@@ -141,18 +152,9 @@ export interface IStorage {
   getFamilyIncomeEntries(familyId: number, startDate?: Date, endDate?: Date): Promise<(IncomeEntry & { userName: string })[]>;
   getFamilyMonthlyIncomeTotal(familyId: number, monthStart: Date, monthEnd: Date, excludeUserId?: number): Promise<number>;
 
-  // Friend Groups
-  getFriendGroupExpenses(groupId: number): Promise<(Expense & { splits: ExpenseSplit[] })[]>;
-  createFriendGroup(data: { name: string; currency?: string; creatorId: number }): Promise<Family>;
-  getFriendGroupsForUser(userId: number): Promise<(Family & { memberCount: number; memberRole: string })[]>;
-  getFriendGroup(groupId: number): Promise<(Family & { members: (User & { memberRole: string })[] }) | undefined>;
-  joinFriendGroup(code: string, userId: number): Promise<Family>;
-  leaveFriendGroup(groupId: number, userId: number): Promise<void>;
-  archiveFriendGroup(groupId: number): Promise<Family>;
-  isFriendGroupMember(groupId: number, userId: number): Promise<boolean>;
-  getFriendGroupMembers(groupId: number): Promise<(User & { memberRole: string })[]>;
-  getFriendGroupNetBalances(groupId: number): Promise<{ fromUserId: number; fromName: string; toUserId: number; toName: string; amount: number }[]>;
-  getFriendGroupCurrenciesForIds(groupIds: number[]): Promise<Map<number, { currency: string; groupType: string }>>;
+  // Group expenses/balances
+  getGroupExpenses(groupId: number): Promise<(Expense & { splits: ExpenseSplit[] })[]>;
+  getGroupNetBalances(groupId: number): Promise<{ fromUserId: number; fromName: string; toUserId: number; toName: string; amount: number }[]>;
   deleteUserExpensesForGroup(groupId: number, userId: number): Promise<void>;
 
   // Sage AI
@@ -169,7 +171,6 @@ export interface IStorage {
   updateAiAnalysisFeedback(id: number, feedback: number): Promise<void>;
   updateAiAnalysisFeedbackComment(id: number, comment: string): Promise<void>;
   updateSageMessageFeedback(id: number, feedback: number): Promise<void>;
-  updateFamilyGroupSettings(familyId: number, settings: { groupType?: string; currency?: string }): Promise<Family>;
 
   // Personal Notes
   getPersonalNotes(userId: number): Promise<PersonalNote[]>;
@@ -248,12 +249,12 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId));
   }
 
-  async createUser(insertUser: InsertUser & { familyId?: number | null; googleId?: string | null; appleId?: string | null }): Promise<User> {
+  async createUser(insertUser: InsertUser & { googleId?: string | null; appleId?: string | null }): Promise<User> {
     const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
-  async updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'profileImageUrl' | 'language' | 'currency' | 'role' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'familyId' | 'onboardingCompleted' | 'userNumber' | 'includeQuickGroupInSummary' | 'incomeSources' | 'sageNotesPermission' | 'sageExpensePermission' | 'sageIncomePermission' | 'sageBudgetGoalsPermission' | 'financialProfile' | 'lifeStage' | 'lifeStageSetAt' | 'currentBalance' | 'balanceSetAt'>>): Promise<User> {
+  async updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'profileImageUrl' | 'language' | 'currency' | 'categories' | 'recurringCategories' | 'dailyReminderTime' | 'dailyReminderEnabled' | 'weeklyReminderEnabled' | 'monthlyReminderEnabled' | 'budgetAlertsEnabled' | 'onboardingCompleted' | 'userNumber' | 'includeQuickGroupInSummary' | 'incomeSources' | 'sageNotesPermission' | 'sageExpensePermission' | 'sageIncomePermission' | 'sageBudgetGoalsPermission' | 'financialProfile' | 'lifeStage' | 'lifeStageSetAt' | 'currentBalance' | 'balanceSetAt'>>): Promise<User> {
     const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
     return user;
   }
@@ -292,7 +293,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(id: number): Promise<void> {
-    await db.delete(friendGroupMembers).where(eq(friendGroupMembers.userId, id));
+    await db.delete(groupMembers).where(eq(groupMembers.userId, id));
     await db.delete(expenseSplits).where(eq(expenseSplits.userId, id));
     
     const userExpenses = await db.select({ id: expenses.id }).from(expenses).where(eq(expenses.userId, id));
@@ -340,12 +341,8 @@ export class DatabaseStorage implements IStorage {
     return family;
   }
 
-  async getFamilyMembers(familyId: number): Promise<User[]> {
-    return db.select().from(users).where(eq(users.familyId, familyId));
-  }
-
   // Expenses
-  async createExpense(insertExpense: InsertExpense & { familyId: number }, splits?: Omit<InsertExpenseSplit, 'expenseId'>[]): Promise<Expense & { splits: ExpenseSplit[] }> {
+  async createExpense(insertExpense: InsertExpense & { familyId: number | null }, splits?: Omit<InsertExpenseSplit, 'expenseId'>[]): Promise<Expense & { splits: ExpenseSplit[] }> {
     return await db.transaction(async (tx) => {
       const [expense] = await tx.insert(expenses).values(insertExpense).returning();
       
@@ -362,16 +359,15 @@ export class DatabaseStorage implements IStorage {
 
   async getExpenses(userId?: number, familyId?: number): Promise<(Expense & { splits: ExpenseSplit[] })[]> {
     let baseQuery;
-    
+
     if (userId && familyId) {
       baseQuery = db.select().from(expenses).where(and(eq(expenses.userId, userId), eq(expenses.familyId, familyId)));
     } else if (userId) {
       baseQuery = db.select().from(expenses).where(eq(expenses.userId, userId));
     } else if (familyId) {
-      baseQuery = db.select({ expenses: expenses })
-        .from(expenses)
-        .innerJoin(users, eq(expenses.userId, users.id))
-        .where(eq(users.familyId, familyId));
+      const memberIds = (await this.getGroupMembers(familyId)).map(m => m.id);
+      if (memberIds.length === 0) return [];
+      baseQuery = db.select().from(expenses).where(inArray(expenses.userId, memberIds));
     } else {
       return [];
     }
@@ -430,7 +426,6 @@ export class DatabaseStorage implements IStorage {
 
   async getSharedExpenses(familyId: number, startDate?: Date, endDate?: Date): Promise<Expense[]> {
     const conditions = [
-      eq(users.familyId, familyId),
       eq(expenses.familyId, familyId),
       eq(expenses.visibility, "public")
     ];
@@ -442,13 +437,9 @@ export class DatabaseStorage implements IStorage {
       conditions.push(lte(expenses.date, endDate));
     }
 
-    const results = await db.select({ expenses: expenses })
-      .from(expenses)
-      .innerJoin(users, eq(expenses.userId, users.id))
+    return db.select().from(expenses)
       .where(and(...conditions))
       .orderBy(desc(expenses.date));
-
-    return results.map((r) => r.expenses);
   }
 
   async updateSplitPayment(splitId: number, isPaid: boolean): Promise<ExpenseSplit> {
@@ -495,7 +486,7 @@ export class DatabaseStorage implements IStorage {
 
   async getGroupBalances(groupId: number, prefetched?: { members?: User[]; sharedExpenses?: Expense[] }): Promise<{ userId: number; userName: string; balance: number }[]> {
     const [members, sharedExpenses, groupSettlements] = await Promise.all([
-      prefetched?.members ?? this.getFamilyMembers(groupId),
+      prefetched?.members ?? this.getGroupMembers(groupId),
       prefetched?.sharedExpenses ?? db.select()
         .from(expenses)
         .where(and(
@@ -665,18 +656,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllowances(familyId: number): Promise<Allowance[]> {
-    const results = await db.select({
-        id: allowances.id,
-        childId: allowances.childId,
-        amount: allowances.amount,
-        frequency: allowances.frequency,
-        updatedAt: allowances.updatedAt
-    })
-    .from(allowances)
-    .innerJoin(users, eq(allowances.childId, users.id))
-    .where(eq(users.familyId, familyId));
-    
-    return results;
+    const memberIds = (await this.getGroupMembers(familyId)).map(m => m.id);
+    if (memberIds.length === 0) return [];
+    return db.select().from(allowances).where(inArray(allowances.childId, memberIds));
   }
 
   // Messages
@@ -957,8 +939,8 @@ export class DatabaseStorage implements IStorage {
     }).from(pushSubscriptions);
   }
 
-  // Friend Groups
-  async getFriendGroupExpenses(groupId: number): Promise<(Expense & { splits: ExpenseSplit[] })[]> {
+  // Groups
+  async getGroupExpenses(groupId: number): Promise<(Expense & { splits: ExpenseSplit[] })[]> {
     const groupExpenses = await db.select().from(expenses)
       .where(and(eq(expenses.familyId, groupId), eq(expenses.visibility, "public")))
       .orderBy(desc(expenses.date));
@@ -976,31 +958,44 @@ export class DatabaseStorage implements IStorage {
     return groupExpenses.map(e => ({ ...e, splits: splitMap.get(e.id) || [] }));
   }
 
-  async createFriendGroup(data: { name: string; currency?: string; creatorId: number }): Promise<Family> {
+  private static readonly GROUP_CODE_PREFIXES: Record<string, string> = {
+    family: "FAM",
+    roommates: "GRP",
+    couple: "CPL",
+    friends: "FRD",
+    trip: "TRP",
+  };
+
+  async createGroup(data: { name: string; groupType: "family" | "roommates" | "couple" | "friends" | "trip"; currency?: string; creatorId: number; creatorRole?: "parent" | "child" | "admin" | "member" }): Promise<Family> {
+    const prefix = DatabaseStorage.GROUP_CODE_PREFIXES[data.groupType] || "GRP";
     // Retry until unique code is found
     let code: string;
     let attempts = 0;
     while (true) {
       attempts++;
       const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
-      code = `FRD-${rand}`;
+      code = `${prefix}-${rand}`;
       const existing = await db.select({ id: families.id }).from(families).where(eq(families.code, code));
       if (existing.length === 0) break;
       if (attempts > 10) throw new Error("Failed to generate unique invite code");
     }
+
+    const defaultRole = data.creatorRole
+      ?? ((data.groupType === "friends" || data.groupType === "trip") ? "admin" : "parent");
+
     const group = await db.transaction(async (tx) => {
       const [created] = await tx.insert(families).values({
         name: data.name,
         code,
-        groupType: "friends",
+        groupType: data.groupType,
         currency: data.currency || "EUR",
         archived: false,
       }).returning();
 
-      await tx.insert(friendGroupMembers).values({
+      await tx.insert(groupMembers).values({
         groupId: created.id,
         userId: data.creatorId,
-        role: "admin",
+        role: defaultRole,
       });
 
       return created;
@@ -1009,11 +1004,11 @@ export class DatabaseStorage implements IStorage {
     return group;
   }
 
-  async getFriendGroupsForUser(userId: number): Promise<(Family & { memberCount: number; memberRole: string })[]> {
+  async getGroupsForUser(userId: number, groupType?: string): Promise<(Family & { memberCount: number; memberRole: string })[]> {
     const memberships = await db.select({
-      groupId: friendGroupMembers.groupId,
-      role: friendGroupMembers.role,
-    }).from(friendGroupMembers).where(eq(friendGroupMembers.userId, userId));
+      groupId: groupMembers.groupId,
+      role: groupMembers.role,
+    }).from(groupMembers).where(eq(groupMembers.userId, userId));
 
     if (memberships.length === 0) return [];
 
@@ -1021,14 +1016,13 @@ export class DatabaseStorage implements IStorage {
     const roleMap = new Map(memberships.map(m => [m.groupId, m.role]));
 
     const groupList = await db.select().from(families)
-      .where(and(
-        inArray(families.id, groupIds),
-        eq(families.groupType, "friends")
-      ));
+      .where(groupType
+        ? and(inArray(families.id, groupIds), eq(families.groupType, groupType as any))
+        : inArray(families.id, groupIds));
 
     const allMemberCounts = await db.select({
-      groupId: friendGroupMembers.groupId,
-    }).from(friendGroupMembers).where(inArray(friendGroupMembers.groupId, groupIds));
+      groupId: groupMembers.groupId,
+    }).from(groupMembers).where(inArray(groupMembers.groupId, groupIds));
 
     const countMap = new Map<number, number>();
     for (const m of allMemberCounts) {
@@ -1042,59 +1036,63 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getFriendGroup(groupId: number): Promise<(Family & { members: (User & { memberRole: string })[] }) | undefined> {
-    const [group] = await db.select().from(families)
-      .where(and(eq(families.id, groupId), eq(families.groupType, "friends")));
+  async getGroup(groupId: number): Promise<(Family & { members: (User & { memberRole: string })[] }) | undefined> {
+    const [group] = await db.select().from(families).where(eq(families.id, groupId));
     if (!group) return undefined;
 
-    const members = await this.getFriendGroupMembers(groupId);
+    const members = await this.getGroupMembers(groupId);
     return { ...group, members };
   }
 
-  async getFriendGroupMembers(groupId: number): Promise<(User & { memberRole: string })[]> {
+  async getGroupMembers(groupId: number): Promise<(User & { memberRole: string })[]> {
     const results = await db.select({
       user: users,
-      role: friendGroupMembers.role,
+      role: groupMembers.role,
     })
-      .from(friendGroupMembers)
-      .innerJoin(users, eq(friendGroupMembers.userId, users.id))
-      .where(eq(friendGroupMembers.groupId, groupId));
+      .from(groupMembers)
+      .innerJoin(users, eq(groupMembers.userId, users.id))
+      .where(eq(groupMembers.groupId, groupId));
 
     return results.map(r => ({ ...r.user, memberRole: r.role }));
   }
 
-  async isFriendGroupMember(groupId: number, userId: number): Promise<boolean> {
-    const [row] = await db.select({ id: friendGroupMembers.id })
-      .from(friendGroupMembers)
-      .where(and(eq(friendGroupMembers.groupId, groupId), eq(friendGroupMembers.userId, userId)));
+  async isGroupMember(groupId: number, userId: number): Promise<boolean> {
+    const [row] = await db.select({ id: groupMembers.id })
+      .from(groupMembers)
+      .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)));
     return !!row;
   }
 
-  async joinFriendGroup(code: string, userId: number): Promise<Family> {
-    const [group] = await db.select().from(families)
-      .where(and(eq(families.code, code), eq(families.groupType, "friends")));
+  async updateMemberRole(groupId: number, userId: number, role: "parent" | "child" | "admin" | "member"): Promise<void> {
+    await db.update(groupMembers)
+      .set({ role })
+      .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)));
+  }
+
+  async joinGroupByCode(code: string, userId: number, role: "parent" | "child" | "admin" | "member" = "member"): Promise<Family> {
+    const [group] = await db.select().from(families).where(eq(families.code, code));
     if (!group) throw new Error("Invalid invite code");
     if (group.archived) throw new Error("This group is archived");
 
-    const alreadyMember = await this.isFriendGroupMember(group.id, userId);
+    const alreadyMember = await this.isGroupMember(group.id, userId);
     if (alreadyMember) throw new Error("Already a member of this group");
 
-    await db.insert(friendGroupMembers).values({
+    await db.insert(groupMembers).values({
       groupId: group.id,
       userId,
-      role: "member",
+      role,
     });
 
     return group;
   }
 
-  async leaveFriendGroup(groupId: number, userId: number): Promise<void> {
-    await db.delete(friendGroupMembers).where(
-      and(eq(friendGroupMembers.groupId, groupId), eq(friendGroupMembers.userId, userId))
+  async leaveGroup(groupId: number, userId: number): Promise<void> {
+    await db.delete(groupMembers).where(
+      and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId))
     );
   }
 
-  async archiveFriendGroup(groupId: number): Promise<Family> {
+  async archiveGroup(groupId: number): Promise<Family> {
     const [updated] = await db.update(families)
       .set({ archived: true })
       .where(eq(families.id, groupId))
@@ -1102,24 +1100,32 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async updateFamilyGroupSettings(familyId: number, settings: { groupType?: string; currency?: string }): Promise<Family> {
+  async closeGroup(groupId: number): Promise<Family> {
+    const [updated] = await db.update(families)
+      .set({ status: "closed", closedAt: new Date() })
+      .where(eq(families.id, groupId))
+      .returning();
+    return updated;
+  }
+
+  async updateGroupSettings(groupId: number, settings: { groupType?: string; currency?: string }): Promise<Family> {
     const updates: Record<string, unknown> = {};
     if (settings.groupType !== undefined) updates.groupType = settings.groupType;
     if (settings.currency !== undefined) updates.currency = settings.currency;
     const [updated] = await db.update(families)
       .set(updates)
-      .where(eq(families.id, familyId))
+      .where(eq(families.id, groupId))
       .returning();
     return updated;
   }
 
-  async getFriendGroupCurrenciesForIds(groupIds: number[]): Promise<Map<number, { currency: string; groupType: string }>> {
+  async getGroupCurrenciesForIds(groupIds: number[]): Promise<Map<number, { currency: string; groupType: string }>> {
     if (groupIds.length === 0) return new Map();
-    const groups = await db.select({ id: families.id, currency: families.currency, groupType: families.groupType })
+    const groupRows = await db.select({ id: families.id, currency: families.currency, groupType: families.groupType })
       .from(families)
       .where(inArray(families.id, groupIds));
     const result = new Map<number, { currency: string; groupType: string }>();
-    for (const g of groups) {
+    for (const g of groupRows) {
       result.set(g.id, { currency: (g.currency as string) || "EUR", groupType: g.groupType || "family" });
     }
     return result;
@@ -1281,8 +1287,8 @@ export class DatabaseStorage implements IStorage {
     return total;
   }
 
-  async getFriendGroupNetBalances(groupId: number): Promise<{ fromUserId: number; fromName: string; toUserId: number; toName: string; amount: number }[]> {
-    const members = await this.getFriendGroupMembers(groupId);
+  async getGroupNetBalances(groupId: number): Promise<{ fromUserId: number; fromName: string; toUserId: number; toName: string; amount: number }[]> {
+    const members = await this.getGroupMembers(groupId);
 
     const [sharedExpenses, groupSettlements] = await Promise.all([
       db.select().from(expenses).where(and(
