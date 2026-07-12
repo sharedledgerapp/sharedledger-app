@@ -1,8 +1,8 @@
 import { scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
 import { db, pool } from "../server/db";
-import { families, users } from "../shared/schema";
-import { eq } from "drizzle-orm";
+import { families, users, groupMembers } from "../shared/schema";
+import { eq, and } from "drizzle-orm";
 
 const scryptAsync = promisify(scrypt);
 
@@ -49,20 +49,31 @@ async function seed() {
   console.log("");
 
   for (const u of USERS) {
+    const groupId = groupIdMap[u.group];
+    let userId: number;
+
     const [existing] = await db.select().from(users).where(eq(users.username, u.username)).limit(1);
     if (existing) {
       console.log(`  [skip] User "${u.username}" already exists (id=${existing.id})`);
+      userId = existing.id;
     } else {
-      const familyId = groupIdMap[u.group];
       const hashed = await hashPassword(PASSWORD);
       const [created] = await db.insert(users).values({
         username: u.username,
         password: hashed,
         name: u.name,
-        role: u.role,
-        familyId,
       }).returning();
-      console.log(`  [created] User "${u.username}" (id=${created.id}, role=${u.role}, group="${u.group}")`);
+      console.log(`  [created] User "${u.username}" (id=${created.id}, group="${u.group}")`);
+      userId = created.id;
+    }
+
+    const [existingMembership] = await db.select().from(groupMembers)
+      .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId))).limit(1);
+    if (existingMembership) {
+      console.log(`  [skip] "${u.username}" already a member of "${u.group}"`);
+    } else {
+      await db.insert(groupMembers).values({ groupId, userId, role: u.role });
+      console.log(`  [created] "${u.username}" joined "${u.group}" as ${u.role}`);
     }
   }
 
