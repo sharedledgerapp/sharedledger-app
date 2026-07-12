@@ -2,6 +2,7 @@ import { sendWhatsNewEmail } from "./email";
 
 let scheduled = false;
 let sent = false;
+let timer: NodeJS.Timeout | null = null;
 
 export function scheduleWhatsNewEmail(
   getAllUsers: () => Promise<{ id: number; name: string; email: string }[]>
@@ -31,7 +32,12 @@ export function scheduleWhatsNewEmail(
     `(09:00 CEST / 10:00 EAT) — firing in ~${delayHrs}h`
   );
 
-  setTimeout(async () => {
+  timer = setTimeout(async () => {
+    timer = null;
+    if (!scheduled) {
+      console.log("[email-scheduler] Cancelled before firing, skipping.");
+      return;
+    }
     if (sent) {
       console.log("[email-scheduler] Already sent, skipping duplicate fire.");
       return;
@@ -63,6 +69,10 @@ export function scheduleWhatsNewEmail(
 export function cancelWhatsNewEmail(): boolean {
   if (sent) return false; // already fired
   scheduled = false;
+  if (timer) {
+    clearTimeout(timer);
+    timer = null;
+  }
   return true;
 }
 
