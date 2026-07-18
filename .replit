@@ -1,5 +1,10 @@
 modules = ["nodejs-20", "web", "postgresql-16"]
-run = "npm run dev"
+# No top-level `run` line and no [workflows] block, both intentionally removed:
+# this Repl's platform was auto-launching `npm run dev` on every container
+# boot from both of them independently, racing each other for port 5000
+# (EADDRINUSE). Start the server manually via `npm run dev` in the Shell —
+# that's now the only thing that ever binds port 5000. See the note near
+# [deployment] below before re-adding either.
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
@@ -17,26 +22,7 @@ deploymentTarget = "autoscale"
 run = ["node", "./dist/index.cjs"]
 build = ["npm", "run", "build"]
 
-[workflows]
-runButton = "Project"
-
-[[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start application"
-
-[[workflows.workflow]]
-name = "Start application"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run dev"
-waitForPort = 5000
+# [workflows]/runButton removed — see the note at the top of this file.
 
 [agent]
 integrations = ["javascript_gemini_ai_integrations:2.0.0"]
